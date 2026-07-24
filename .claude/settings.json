@@ -33,6 +33,14 @@
     ]
   },
   "hooks": {
+    "PostToolUse": [{
+      "matcher": "Bash",
+      "hooks": [{
+        "type": "command",
+        "command": "sh .claude/hooks/pull-docs-check.sh",
+        "if": "Bash(git pull *)"
+      }]
+    }],
     "Stop": [
       {
         "hooks": [
