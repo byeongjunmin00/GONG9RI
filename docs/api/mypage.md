@@ -1,5 +1,7 @@
 # mypage API
 
+> 에러 응답 형식: `{ "code": "...", "message": "..." }` — 공통 규칙: [api/README.md](README.md)
+
 ## 구매자 마이페이지
 
 ### GET /api/buyer/mypage/purchases — 구매 완료 목록

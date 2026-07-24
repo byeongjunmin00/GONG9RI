@@ -9,6 +9,17 @@
 
 - 📐 **[와이어프레임 (WIREFRAME.md)](docs/WIREFRAME.md)**: 서비스 전체 화면 구성 및 페이지 흐름도
 - 🗄️ **[데이터베이스 설계 (ERD.md)](docs/ERD.md)**: 데이터베이스 개체 관계도 및 스키마 설계
+- 📡 **[API 명세](docs/api/README.md)**
+
+  > Base URL: `http://localhost:8080`
+
+  | 파일 | 설명 |
+  |------|------|
+  | [auth.md](docs/api/auth.md) | 회원가입 · 로그인 · 로그아웃 |
+  | [product.md](docs/api/product.md) | 상품 등록 · 조회 · 수정 · 삭제 |
+  | [team.md](docs/api/team.md) | 공구팀 신설 · 참가 · 목록 조회 |
+  | [payment.md](docs/api/payment.md) | 결제 생성 · 조회 |
+  | [mypage.md](docs/api/mypage.md) | 구매자 / 판매자 마이페이지 |
 
 ---
 
@@ -25,3 +36,18 @@
 3. **직관적인 시스템 구성**:
    - **구매자**: 혼자 구매 vs 공구 팀 신설/참가, 마이페이지를 통한 공구 팀 달성 현황 실시간 확인
    - **판매자**: 등록 물품 관리, 수익 현황 및 공구 참여 현황 통계 제공
+
+---
+
+## 🛠️ 기술 스택
+
+| 분류 | 기술 |
+|------|------|
+| Language | Java 17 |
+| Framework | Spring Boot 4.1.0 |
+| ORM | Spring Data JPA |
+| Validation | Bean Validation |
+| DB | MySQL |
+| Build | Gradle (wrapper) |
+| Test | JUnit 5 |
+| Etc | Lombok |

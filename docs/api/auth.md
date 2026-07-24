@@ -1,5 +1,7 @@
 # auth API
 
+> 에러 응답 형식: `{ "code": "...", "message": "..." }` — 공통 규칙: [api/README.md](README.md)
+
 ## POST /api/auth/signup — 회원가입
 
 - 요청 body:

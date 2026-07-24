@@ -1,5 +1,7 @@
 # payment API
 
+> 에러 응답 형식: `{ "code": "...", "message": "..." }` — 공통 규칙: [api/README.md](README.md)
+
 ## POST /api/payments — 결제 생성
 
 혼자구매 또는 공구팀 참가 시 결제를 생성한다.
