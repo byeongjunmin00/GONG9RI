@@ -23,6 +23,8 @@
       "Bash(mv *)",
       "Bash(mkdir *)",
       "Bash(cd *)",
+      "Bash(git fetch *)",
+      "Bash(git pull *)",
       "Edit",
       "Write"
     ],
