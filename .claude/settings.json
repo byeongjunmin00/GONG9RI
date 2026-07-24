@@ -1,0 +1,55 @@
+{
+  "$comment": "하니스 자동화 계층 - Claude Code 훅 + 권한. 팀 공유 설정. 로그 누락 검사는 메인(Stop)과 서브에이전트(SubagentStop) 양쪽에 건다. permissions는 하니스 사이클(planner→generator→evaluator)이 프롬프트 없이 자율 실행되도록 루틴 개발 명령을 broad로 허용하되, push는 deny로 막는다. 자율모드(워크트리 오케스트레이션) 전용인 log-activity.sh(PreToolUse)는 자율모드 도입 전이라 아직 연결하지 않음.",
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew *)",
+      "Bash(git status *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git mv *)",
+      "Bash(git switch *)",
+      "Bash(git checkout *)",
+      "Bash(git merge *)",
+      "Bash(git branch *)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(git reset *)",
+      "Bash(git rev-parse *)",
+      "Bash(ls *)",
+      "Bash(find *)",
+      "Bash(cat *)",
+      "Bash(grep *)",
+      "Bash(echo *)",
+      "Bash(mv *)",
+      "Bash(mkdir *)",
+      "Bash(cd *)",
+      "Edit",
+      "Write"
+    ],
+    "deny": [
+      "Bash(git push *)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh .claude/hooks/require-log.sh"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh .claude/hooks/require-log.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
