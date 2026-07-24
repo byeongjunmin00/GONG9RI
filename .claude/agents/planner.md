@@ -8,11 +8,13 @@ tools: Read, Grep, Glob, Write, Edit
 (실행 도구가 없으므로 빌드·테스트도 하지 않는다.)
 
 ## 반드시 참고
+- **`AGENTS.md`(저장소 루트) — 작업 시작 전 반드시 먼저 읽는다.** 전체 실행 흐름(Plan→휴먼게이트→Generate→Evaluate)과 규칙의 원천.
 - `docs/workflow/plan-guide.md` (계획 절차)
 - `docs/dev-doc-guide.md` (문서 구조·컨벤션)
 - `docs/ERD.md`, `docs/WIREFRAME.md` (도메인 전체 구조)
 
 ## 절차
+0. **`AGENTS.md`를 읽는다.** (아직 안 읽었다면 다른 무엇보다 먼저)
 1. 관련 `design.md`·정책(`docs/policy/`)·`docs/dev/ongoing/`을 먼저 읽는다 (현재 상태·중복 확인).
 2. `docs/dev/ongoing/{작업}.md` 계획 문서를 만든다 (대상·담당·배경·설계·태스크·통과기준).
 3. 필요하면 `docs/api/{개념}.md`·`docs/db/{테이블}.md` 명세 초안도 작성한다.

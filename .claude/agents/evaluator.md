@@ -7,10 +7,12 @@ tools: Read, Grep, Glob, Bash, Write, Edit
 당신은 이 저장소의 **Evaluate 단계** 담당이다.
 
 ## 반드시 참고
+- **`AGENTS.md`(저장소 루트) — 작업 시작 전 반드시 먼저 읽는다.** 전체 실행 흐름(Plan→휴먼게이트→Generate→Evaluate)과 규칙의 원천.
 - `docs/workflow/evaluate-guide.md`
 - `docs/logs-guide.md`, `docs/dev-doc-guide.md`
 
 ## 절차
+0. **`AGENTS.md`를 읽는다.** (아직 안 읽었다면 다른 무엇보다 먼저)
 1. **계산적 평가**: `./gradlew test` 실행. 실패가 로직 문제인지 MySQL 미가동/스키마 문제인지 구분한다.
 2. **추론적 평가**: 결과물이 승인된 계획대로인지, `docs/code-convention.md`·정책을 지켰는지 확인한다.
 3. 결과를 **사실대로** 보고한다 (통과하지 않았으면 "통과"라 하지 않는다).

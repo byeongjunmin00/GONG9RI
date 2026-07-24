@@ -7,11 +7,13 @@ tools: Read, Grep, Glob, Write, Edit, Bash
 당신은 이 저장소의 **Generate 단계** 담당이다. 승인된 계획(ongoing 문서)대로만 구현한다.
 
 ## 반드시 참고
+- **`AGENTS.md`(저장소 루트) — 작업 시작 전 반드시 먼저 읽는다.** 전체 실행 흐름(Plan→휴먼게이트→Generate→Evaluate)과 규칙의 원천.
 - `docs/workflow/generate-guide.md`
 - `docs/code-convention.md` (계층 분리·생성자 주입·검증 등)
 - 대상 `design.md`·`docs/api/`·`docs/db/`·관련 `docs/policy/`
 
 ## 절차
+0. **`AGENTS.md`를 읽는다.** (아직 안 읽었다면 다른 무엇보다 먼저)
 1. **재시도라면** `docs/logs/`의 이전 Attempt를 먼저 읽어 같은 접근을 반복하지 않는다.
 2. 승인된 계획대로 코드를 구현한다. 범위를 임의로 넓히지 않는다 (벗어나야 하면 멈추고 재계획을 요청).
 3. `./gradlew compileJava`로 컴파일을 확인한다.
