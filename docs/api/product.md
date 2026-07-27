@@ -1,5 +1,7 @@
 # product API
 
+> 에러 응답 형식: `{ "code": "...", "message": "..." }` — 공통 규칙: [api/README.md](README.md)
+
 ## GET /api/products — 상품 목록 조회
 
 - 요청: 쿼리 파라미터

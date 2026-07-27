@@ -1,5 +1,7 @@
 # team API
 
+> 에러 응답 형식: `{ "code": "...", "message": "..." }` — 공통 규칙: [api/README.md](README.md)
+
 > **동시성 주의**: `POST /api/teams/{teamId}/join` — 여러 사용자가 동시에 참가 요청을 보낼 수 있어
 > `group_buy_team.current_count` 갱신 시 동시성 제어(락)가 필수다. 구체적 전략은 Generate 단계에서 결정.
 
@@ -52,6 +54,8 @@
     "createdAt": "2026-07-24T10:00:00"
   }
   ```
+
+  > 팀 신설 직후 `POST /api/payments`(결제 생성)으로 이어진다 — 신설자(leader)는 결제까지 완료해야 참가가 확정된다.
 
 - 에러:
   | 코드 | HTTP | 설명 |
