@@ -1,6 +1,7 @@
 # auth API
 
 > 에러 응답 형식: `{ "code": "...", "message": "..." }` — 공통 규칙: [api/README.md](README.md)
+> 인증 방식: **세션 기반 (Spring Security + HttpSession)** — 로그인 성공 시 서버가 세션 쿠키(`JSESSIONID`)를 발급하고, 클라이언트는 이후 요청에 이 쿠키를 자동 포함한다. 별도 토큰 응답 없음.
 
 ## POST /api/auth/signup — 회원가입
 
@@ -33,6 +34,8 @@
 
 ## POST /api/auth/login — 로그인
 
+> 성공 시 응답 헤더 `Set-Cookie: JSESSIONID=...`로 세션 쿠키 발급.
+
 - 요청 body:
   | 필드 | 타입 | 필수 | 설명 |
   |------|------|------|------|
@@ -59,7 +62,7 @@
 
 ## POST /api/auth/logout — 로그아웃
 
-- 요청 body: 없음 (세션/토큰 서버측 무효화)
+- 요청 body: 없음 — 서버측 세션 무효화(`HttpSession.invalidate()`)
 
 - 응답: `204 No Content`
 
