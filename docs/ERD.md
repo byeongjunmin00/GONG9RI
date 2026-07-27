@@ -38,6 +38,7 @@
 | description | text | 상품 설명 |
 | base_price | int | 정가(1인 구매 시 가격, "혼자구매하기") |
 | max_participants | int | 팀 하나당 최대 인원(N) — 베스트공구가격 구간의 상한 |
+| image_url | varchar | 상품 이미지 URL (단순 문자열, 별도 이미지 테이블 없음) |
 | created_at | datetime | 등록일 |
 
 ## price_tier (가격 구간표)
@@ -64,6 +65,8 @@
 | created_at | datetime | 팀 생성일 |
 
 **설계 결정**: 상품 하나에 여러 개의 팀이 동시에 존재할 수 있는 구조(팀원 제안 반영). `current_count`를 동시에 여러 명이 "참가하기" 눌러도 정확히 세어야 하므로, 여기가 이번 프로젝트의 동시성 제어 핵심 지점이 됨(발제 필수항목 "동시성 제어"랑 직결).
+
+**동시성 제어 방식 (2026-07-27 확정)**: `current_count`는 매번 `team_participation`을 `COUNT()`하지 않고 이 컬럼에 캐싱한다. 참가(`join`) 처리 시 해당 팀 row에 **비관적 락**(`SELECT ... FOR UPDATE`, JPA `@Lock(PESSIMISTIC_WRITE)`)을 걸고 `current_count` 확인 → 증가 → 정원 도달 시 `SUCCESS` 전환까지 한 트랜잭션에서 처리한다. "마지막 자리 경쟁" 상황에서 정확성을 최우선으로 하기 위함(자세한 이유는 옵시디언 참고).
 
 ## team_participation (팀 참여 내역)
 
@@ -103,8 +106,12 @@ product (1) ─── (N) payment
 group_buy_team (1) ─── (N) payment [nullable]
 ```
 
+## 결정된 것 (2026-07-27)
+
+- `current_count`: 컬럼 캐싱 + 비관적 락. 상세: `docs/policy/team-success-criteria.md`
+- 미성사/환불 트리거: 1분 주기 스케줄러. 상세: `docs/policy/refund-trigger.md`
+- 상품 이미지: `product.image_url` 단순 URL 컬럼 (갤러리 없음, MVP는 1장)
+
 ## 아직 결정 안 된 것 (팀원과 확인 필요)
 
-- `group_buy_team.current_count`를 매번 count 쿼리로 계산할지, 컬럼에 캐싱해서 동시성 제어(락)로 관리할지 — 발제의 "동시성 제어" 항목과 직결되는 결정이라 신중하게 정해야 함
-- 미성사 시 환불 처리를 어느 시점에 트리거할지 (배치/스케줄러 필요할 수 있음 — deadline 지나면 자동으로 확인하는 로직)
-- 상품 이미지는 어떻게 저장할지 (별도 테이블 or 단순 URL 컬럼)
+- (현재 없음 — 남는 대로 여기 추가)
