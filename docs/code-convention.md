@@ -37,6 +37,23 @@
   일반 서비스 메서드와 구분해서 표시하고(주석 또는 별도 메서드명), 락 전략(비관적/낙관적/분산락 등)을 명확히 남긴다.
 - 관련 정책은 `docs/policy/`, 계획 단계 결정 경위는 해당 기능 `docs/dev/{개념}/{기능}/design.md` 참고.
 
+## N+1 방지
+
+- 목록 조회에서 연관 엔티티를 참조하는 지점은 `JOIN FETCH` 또는 `@EntityGraph`로 한 번에 가져온다.
+- 연관관계 매핑 자체는 `FetchType.LAZY`를 유지한다 (엔티티에 `EAGER`를 걸어 전역으로 즉시 로딩하지 않는다). 필요한 조회 쿼리에서만 명시적으로 fetch join한다.
+- 현재 대상:
+  | 엔드포인트 | 연관관계 |
+  |-----------|---------|
+  | `GET /api/products` | product → price_tier (bestPrice 계산) |
+  | `GET /api/buyer/mypage/purchases` | payment → product |
+  | `GET /api/buyer/mypage/teams` | team_participation → group_buy_team → product |
+  | `GET /api/seller/mypage/teams` | group_buy_team → product |
+- 예:
+  ```java
+  @Query("SELECT p FROM Payment p JOIN FETCH p.product WHERE p.member.id = :memberId")
+  List<Payment> findAllByMemberIdWithProduct(Long memberId);
+  ```
+
 ## 로깅
 
 - `System.out.println`, `e.printStackTrace()` 금지. SLF4J(`@Slf4j`, Spring Boot 기본 내장 — Logback)만 사용한다.
