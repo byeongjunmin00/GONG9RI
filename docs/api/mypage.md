@@ -1,6 +1,7 @@
 # mypage API
 
-> 에러 응답 형식: `{ "code": "...", "message": "..." }` — 공통 규칙: [api/README.md](README.md)
+> 응답 형식(성공/실패 공통): 공통 규칙 — [api/README.md](README.md). 아래 응답 예시는 성공 시 `data` 안에 들어갈 내용만 표시.
+> 실패: `{ "success": false, "code": "...", "message": "..." }`
 
 ## 구매자 마이페이지
 
