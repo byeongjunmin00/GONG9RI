@@ -37,6 +37,19 @@
   일반 서비스 메서드와 구분해서 표시하고(주석 또는 별도 메서드명), 락 전략(비관적/낙관적/분산락 등)을 명확히 남긴다.
 - 관련 정책은 `docs/policy/`, 계획 단계 결정 경위는 해당 기능 `docs/dev/{개념}/{기능}/design.md` 참고.
 
+## 로깅
+
+- `System.out.println`, `e.printStackTrace()` 금지. SLF4J(`@Slf4j`, Spring Boot 기본 내장 — Logback)만 사용한다.
+- 로그 레벨 기준:
+  | 레벨 | 용도 | 예 |
+  |------|------|-----|
+  | ERROR | 서버가 처리 못 하는 예외 | DB 연결 실패, 예상 못 한 런타임 예외 |
+  | WARN | 복구 가능한 이상 상황 | 정원 초과 참가 시도(`TEAM_FULL`), 중복 참가 시도 |
+  | INFO | 주요 도메인 이벤트 | 회원가입, 결제 생성, 팀 성사(`SUCCESS`) 전환 |
+  | DEBUG | 개발 중 상세 추적 | 운영 환경에서는 끔 |
+- 예외는 `@RestControllerAdvice`에서 잡을 때 반드시 로그로 남기고 그냥 삼키지 않는다.
+- 로그 메시지에 도메인 식별자(`memberId`, `teamId`, `productId` 등)를 포함한다 — 검색·필터링 가능하게.
+
 ## 스타일
 
 - 들여쓰기: **탭** 또는 **스페이스 4칸** — 팀 합의된 쪽으로 통일 (IDE 자동 포맷 기준 따름).
@@ -47,5 +60,6 @@
 
 - **Lombok 도입됨** (`build.gradle`에 `lombok` 의존성 포함) — getter/setter/생성자 보일러플레이트는 Lombok 애노테이션으로 줄인다.
 - **Bean Validation 도입됨** (`spring-boot-starter-validation`).
+- **Actuator 도입됨** (`spring-boot-starter-actuator`) — `/actuator/health` 등 모니터링 엔드포인트 기본 제공.
 - DB는 **MySQL** (`mysql-connector-j`).
 - 정적 분석(Checkstyle 등) 린터는 아직 미설정 — 도입되면 위 규칙 일부가 자동 강제된다.
