@@ -62,7 +62,7 @@ Plan과 Generate 사이에는 **휴먼 게이트(사람 승인)**라는 관문�
 - 이름: **GONG9RI** (`com.gong9ri`)
 - 도메인: **공동구매 플랫폼** — 참여자가 모일수록 가격이 낮아지는 "공구팀" 거래 시스템. 판매자가 상품을 등록하고, 구매자는 혼자 구매하거나 공구팀을 신설/참가한다.
 - 목적: 부트캠프 최종 프로젝트 (2인 팀: 민병준·전용운)
-- 스택: Java 17 (toolchain) · Spring Boot 4.1.0 · Gradle (wrapper) · Spring MVC · Spring Data JPA · Spring Security(세션 기반 인증) · Bean Validation · Lombok · MySQL · JUnit 5
+- 스택: Java 17 (toolchain) · Spring Boot 4.1.0 · Gradle (wrapper) · Spring MVC · Spring Data JPA · Spring Security(세션 기반 인증) · Bean Validation · Lombok · MySQL · Redis(캐싱) · JUnit 5
 
 ## 명령어 (Commands)
 
