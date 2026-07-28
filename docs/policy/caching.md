@@ -5,11 +5,18 @@
 
 ## 규칙
 
-- 상품 목록·상세, 판매자 수익 현황은 캐싱 대상이다.
-- 공구팀 목록, 팀 참가·신설은 캐싱하지 않는다.
-- 캐싱 로직은 **Service 계층에서만** 적용한다 (Controller·Repository 금지).
-- 상품 수정·삭제 시 해당 상품 관련 캐시를 무효화한다.
-- 결제 발생·환불 처리 시 판매자 수익 현황 캐시를 무효화한다.
+### 캐싱 대상 / 제외 대상
+
+| 대상 | 캐싱 | 무효화 시점 |
+|------|------|------------|
+| 상품 목록·상세 | O | 해당 상품 수정·삭제 시 |
+| 판매자 수익 현황 | O | 결제 발생·환불 처리 시 |
+| 공구팀 목록 | X | — |
+| 팀 참가·신설 | X | — |
+
+### 계층 제약
+
+캐싱 로직은 **Service 계층에서만** 적용한다 (Controller·Repository 금지).
 
 ## 근거 / 배경
 
@@ -21,7 +28,7 @@
 
 ## 적용 대상
 
-- product/list, product/detail — 캐싱 적용
-- mypage/seller-revenue — 캐싱 적용
-- product/update, product/delete — 캐시 무효화 트리거
-- payment/create, team/deadline-check(환불) — 수익 현황 캐시 무효화 트리거
+- product/list, product/detail
+- mypage/seller-revenue
+- product/update, product/delete
+- payment/create, team/deadline-check
