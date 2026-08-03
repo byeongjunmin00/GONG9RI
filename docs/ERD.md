@@ -61,7 +61,7 @@
 | leader_id | bigint (FK → member.id) | 팀을 처음 만든 사람 ("구매팀 신설하기") |
 | current_count | int | 현재 참여 인원 (**동시성 제어가 필요한 핵심 컬럼**) |
 | status | varchar/enum | `RECRUITING`(모집중) / `SUCCESS`(성사) / `FAILED`(미성사) |
-| deadline | datetime | 팀 유지 마감 시각 (마이페이지의 "남은 팀유지 기간") |
+| deadline | datetime | 팀 유지 마감 시각 (마이페이지의 "남은 팀유지 기간"). **팀 신설 시점 + 7일로 확정(2026-08-03)** |
 | created_at | datetime | 팀 생성일 |
 
 **설계 결정**: 상품 하나에 여러 개의 팀이 동시에 존재할 수 있는 구조(팀원 제안 반영). `current_count`를 동시에 여러 명이 "참가하기" 눌러도 정확히 세어야 하므로, 여기가 이번 프로젝트의 동시성 제어 핵심 지점이 됨(발제 필수항목 "동시성 제어"랑 직결).
