@@ -17,4 +17,7 @@ public interface GroupBuyTeamRepository extends JpaRepository<GroupBuyTeam, Long
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT t FROM GroupBuyTeam t WHERE t.id = :id")
     Optional<GroupBuyTeam> findByIdForUpdate(@Param("id") Long id);
+
+    @Query("SELECT t FROM GroupBuyTeam t JOIN FETCH t.product p WHERE p.seller.id = :sellerId ORDER BY t.createdAt DESC")
+    List<GroupBuyTeam> findAllBySellerIdWithProduct(@Param("sellerId") Long sellerId);
 }

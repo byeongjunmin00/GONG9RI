@@ -65,4 +65,8 @@ public class Payment {
         this.amount = amount;
         this.status = PaymentStatus.PAID;
     }
+
+    public void refund() {
+        this.status = PaymentStatus.REFUNDED;
+    }
 }

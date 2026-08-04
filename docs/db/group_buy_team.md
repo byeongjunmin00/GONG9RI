@@ -27,7 +27,7 @@
 - 상세 배경: `docs/policy/team-success-criteria.md`, 옵시디언 개념 정리 참고.
 
 ## 사용하는 기능
-- team/create, team/join, team/list, team/deadline-check(스케줄러)
+- team/create, team/join, team/list, team/deadline-check(스케줄러), mypage/seller-teams
 
 ## 삭제 정책
 - 하드 삭제 없음 (상태(`FAILED`/`SUCCESS`)로만 종료 표시, row는 유지 — 마이페이지 이력 조회에 필요)

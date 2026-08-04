@@ -20,7 +20,7 @@
 - seller_id → member.id
 
 ## 사용하는 기능
-- product/register, product/list, product/detail, product/update, product/delete
+- product/register, product/list, product/detail, product/update, product/delete, mypage/seller-products
 
 ## 삭제 정책
 - 하드 삭제 (`deleted_at` 없음). `DELETE /api/products/{id}`는 실제 row 삭제.

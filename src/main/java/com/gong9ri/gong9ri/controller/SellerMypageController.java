@@ -1,0 +1,41 @@
+package com.gong9ri.gong9ri.controller;
+
+import com.gong9ri.gong9ri.common.response.ApiResponse;
+import com.gong9ri.gong9ri.common.security.MemberUserDetails;
+import com.gong9ri.gong9ri.dto.RevenueResponse;
+import com.gong9ri.gong9ri.dto.SellerProductResponse;
+import com.gong9ri.gong9ri.dto.SellerTeamResponse;
+import com.gong9ri.gong9ri.service.SellerMypageService;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/seller/mypage")
+@RequiredArgsConstructor
+public class SellerMypageController {
+
+    private final SellerMypageService sellerMypageService;
+
+    @GetMapping("/products")
+    public ResponseEntity<ApiResponse<List<SellerProductResponse>>> products(
+            @AuthenticationPrincipal MemberUserDetails principal) {
+        return ResponseEntity.ok(ApiResponse.success(sellerMypageService.products(principal)));
+    }
+
+    @GetMapping("/revenue")
+    public ResponseEntity<ApiResponse<RevenueResponse>> revenue(
+            @AuthenticationPrincipal MemberUserDetails principal) {
+        return ResponseEntity.ok(ApiResponse.success(sellerMypageService.revenue(principal)));
+    }
+
+    @GetMapping("/teams")
+    public ResponseEntity<ApiResponse<List<SellerTeamResponse>>> teams(
+            @AuthenticationPrincipal MemberUserDetails principal) {
+        return ResponseEntity.ok(ApiResponse.success(sellerMypageService.teams(principal)));
+    }
+}

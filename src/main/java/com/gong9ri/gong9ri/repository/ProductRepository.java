@@ -1,6 +1,7 @@
 package com.gong9ri.gong9ri.repository;
 
 import com.gong9ri.gong9ri.entity.Product;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -16,4 +17,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     @Query("SELECT p FROM Product p JOIN FETCH p.seller WHERE p.id = :id")
     Optional<Product> findByIdWithSeller(@Param("id") Long id);
+
+    List<Product> findAllBySellerIdOrderByCreatedAtDesc(Long sellerId);
 }

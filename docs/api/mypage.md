@@ -42,7 +42,7 @@
       "productName": "제주 감귤 5kg",
       "currentCount": 10,
       "maxParticipants": 10,
-      "teamStatus": "SUCCESS",
+      "status": "SUCCESS",
       "deadline": "2026-07-31T23:59:59",
       "joinedAt": "2026-07-24T14:30:00"
     },
@@ -52,7 +52,7 @@
       "productName": "경북 사과 3kg",
       "currentCount": 3,
       "maxParticipants": 8,
-      "teamStatus": "FAILED",
+      "status": "FAILED",
       "deadline": "2026-07-20T23:59:59",
       "joinedAt": "2026-07-18T09:00:00"
     }
