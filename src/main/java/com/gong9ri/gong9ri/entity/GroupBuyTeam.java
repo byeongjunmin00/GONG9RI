@@ -79,4 +79,11 @@ public class GroupBuyTeam {
             this.status = TeamStatus.SUCCESS;
         }
     }
+
+    // 마감 체크 스케줄러가 호출한다 — RECRUITING 상태일 때만 FAILED로 전환한다(이중 전환 방지 가드).
+    public void fail() {
+        if (this.status == TeamStatus.RECRUITING) {
+            this.status = TeamStatus.FAILED;
+        }
+    }
 }
