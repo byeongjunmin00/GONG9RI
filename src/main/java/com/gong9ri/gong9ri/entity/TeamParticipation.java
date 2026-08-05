@@ -11,6 +11,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -21,6 +22,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @Entity
 @Table(name = "team_participation", indexes = {
         @Index(name = "idx_member", columnList = "member_id")
+}, uniqueConstraints = {
+        @UniqueConstraint(name = "uk_team_member", columnNames = {"team_id", "member_id"})
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
