@@ -21,7 +21,11 @@
 - `GET /api/seller/mypage/revenue`는 `PAID` 결제만 `totalRevenue`에 합산(`REFUNDED`는 금액에서 제외, 건수만 별도 카운트) — 조건부 SUM/COUNT 한 쿼리로 처리
 - N+1 방지(`docs/code-convention.md` 표 그대로): purchases(payment→product), buyer/teams(team_participation→group_buy_team→product), seller/teams(group_buy_team→product) 전부 fetch join. seller/products는 cross-entity 데이터가 없어 fetch join 불필요
 - `docs/api/mypage.md` 필드명 정규화: buyer/teams 응답의 `teamStatus`를 `status`로 통일(seller/teams, 기존 `TeamResponse`와 일치)
-- 캐싱 후보(고도화 단계, MVP 아님): `mypage/seller-revenue`는 `docs/policy/caching.md`에 이미 캐싱 대상으로 명시돼 있음
+- **캐싱** (`docs/policy/caching.md`, Redis 최초 도입): `mypage/seller-revenue`(`SellerMypageService.revenue()`)를 `sellerId` 단위(`CacheConfig.SELLER_REVENUE_CACHE`, 이름 `"sellerRevenue"`)로 캐싱한다.
+  - **직렬화**: 값 직렬화기로 `JacksonJsonRedisSerializer<RevenueResponse>`(타입 고정, 다형적 타이핑 아님)를 명시 설정(`CacheConfig`) — 캐시 대상 DTO(`RevenueResponse`, record)가 `Serializable`을 구현하지 않아 기본 `JdkSerializationRedisSerializer`를 쓸 수 없고, 타입 정보를 값에 저장하지 않는 범용 직렬화기(`GenericJacksonJsonRedisSerializer`)는 조회 시 역직렬화 결과가 `LinkedHashMap`으로 나와 부적합했기 때문. 이 캐시가 `RevenueResponse` 단일 타입만 다루는 현재 스코프에 한해 유효한 선택 — 다른 캐시가 추가되면 각자 타입에 맞는 직렬화기를 별도 등록해야 한다.
+  - **무효화 트리거**: `PaymentService.create()` 완료 시 결제 대상 상품의 판매자(`product.getSeller().getId()`) 캐시 무효화, `TeamDeadlineService.processDeadline()`에서 환불이 실제로 발생한 경우(팀별 독립 트랜잭션 내에서 즉시) 해당 판매자 캐시 무효화. 둘 다 `CacheManager`를 직접 주입해 `cache.evict(sellerId)` 호출(파라미터가 아닌 지역변수 유래 키라 `@CacheEvict` SpEL로 표현 불가).
+  - **TTL**: 10분(무효화 누락 대비 안전장치, `docs/policy/caching.md`).
+  - 캐싱 로직은 Service 계층에만 있다(Controller·Repository 미개입).
 
 ## 관련 코드 위치
 
@@ -32,6 +36,8 @@
 - `repository/ProductRepository.java` — `findAllBySellerIdOrderByCreatedAtDesc`
 - `entity/{TeamParticipation,Product,GroupBuyTeam}.java` — 누락돼있던 인덱스 추가
 - `entity/Payment.java` — `refund()` 도메인 메서드 추가(REFUNDED 전이 테스트/향후 `payment/refund`용, 이번 스코프에서 실제로 트리거하는 API는 없음)
-- `service/{BuyerMypageService,SellerMypageService}.java`
+- `service/{BuyerMypageService,SellerMypageService,PaymentService,TeamDeadlineService}.java`
 - `controller/{BuyerMypageController,SellerMypageController}.java`
+- `config/CacheConfig.java` — 판매자 수익 캐시(`sellerRevenue`) TTL·값 직렬화기 설정
 - 테스트: `controller/{BuyerMypageControllerTest(7케이스),SellerMypageControllerTest(11케이스)}.java` — 스코핑 테스트(구매/상품 각 1개), 매출 집계 테스트(PAID/REFUNDED 혼합 + 무결제 0건 케이스) 포함
+- 테스트: `service/SellerRevenueCachingTest.java`(4케이스, `@SpringBootTest`) — 캐시 히트/무효화(결제 발생·환불) 시나리오. `config/CacheConfigTest.java`(순수 단위 테스트) — 값 직렬화기가 non-serializable `RevenueResponse`를 실제로 write/read 왕복시킬 수 있는지 검증

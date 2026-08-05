@@ -13,9 +13,7 @@ spring:
     properties:
       hibernate:
         format_sql: true
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
   cache:
-    type: redis
+    # 테스트는 실제 Redis 없이도 돌아가도록 인메모리 캐시(ConcurrentHashMap 기반)를 사용한다.
+    # @Cacheable/@CacheEvict 동작 자체는 캐시 구현체와 무관하게 동일하게 검증 가능하다.
+    type: simple

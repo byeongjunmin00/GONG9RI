@@ -1,5 +1,6 @@
 package com.gong9ri.gong9ri.service;
 
+import com.gong9ri.gong9ri.config.CacheConfig;
 import com.gong9ri.gong9ri.entity.GroupBuyTeam;
 import com.gong9ri.gong9ri.entity.Payment;
 import com.gong9ri.gong9ri.entity.PaymentStatus;
@@ -10,6 +11,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +29,7 @@ public class TeamDeadlineService {
 
     private final GroupBuyTeamRepository groupBuyTeamRepository;
     private final PaymentRepository paymentRepository;
+    private final CacheManager cacheManager;
 
     public List<Long> findExpiredRecruitingTeamIds() {
         return groupBuyTeamRepository.findIdsByStatusAndDeadlineBefore(TeamStatus.RECRUITING, LocalDateTime.now());
@@ -50,6 +54,19 @@ public class TeamDeadlineService {
         List<Payment> paidPayments = paymentRepository.findByTeamIdAndStatus(teamId, PaymentStatus.PAID);
         paidPayments.forEach(Payment::refund);
 
+        // 실제로 환불이 발생한 경우에만 판매자 수익 캐시를 무효화한다 — 이 메서드는 팀별 독립 트랜잭션이므로
+        // 전체 배치가 끝난 뒤가 아니라 이 팀 처리 시점에 즉시 무효화해야 한다 (docs/policy/caching.md 리스크).
+        if (!paidPayments.isEmpty()) {
+            evictSellerRevenueCache(team.getProduct().getSeller().getId());
+        }
+
         log.info("공구팀 마감 실패 처리 완료: teamId={}, refundedPaymentCount={}", teamId, paidPayments.size());
+    }
+
+    private void evictSellerRevenueCache(Long sellerId) {
+        Cache cache = cacheManager.getCache(CacheConfig.SELLER_REVENUE_CACHE);
+        if (cache != null) {
+            cache.evict(sellerId);
+        }
     }
 }
