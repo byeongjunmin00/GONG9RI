@@ -1,18 +1,16 @@
 package com.gong9ri.gong9ri.service;
 
-import com.gong9ri.gong9ri.config.CacheConfig;
 import com.gong9ri.gong9ri.entity.GroupBuyTeam;
 import com.gong9ri.gong9ri.entity.Payment;
 import com.gong9ri.gong9ri.entity.PaymentStatus;
 import com.gong9ri.gong9ri.entity.TeamStatus;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.PaymentRepository;
+import com.gong9ri.gong9ri.repository.SellerRevenueSummaryRepository;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,7 +27,7 @@ public class TeamDeadlineService {
 
     private final GroupBuyTeamRepository groupBuyTeamRepository;
     private final PaymentRepository paymentRepository;
-    private final CacheManager cacheManager;
+    private final SellerRevenueSummaryRepository sellerRevenueSummaryRepository;
 
     public List<Long> findExpiredRecruitingTeamIds() {
         return groupBuyTeamRepository.findIdsByStatusAndDeadlineBefore(TeamStatus.RECRUITING, LocalDateTime.now());
@@ -54,19 +52,23 @@ public class TeamDeadlineService {
         List<Payment> paidPayments = paymentRepository.findByTeamIdAndStatus(teamId, PaymentStatus.PAID);
         paidPayments.forEach(Payment::refund);
 
-        // 실제로 환불이 발생한 경우에만 판매자 수익 캐시를 무효화한다 — 이 메서드는 팀별 독립 트랜잭션이므로
-        // 전체 배치가 끝난 뒤가 아니라 이 팀 처리 시점에 즉시 무효화해야 한다 (docs/policy/caching.md 리스크).
+        // 실제로 환불이 발생한 경우에만 판매자 수익 요약(seller_revenue_summary)을 감소시킨다 — 이 메서드는
+        // 팀별 독립 트랜잭션이므로 전체 배치가 끝난 뒤가 아니라 이 팀 처리 시점에 즉시 반영해야 한다
+        // (docs/db/seller_revenue_summary.md). 환불된 결제들의 금액 합·건수를 한 번에 집계해서 반영한다.
         if (!paidPayments.isEmpty()) {
-            evictSellerRevenueCache(team.getProduct().getSeller().getId());
+            int refundedAmount = paidPayments.stream().mapToInt(Payment::getAmount).sum();
+            long refundedCount = paidPayments.size();
+            Long sellerId = team.getProduct().getSeller().getId();
+            int rowsAffected = sellerRevenueSummaryRepository.applyRefund(sellerId, refundedAmount, refundedCount);
+            // applyRefund의 전제(결제 시점에 이미 요약 행이 있어야 함)가 깨진 경우 — upsert 전환
+            // 이전부터 있던 결제 이력이 아직 백필되지 않은 판매자로 추정된다(SellerRevenueSummaryRepository
+            // 참고). 조용히 무시되면 그 판매자의 요약값이 영구히 틀어지므로 WARN으로 드러낸다.
+            if (rowsAffected == 0) {
+                log.warn("판매자 수익 요약 환불 반영 실패(요약 행 없음, 백필 필요 추정): sellerId={}, teamId={}, "
+                        + "refundedAmount={}, refundedCount={}", sellerId, teamId, refundedAmount, refundedCount);
+            }
         }
 
         log.info("공구팀 마감 실패 처리 완료: teamId={}, refundedPaymentCount={}", teamId, paidPayments.size());
-    }
-
-    private void evictSellerRevenueCache(Long sellerId) {
-        Cache cache = cacheManager.getCache(CacheConfig.SELLER_REVENUE_CACHE);
-        if (cache != null) {
-            cache.evict(sellerId);
-        }
     }
 }

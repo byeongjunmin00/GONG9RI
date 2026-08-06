@@ -10,7 +10,7 @@
 | 대상 | 캐싱 | 무효화 시점 |
 |------|------|------------|
 | 상품 목록·상세 | O | 해당 상품 수정·삭제 시 |
-| 판매자 수익 현황 | O | 결제 발생·환불 처리 시 |
+| 판매자 수익 현황 | X (컬럼 캐싱으로 전환) | — |
 | 공구팀 목록 | X | — |
 | 팀 참가·신설 | X | — |
 
@@ -25,7 +25,7 @@
 ## 근거 / 배경
 
 - 상품 목록·상세는 조회 빈도가 높고 등록·수정 전까지 변하지 않아 캐싱 효과가 크다.
-- 판매자 수익 현황은 집계 쿼리(SUM, COUNT)라 비용이 크고 실시간성이 덜 중요하다.
+- 판매자 수익 현황은 캐싱 대상에서 제외한다(2026-08-05). 돈과 직결된 데이터라 TTL 기반 staleness 여지를 두지 않기로 하고, `group_buy_team.current_count`와 같은 방식(집계 컬럼을 결제/환불 트랜잭션 안에서 즉시 갱신)으로 전환했다. 상세: `docs/db/seller_revenue_summary.md`.
 - 공구팀 목록은 참가 시마다 `current_count`가 바뀌어 오래된 값 노출 위험이 있다.
 - 팀 참가·신설은 동시성 제어(`docs/db/group_buy_team.md`) 핵심 로직이라 캐싱 개입 시 정합성 위험이 있다.
 - `group_buy_team.current_count`는 이미 DB 컬럼 레벨 캐싱으로 확정됐다 (`docs/ERD.md`).
@@ -34,6 +34,4 @@
 ## 적용 대상
 
 - product/list, product/detail
-- mypage/seller-revenue
 - product/update, product/delete
-- payment/create, team/deadline-check

@@ -13,6 +13,7 @@
 | `group_buy_team` | 상품 하나에 여러 개 생길 수 있는 "공동구매팀" |
 | `team_participation` | 회원이 어떤 팀에 참여했는지 |
 | `payment` | 결제 내역 |
+| `seller_revenue_summary` | 판매자별 결제 집계(총매출·PAID건수·REFUNDED건수)를 미리 계산해둔 요약 행 |
 
 ## member (회원)
 
@@ -93,6 +94,19 @@
 
 **설계 결정**: "결제창"에서 참가/신설/혼자구매 셋 다 바로 결제로 이어지므로(장바구니 없음), 결제 시점에 바로 payment row가 생김. `team_id`가 NULL이면 "혼자구매하기" 경로, 값이 있으면 공동구매 참여 경로로 구분. 팀이 미달성(FAILED)되면 해당 팀에 연결된 `payment`들을 `REFUNDED`로 일괄 처리하는 로직이 필요함.
 
+## seller_revenue_summary (판매자 수익 요약)
+
+| 컬럼 | 타입 | 설명 |
+|---|---|---|
+| id | bigint (PK) | ID |
+| seller_id | bigint (FK → member.id, UNIQUE) | 판매자 1명당 1행 |
+| total_revenue | int | PAID 결제 누적 합 |
+| paid_count | bigint | PAID 결제 누적 건수 |
+| refunded_count | bigint | REFUNDED 결제 누적 건수 |
+| created_at / updated_at | datetime | |
+
+**설계 결정**: `current_count`와 동일한 이유·방식 — 매번 SUM/COUNT하지 않고 결제/환불 트랜잭션 안에서 즉시 갱신한다. 캐싱(Redis+TTL) 대신 이 방식을 택한 이유는 돈 관련 데이터에 staleness 여지를 두지 않기 위함(2026-08-05, 튜터 피드백 반영).
+
 ## 관계 정리 (요약)
 
 ```
@@ -104,6 +118,7 @@ member (1) ─── (N) team_participation [회원이 여러 팀에 참여 가�
 member (1) ─── (N) payment
 product (1) ─── (N) payment
 group_buy_team (1) ─── (N) payment [nullable]
+member (1) ─── (1) seller_revenue_summary
 ```
 
 ## 결정된 것 (2026-07-27)
@@ -111,6 +126,7 @@ group_buy_team (1) ─── (N) payment [nullable]
 - `current_count`: 컬럼 캐싱 + 비관적 락. 상세: `docs/policy/team-success-criteria.md`
 - 미성사/환불 트리거: 1분 주기 스케줄러. 상세: `docs/policy/refund-trigger.md`
 - 상품 이미지: `product.image_url` 단순 URL 컬럼 (갤러리 없음, MVP는 1장)
+- 판매자 수익 요약(seller_revenue_summary): 컬럼 집계 + 결제/환불 시점 트랜잭션 내 갱신. 상세: docs/db/seller_revenue_summary.md (2026-08-05)
 
 ## 아직 결정 안 된 것 (팀원과 확인 필요)
 

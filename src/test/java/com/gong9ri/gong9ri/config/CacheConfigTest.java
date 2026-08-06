@@ -7,7 +7,6 @@ import com.gong9ri.gong9ri.dto.PriceTierResponse;
 import com.gong9ri.gong9ri.dto.ProductPageResponse;
 import com.gong9ri.gong9ri.dto.ProductResponse;
 import com.gong9ri.gong9ri.dto.ProductSummaryResponse;
-import com.gong9ri.gong9ri.dto.RevenueResponse;
 import java.nio.ByteBuffer;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -31,30 +30,6 @@ import org.springframework.data.redis.serializer.RedisSerializationContext;
  * 왕복이 성공하는지로 검증한다.
  */
 class CacheConfigTest {
-
-    @Test
-    @DisplayName("sellerRevenue 캐시는 non-serializable record도 직렬화/역직렬화할 수 있는 JSON 직렬화기를 사용한다")
-    void sellerRevenueCache_serializesNonSerializableRecordAsJson() {
-        CacheConfig cacheConfig = new CacheConfig();
-        RedisCacheManager.RedisCacheManagerBuilder builder =
-                RedisCacheManager.RedisCacheManagerBuilder.fromConnectionFactory(new LettuceConnectionFactory());
-
-        cacheConfig.sellerRevenueCacheCustomizer().customize(builder);
-
-        Optional<RedisCacheConfiguration> sellerRevenueConfig =
-                builder.getCacheConfigurationFor(CacheConfig.SELLER_REVENUE_CACHE);
-        assertTrue(sellerRevenueConfig.isPresent());
-
-        RedisSerializationContext.SerializationPair<Object> valueSerializer =
-                sellerRevenueConfig.get().getValueSerializationPair();
-
-        RevenueResponse original = new RevenueResponse(10000, 3L, 1L);
-
-        ByteBuffer serialized = valueSerializer.write(original);
-        Object deserialized = valueSerializer.read(serialized);
-
-        assertEquals(original, deserialized);
-    }
 
     @Test
     @DisplayName("productList 캐시는 non-serializable record(ProductPageResponse, 중첩 ProductSummaryResponse 포함)도 왕복 직렬화한다")

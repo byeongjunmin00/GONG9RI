@@ -25,4 +25,9 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             + "COALESCE(SUM(CASE WHEN p.status = 'REFUNDED' THEN 1L ELSE 0L END), 0L) AS refundedCount "
             + "FROM Payment p WHERE p.product.seller.id = :sellerId")
     RevenueSummaryProjection findRevenueSummaryBySellerId(@Param("sellerId") Long sellerId);
+
+    // seller_revenue_summary 1회성 백필(SellerRevenueSummaryBackfillService) 대상 판매자를 찾는다 —
+    // "결제 이력은 있는데 아직 요약 행이 없는" 판매자를 골라내기 위한 후보 목록(전체 seller_id).
+    @Query("SELECT DISTINCT p.product.seller.id FROM Payment p")
+    List<Long> findDistinctSellerIdsWithPayments();
 }
