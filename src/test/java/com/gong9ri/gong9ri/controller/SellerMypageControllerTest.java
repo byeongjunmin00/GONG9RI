@@ -8,13 +8,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.entity.GroupBuyTeam;
 import com.gong9ri.gong9ri.entity.Member;
-import com.gong9ri.gong9ri.entity.Payment;
 import com.gong9ri.gong9ri.entity.Product;
 import com.gong9ri.gong9ri.entity.Role;
+import com.gong9ri.gong9ri.entity.SellerRevenueSummary;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.MemberRepository;
-import com.gong9ri.gong9ri.repository.PaymentRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
+import com.gong9ri.gong9ri.repository.SellerRevenueSummaryRepository;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -44,7 +44,7 @@ class SellerMypageControllerTest {
     private GroupBuyTeamRepository groupBuyTeamRepository;
 
     @Autowired
-    private PaymentRepository paymentRepository;
+    private SellerRevenueSummaryRepository sellerRevenueSummaryRepository;
 
     private Member saveMember(String username, Role role) {
         Member member = new Member(username, "encoded-password", "테스트유저", username + "@test.com", role);
@@ -107,18 +107,15 @@ class SellerMypageControllerTest {
     }
 
     @Test
-    @DisplayName("수익 현황은 PAID만 합산하고 REFUNDED는 금액에서 제외한다")
+    @DisplayName("수익 현황은 seller_revenue_summary 요약 값을 그대로 반환한다(PAID 합산, REFUNDED는 건수만 별도)")
     void revenue_success_excludesRefundedFromTotal() throws Exception {
+        // PAID/REFUNDED 집계 로직 자체(incrementPaid/applyRefund)는 service/SellerRevenueSummaryTest에서
+        // 결제/환불 실 흐름(PaymentService.create, TeamDeadlineService.processDeadline)으로 검증한다.
+        // 이 컨트롤러 테스트는 GET 엔드포인트가 요약 행 값을 정확히 그대로 응답하는지(HTTP 계층 wiring)만
+        // 본다 — 그래서 요약 행을 직접 seed한다.
         Member seller = saveMember("mpSellerD1", Role.SELLER);
-        Product product = saveProduct(seller, "제주 감귤 5kg", 10);
-        Member buyer1 = saveMember("mpBuyerD1", Role.BUYER);
-        Member buyer2 = saveMember("mpBuyerD2", Role.BUYER);
-        Member buyer3 = saveMember("mpBuyerD3", Role.BUYER);
-
-        paymentRepository.save(new Payment(buyer1, product, null, 20000));
-        paymentRepository.save(new Payment(buyer2, product, null, 20000));
-        Payment refunded = paymentRepository.save(new Payment(buyer3, product, null, 30000));
-        refunded.refund();
+        saveProduct(seller, "제주 감귤 5kg", 10);
+        sellerRevenueSummaryRepository.save(new SellerRevenueSummary(seller, 40000, 2L, 1L));
 
         mockMvc.perform(get("/api/seller/mypage/revenue").with(asUser(seller)))
                 .andExpect(status().isOk())
