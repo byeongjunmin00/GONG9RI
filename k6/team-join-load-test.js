@@ -12,14 +12,19 @@ const PASSWORD = 'k6password123!';
 const VU_COUNT = Number(__ENV.VUS) || 10;
 const JSON_HEADERS = { headers: { 'Content-Type': 'application/json' } };
 
+// 계정당 순차 signup 실측 158ms/req 기준 여유있게 설정 (VU=3000 => 약 474s 필요).
+const SETUP_TIMEOUT = __ENV.SETUP_TIMEOUT_S ? `${__ENV.SETUP_TIMEOUT_S}s` : '900s';
+// 처리량이 VU와 무관하게 ~37 req/s로 고정되는 패턴이라, 시나리오 총 시간 ≈ (VU*2)/37초 — 여유를 두고 계산.
+const MAX_DURATION = __ENV.MAX_DURATION_S ? `${__ENV.MAX_DURATION_S}s` : '300s';
+
 export const options = {
-    setupTimeout: '180s', // setup()이 VU_COUNT만큼 계정을 순차 생성하므로, VU가 커지면(500+) 기본 60s로는 부족함
+    setupTimeout: SETUP_TIMEOUT,
     scenarios: {
         concurrent_join: {
             executor: 'shared-iterations',
             vus: VU_COUNT,
             iterations: VU_COUNT,
-            maxDuration: '120s',
+            maxDuration: MAX_DURATION,
         },
     },
     thresholds: {
