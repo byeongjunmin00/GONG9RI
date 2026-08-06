@@ -29,3 +29,12 @@
     - 서로 다른 요청은 매번 다른 traceId를 받았고(겹침 없음), 각 요청 내부의 여러 로그 줄은 모두 같은 traceId로 묶임 — 요청 추적(MDC) 목표 달성.
   - 사용 후 컨테이너는 유지, `bootRun` 프로세스는 검증 후 종료함.
 - 평가(evaluate-guide.md 기준): 계산적 평가(테스트 전체 통과) + 추론적 평가(계획·code-convention.md 로그 레벨 기준 준수) 모두 통과.
+
+## 리뷰 중 발견·수정 — 2026-08-06 (민병준)
+
+- pull 받아 리뷰하던 중, 위 27번 줄에서 팀원이 "우연히 발생한 역직렬화 예외 → 500"이라고 남긴 부분이 의도된 동작인지 문제인지 판단 안 하고 넘어간 걸 발견 — 직접 확인 필요하다고 판단.
+- `curl`로 `/api/auth/signup`에 문법이 깨진 JSON을 보내서 실제로 재현: `500 INTERNAL_SERVER_ERROR` 확인(정상은 `400`).
+- 원인: 신규 `@ExceptionHandler(Exception.class)` catch-all이 `HttpMessageNotReadableException`(요청 본문 파싱 실패, 클라이언트 입력 오류)까지 붙잡아버림 — 이 핸들러가 생기기 전에는 스프링 기본 예외 처리(`DefaultHandlerExceptionResolver`)가 이 예외를 자동으로 `400`으로 매핑해줬는데, `ExceptionHandlerExceptionResolver`가 우선순위가 더 높아서 `Exception.class` 핸들러가 먼저 잡아버리는 것.
+- 수정: `HttpMessageNotReadableException` 전용 핸들러를 `Exception.class`보다 먼저 추가해 `400 VALIDATION_FAILED`로 응답. 이번엔 발견된 이 케이스만 좁게 고침(비슷한 다른 표준 예외(잘못된 경로변수 타입, 지원 안 하는 HTTP 메서드 등)도 같은 문제가 있을 수 있으나 이번 스코프 밖 — 다음에 발견되면 같은 패턴으로 추가).
+- 회귀 테스트 추가: `AuthControllerTest.signup_malformedJson_returnsBadRequestNotServerError` — 문법 깨진 JSON → `400 VALIDATION_FAILED` 확인.
+- 검증: `./gradlew build` 전체 84케이스(기존 83 + 신규 1) 전부 통과.

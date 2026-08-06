@@ -102,6 +102,19 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
     }
 
+    @Test
+    @DisplayName("문법이 깨진 JSON 요청 본문은 500이 아니라 400 VALIDATION_FAILED를 반환한다")
+    void signup_malformedJson_returnsBadRequestNotServerError() throws Exception {
+        String malformedJson = "{\"username\": \"gonguri4\", \"password\": \"password123\"";
+
+        mockMvc.perform(post("/api/auth/signup")
+                        .contentType("application/json")
+                        .content(malformedJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    }
+
     private void signup(String username, String password) throws Exception {
         Map<String, Object> request = Map.of(
                 "username", username,

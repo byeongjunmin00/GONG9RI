@@ -19,6 +19,7 @@
 - `common/filter/RequestLoggingFilter` — `OncePerRequestFilter`, `@Order(Ordered.HIGHEST_PRECEDENCE)`로 Spring Security의 `FilterChainProxy`(order -100)보다 먼저 실행되어 인증 실패(401/403) 응답도 추적 범위에 포함된다. 요청 시작 시 UUID 앞 8자를 `traceId`로 MDC에 저장하고, `finally`에서 액세스 로그를 INFO로 남긴 뒤 MDC를 정리한다.
 - `application.yaml`의 `logging.pattern.console`에 `[%X{traceId}]`를 추가해 콘솔 로그 전체에 traceId가 노출되도록 함(별도 `logback-spring.xml` 없음 — 파일 출력/롤링/프로필 분리는 아직 범위 밖, 필요 시 별도 Plan).
 - `common/exception/GlobalExceptionHandler`에 `Exception.class` catch-all 핸들러를 추가해, `BusinessException`·검증 실패 이외의 예상 못한 예외를 ERROR 레벨로 스택트레이스와 함께 기록하고 `500 INTERNAL_SERVER_ERROR`로 응답한다(`common/exception/ErrorCode.INTERNAL_SERVER_ERROR` 추가).
+  - **리뷰 중 발견·수정(2026-08-06)**: 이 catch-all이 `HttpMessageNotReadableException`(잘못된 JSON 등 요청 본문 파싱 실패 — 클라이언트 입력 오류)까지 가로채 500으로 응답하는 회귀가 있었음(원래는 스프링 기본 처리로 400이 나가야 함). `HttpMessageNotReadableException` 전용 핸들러를 `Exception.class`보다 먼저 추가해 `400 VALIDATION_FAILED`로 응답하도록 수정, 회귀 테스트(`AuthControllerTest.signup_malformedJson_returnsBadRequestNotServerError`) 추가.
 - `controller/AuthController.login`에 로그인 성공(INFO, memberId/username)·실패(WARN, username) 로그를 추가함. 그 외 도메인 서비스(회원가입, 상품, 팀, 결제, 마감 스케줄러)는 기존에 이미 컨벤션에 맞는 로그가 있어 이번 작업에서 추가 변경 없음.
 
 ## 규칙 / 검증
