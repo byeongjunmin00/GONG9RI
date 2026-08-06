@@ -24,3 +24,7 @@ team:
   # team/join 동시성 전략 비교용 토글: lock(비관적 락, 기본값) | atomic(조건부 UPDATE)
   # docs/logs/team/crud/003-atomic-comparison.md 참고
   join-strategy: lock
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %5p [%X{traceId}] %-40.40logger{39} : %m%n"

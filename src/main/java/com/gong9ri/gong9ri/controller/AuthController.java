@@ -12,6 +12,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -26,6 +27,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -52,6 +54,7 @@ public class AuthController {
             authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.username(), request.password()));
         } catch (AuthenticationException e) {
+            log.warn("로그인 실패: username={}", request.username());
             throw new BusinessException(ErrorCode.LOGIN_FAILED);
         }
 
@@ -61,6 +64,7 @@ public class AuthController {
         securityContextRepository.saveContext(context, httpRequest, httpResponse);
 
         MemberUserDetails principal = (MemberUserDetails) authentication.getPrincipal();
+        log.info("로그인 성공: memberId={}, username={}", principal.getMember().getId(), principal.getMember().getUsername());
         MemberResponse response = MemberResponse.from(principal.getMember());
         return ResponseEntity.ok(ApiResponse.success(response));
     }

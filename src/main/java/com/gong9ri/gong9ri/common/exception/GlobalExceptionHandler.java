@@ -30,4 +30,12 @@ public class GlobalExceptionHandler {
                 .status(ErrorCode.VALIDATION_FAILED.getHttpStatus())
                 .body(ApiResponse.failure(ErrorCode.VALIDATION_FAILED.name(), message));
     }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiResponse<Void>> handleException(Exception e) {
+        log.error("Unexpected exception", e);
+        return ResponseEntity
+                .status(ErrorCode.INTERNAL_SERVER_ERROR.getHttpStatus())
+                .body(ApiResponse.failure(ErrorCode.INTERNAL_SERVER_ERROR.name(), ErrorCode.INTERNAL_SERVER_ERROR.getMessage()));
+    }
 }
