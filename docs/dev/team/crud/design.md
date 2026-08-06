@@ -30,6 +30,7 @@
     4. **순서 주의**: UPDATE를 참여기록 INSERT보다 먼저 해야 함 — INSERT를 먼저 하면 FK 체크 때문에 team row에 공유 락이 걸리고, 여러 스레드가 그 상태에서 UPDATE의 배타 락 승급을 동시에 기다리며 데드락이 실제로 재현됨(멀티스레드 테스트로 발견·수정).
   - **비교 결과**: 동일 k6 시나리오(VU 10/30/50)에서 두 전략의 p95 지연·처리량이 거의 동일하게 나옴 — 이 부하 수준에서는 팀 row 락 대기보다 HikariCP 커넥션 풀(기본 10개) 확보 대기나 로그인의 BCrypt 연산이 더 큰 병목일 가능성이 높음. 상세: `docs/logs/team/crud/003-atomic-comparison.md`.
   - 정확성은 두 경로 모두 `TeamConcurrencyTest`/`TeamConcurrencyAtomicTest`(정원 5명 팀에 8명 동시 참가 → 정확히 4명만 성공)로 동일하게 검증됨.
+  - **스파이크 테스트(VU 100~2000, `lock` 전략)**: 실제로 에러가 나는 breaking point는 VU 2000까지도 못 찾음 — 처리량은 VU와 무관하게 35~38 req/s로 평평(=고정 병목의 증거), 지연(p95)만 VU에 거의 선형 비례해서 증가(904ms→19.42s). 에러 없이 우아하게 열화하는 패턴. VU 3000은 team/join이 아니라 테스트 스크립트의 준비 단계(순차 signup)가 먼저 타임아웃돼서 확인 못 함. 상세: `docs/logs/team/crud/004-spike-test.md`.
 - 목록은 `RECRUITING` 상태만 반환, 인증 불필요(`GET /api/products/**`가 이미 permitAll)
 - `team/deadline-check`(마감 지난 팀 자동 `FAILED`+환불)는 전용운이 구현 완료(`docs/dev/team/deadline-check/`) — `TeamService.join()`의 락 경로(`findByIdForUpdate`)를 재사용해 마감 처리와 참가 시도의 동시성 경합을 막음
 

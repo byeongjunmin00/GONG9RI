@@ -1,24 +1,29 @@
 import http from 'k6/http';
 import { check } from 'k6';
 
-// team/join(비관적 락 걸린 참가 지점)에 동시 요청을 늘려가며(VU 10/30/50) 응답시간/처리량 베이스라인을 잰다.
+// team/join(비관적 락 걸린 참가 지점)에 동시 요청을 늘려가며 응답시간/처리량을 잰다.
 // 목적은 "TEAM_FULL 거절 비율"이 아니라 "동시 요청이 락으로 순차 직렬화되면서 생기는 지연"이라,
 // 정원을 VU 수보다 훨씬 크게 잡아서 전부 성공하는 조건에서 지연만 관찰한다.
-// 실행: k6 run -e VUS=10 k6/team-join-load-test.js  (VUS를 10/30/50로 바꿔가며 3회 실행)
-
+// - 베이스라인(정체 구간 확인): k6 run -e VUS=10 k6/team-join-load-test.js  (VUS를 10/30/50로 바꿔가며 실행)
+// - 스파이크 테스트(실제 breaking point 탐색): VUS를 100/200/500/1000처럼 훨씬 크게 줘서
+//   thresholds(checks 성공률 95% 미만이면 FAIL)가 언제부터 깨지는지로 한계점을 판단한다.
 const BASE_URL = 'http://localhost:8080';
 const PASSWORD = 'k6password123!';
 const VU_COUNT = Number(__ENV.VUS) || 10;
 const JSON_HEADERS = { headers: { 'Content-Type': 'application/json' } };
 
 export const options = {
+    setupTimeout: '180s', // setup()이 VU_COUNT만큼 계정을 순차 생성하므로, VU가 커지면(500+) 기본 60s로는 부족함
     scenarios: {
         concurrent_join: {
             executor: 'shared-iterations',
             vus: VU_COUNT,
             iterations: VU_COUNT,
-            maxDuration: '60s',
+            maxDuration: '120s',
         },
+    },
+    thresholds: {
+        checks: ['rate>0.95'],
     },
 };
 
