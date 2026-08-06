@@ -37,7 +37,7 @@ public class SellerMypageService {
     // incrementPaid가 upsert라 결제가 한 번이라도 있었다면 요약 행이 반드시 존재한다 — 요약 행이
     // 없다는 건 결제가 아예 없었다는 뜻이므로 그냥 0을 반환한다. 조회 시점에 행을 만드는 쓰기
     // (지연 부트스트랩)는 더 이상 하지 않는다 — 그 방식이 "부트스트랩 vs 신규 결제" 경쟁 상태의
-    // 근본 원인이었다(docs/dev/ongoing/seller-revenue-summary-upsert-fix.md). 쓰기가 없으므로
+    // 근본 원인이었다(docs/dev/mypage/view/changes/004-upsert-fix.md). 쓰기가 없으므로
     // 클래스 기본 @Transactional(readOnly = true)를 그대로 쓴다(메서드 레벨 오버라이드 없음).
     public RevenueResponse revenue(MemberUserDetails principal) {
         requireSeller(principal);

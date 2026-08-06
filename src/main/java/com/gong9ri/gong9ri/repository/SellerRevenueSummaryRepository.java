@@ -12,7 +12,7 @@ public interface SellerRevenueSummaryRepository extends JpaRepository<SellerReve
     Optional<SellerRevenueSummary> findBySellerId(Long sellerId);
 
     // payment/create 트랜잭션 안에서 호출한다 — 요약 행이 없으면 이 결제 값으로 새로 만들고(그 판매자의
-    // "첫 결제"), 있으면 원자적으로 증가시킨다(upsert, docs/dev/ongoing/seller-revenue-summary-upsert-fix.md).
+    // "첫 결제"), 있으면 원자적으로 증가시킨다(upsert, docs/dev/mypage/view/changes/004-upsert-fix.md).
     // MySQL의 INSERT ... ON DUPLICATE KEY UPDATE는 UNIQUE(seller_id) 충돌이 나면 그 행에 락을 걸고
     // UPDATE로 전환하는 단일 SQL 문이라, 같은 판매자에게 동시에 여러 "첫 결제"가 들어와도(요약 행이
     // 아직 없는 상태) 유실·중복 없이 정확히 반영된다.

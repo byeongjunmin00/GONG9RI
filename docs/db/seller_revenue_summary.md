@@ -17,7 +17,7 @@
 ## 관계
 - seller_id → member.id
 
-## 컬럼 집계 방식 (2026-08-06 upsert 전환, docs/dev/ongoing/seller-revenue-summary-upsert-fix.md)
+## 컬럼 집계 방식 (2026-08-06 upsert 전환, docs/dev/mypage/view/changes/004-upsert-fix.md)
 - `current_count`와 동일한 패턴 — 매번 SUM/COUNT하지 않고, 결제/환불이 발생하는 트랜잭션 안에서 이 컬럼을 즉시 증감시킨다.
 - **요약 행 생성 시점 = 결제 시점**: `SellerRevenueSummaryRepository.incrementPaid`는 `payment/create`(PAID 결제 저장 시) 안에서 MySQL `INSERT ... ON DUPLICATE KEY UPDATE`로 동작하는 upsert다 — 그 판매자의 요약 행이 없으면 이 결제 값(`total_revenue=amount`, `paid_count=1`)으로 새로 만들고, 있으면 원자적으로 `total_revenue += amount`, `paid_count += 1`. `UNIQUE(seller_id)` 충돌 시 MySQL이 그 행에 락을 걸고 UPDATE로 전환하는 단일 SQL 문이라, 같은 판매자에게 동시에 여러 "첫 결제"가 들어와도(요약 행이 아직 없는 상태) 유실·중복 없이 정확히 반영된다.
   - (이전 방식은 "행이 있으면만 증가"하는 조건부 UPDATE였고, 요약 행은 판매자가 자기 수익 페이지를 처음 조회할 때 지연 부트스트랩으로 만들어졌다. 이 둘의 시점이 어긋나 있어서, 아직 조회된 적 없는 판매자에게 결제가 들어오면 조용히 무시되고, 그 직후의 부트스트랩이 그 결제를 못 본 채 행을 만드는 경쟁 상태가 있었다. 요약 행 생성 시점을 "조회"가 아니라 "결제"로 옮겨서 이 경쟁 상태 자체를 없앴다.)
