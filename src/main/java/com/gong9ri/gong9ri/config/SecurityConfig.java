@@ -43,7 +43,7 @@ public class SecurityConfig {
                 .exceptionHandling(handling -> handling.authenticationEntryPoint(authenticationEntryPoint))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/*.html", "/css/**", "/js/**", "/partials/**").permitAll()
-                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
                         .anyRequest().authenticated());
         return http.build();

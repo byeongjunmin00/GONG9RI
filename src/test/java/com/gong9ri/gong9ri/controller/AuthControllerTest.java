@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
@@ -187,5 +188,34 @@ class AuthControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    }
+
+    @Test
+    @DisplayName("로그인한 상태에서 로그아웃하면 204를 반환하고 세션이 무효화된다")
+    void logout_success() throws Exception {
+        signup("gonguri6", "password123");
+        Map<String, Object> loginRequest = Map.of("username", "gonguri6", "password", "password123");
+
+        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        MockHttpSession session = (MockHttpSession) loginResult.getRequest().getSession(false);
+
+        mockMvc.perform(post("/api/auth/logout").session(session))
+                .andExpect(status().isNoContent());
+
+        assertTrue(session.isInvalid());
+    }
+
+    @Test
+    @DisplayName("로그인하지 않은 상태에서 로그아웃하면 401과 UNAUTHORIZED를 반환한다")
+    void logout_unauthorized() throws Exception {
+        mockMvc.perform(post("/api/auth/logout"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
     }
 }

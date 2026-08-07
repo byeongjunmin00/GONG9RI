@@ -18,7 +18,7 @@
 - 사용자 조회: `MemberDetailsService`(`UserDetailsService` 구현)가 `MemberRepository.findByUsername`으로 조회, 없으면 `UsernameNotFoundException` → Spring Security가 인증 실패로 처리
 - 비밀번호 검증: Spring Security가 자동 구성하는 `DaoAuthenticationProvider`가 `MemberDetailsService` + signup 때 만든 `PasswordEncoder`(BCrypt)로 처리 — 별도 구현 불필요
 - 인증 실패(아이디 없음/비번 틀림 모두) → `AuthController`가 `AuthenticationException`을 잡아 `BusinessException(LOGIN_FAILED)`로 변환, `401` 응답
-- `SecurityConfig`: `/api/auth/**` permitAll, 나머지 `anyRequest().authenticated()` — **product/team 등 새 컨트롤러가 생기면 이 규칙을 다시 검토해야 함** (다음 기능들의 리스크로 인계)
+- `SecurityConfig`: `POST /api/auth/signup`, `POST /api/auth/login`만 permitAll, 나머지 `anyRequest().authenticated()` — 인증이 필요한 `/api/auth/logout`은 `docs/dev/auth/logout/design.md` 참고. **product/team 등 새 컨트롤러가 생기면 이 규칙을 다시 검토해야 함** (다음 기능들의 리스크로 인계)
 
 ## 관련 코드 위치
 

@@ -10,6 +10,7 @@ import com.gong9ri.gong9ri.dto.MemberSignupRequest;
 import com.gong9ri.gong9ri.service.MemberService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -67,5 +68,14 @@ public class AuthController {
         log.info("로그인 성공: memberId={}, username={}", principal.getMember().getId(), principal.getMember().getUsername());
         MemberResponse response = MemberResponse.from(principal.getMember());
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(HttpServletRequest httpRequest) {
+        HttpSession session = httpRequest.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
+        return ResponseEntity.noContent().build();
     }
 }
