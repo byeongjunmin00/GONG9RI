@@ -240,6 +240,59 @@
   font-weight: 600;
 }
 
+/* ---------- Form alert (로그인/회원가입 공통 에러·안내 영역) ---------- */
+.form-alert {
+  margin-bottom: var(--space-4);
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: var(--lh-normal);
+}
+
+.form-alert--error {
+  background-color: rgba(255, 107, 107, 0.12);
+  color: var(--color-coral);
+}
+
+.form-alert--success {
+  background-color: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+/* ---------- Role select (회원가입 회원 유형 선택) ---------- */
+.role-select {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.role-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 12px 16px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.role-option input {
+  accent-color: var(--color-pink);
+}
+
+.role-option:has(input:checked) {
+  border-color: var(--color-pink);
+  color: var(--color-pink);
+  background-color: var(--color-surface-alt);
+}
+
 /* ---------- Product status (상품 목록 로딩/빈 목록/에러 안내) ---------- */
 .product-status {
   margin-top: var(--space-5);

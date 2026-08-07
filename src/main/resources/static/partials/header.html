@@ -2,8 +2,11 @@
   header.html — 공통 헤더 partial
   js/include.js가 fetch로 이 파일을 가져와 data-include="header" 컨테이너에 삽입한다.
   * 현재는 비로그인 상태를 기준으로 한 고정 마크업이다.
-    로그인 여부에 따른 실제 전환(세션 연동)은 이번 작업 범위 밖 — 로그인 관련 페이지 작업에서 다룬다.
-  * 아래 링크(href)는 아직 만들어지지 않은 개별 페이지를 가리키는 자리표시자(placeholder)다.
+    로그인 여부에 따른 실제 전환(세션 연동)은 아직 범위 밖 — "현재 로그인 사용자 조회" API가 없어
+    새로고침 후에도 신뢰성 있게 로그인 상태를 재현할 방법이 없다(docs/dev/frontend/auth/design.md 참고).
+    로그아웃 버튼/호출도 같은 이유로 아직 두지 않았다.
+  * 로그인(`/login.html`)·회원가입(`/signup.html`) 링크는 실제 페이지가 만들어졌다(frontend/auth 작업).
+    "판매 물품 등록"(`/seller/products/new.html`)은 아직 해당 페이지가 없는 자리표시자(placeholder)다.
     해당 페이지가 실제로 만들어지면 경로를 맞춰 갱신한다.
 -->
 <header class="site-header">

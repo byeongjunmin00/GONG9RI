@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>회원가입 — GONG9RI</title>
+
+  <!-- 폰트: 헤딩 - Poppins(Google Fonts CDN), 본문 - Pretendard(jsdelivr CDN) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&display=swap"
+    rel="stylesheet"
+  />
+  <link
+    rel="stylesheet"
+    as="style"
+    crossorigin
+    href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"
+  />
+
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/layout.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+</head>
+<body>
+  <div data-include="header"></div>
+
+  <main>
+    <section class="section container">
+      <div style="max-width: 420px; margin: 0 auto;">
+        <div class="section__head" style="text-align: center;">
+          <h1><span class="text-gradient">회원가입</span></h1>
+          <p class="text-muted" style="margin-top: var(--space-2);">몇 가지 정보만 입력하면 바로 시작할 수 있어요.</p>
+        </div>
+
+        <!-- 필드로 원인을 특정할 수 없는 공통 에러 안내(예: VALIDATION_FAILED). js/signup.js가 제어한다. -->
+        <div id="form-alert" class="form-alert" role="alert" hidden></div>
+
+        <form id="signup-form" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="username">아이디</label>
+            <input
+              class="form-input"
+              type="text"
+              id="username"
+              name="username"
+              autocomplete="username"
+              placeholder="아이디를 입력하세요"
+            />
+            <!-- 중복 아이디(DUPLICATE_USERNAME) 등 아이디 필드 고유 에러. js/signup.js가 제어한다. -->
+            <p id="username-error" class="form-error" role="alert" hidden></p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="password">비밀번호</label>
+            <input
+              class="form-input"
+              type="password"
+              id="password"
+              name="password"
+              autocomplete="new-password"
+              placeholder="비밀번호를 입력하세요"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="name">이름</label>
+            <input
+              class="form-input"
+              type="text"
+              id="name"
+              name="name"
+              autocomplete="name"
+              placeholder="이름을 입력하세요"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="email">이메일</label>
+            <input
+              class="form-input"
+              type="email"
+              id="email"
+              name="email"
+              autocomplete="email"
+              placeholder="example@gong9ri.com"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" id="role-label">회원 유형</label>
+            <div class="role-select" role="radiogroup" aria-labelledby="role-label">
+              <label class="role-option">
+                <input type="radio" name="role" value="BUYER" checked />
+                <span>구매자로 가입</span>
+              </label>
+              <label class="role-option">
+                <input type="radio" name="role" value="SELLER" />
+                <span>판매자로 가입</span>
+              </label>
+            </div>
+          </div>
+
+          <button type="submit" id="signup-submit" class="btn btn-primary btn-block">회원가입</button>
+        </form>
+
+        <p class="text-muted" style="margin-top: var(--space-5); text-align: center; font-size: var(--fs-sm);">
+          이미 계정이 있으신가요? <a href="/login.html">로그인</a>
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <div data-include="footer"></div>
+
+  <script src="/js/include.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/signup.js"></script>
+</body>
+</html>
