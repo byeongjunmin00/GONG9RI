@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>상품 상세 — GONG9RI</title>
+
+  <!-- 폰트: 헤딩 - Poppins(Google Fonts CDN), 본문 - Pretendard(jsdelivr CDN) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&display=swap"
+    rel="stylesheet"
+  />
+  <link
+    rel="stylesheet"
+    as="style"
+    crossorigin
+    href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"
+  />
+
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/layout.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+</head>
+<body>
+  <div data-include="header"></div>
+
+  <main>
+    <section class="section container">
+      <!-- 참가/신설/혼자구매 등 액션 결과 공통 안내. js/product.js가 텍스트와 표시 여부를 제어한다. -->
+      <div id="page-alert" class="form-alert" role="alert" hidden>
+        <span id="page-alert-text"></span>
+        <a id="page-alert-login-link" href="/login.html" hidden>로그인하기</a>
+      </div>
+
+      <!-- 잘못된 접근 / 상품 없음 / 로딩 / 에러 상태. 이 상태가 보이는 동안 아래 상세 영역은 숨겨진다. -->
+      <div id="product-status" class="product-status" role="status" hidden></div>
+
+      <div id="product-detail" class="product-detail" hidden>
+        <div class="section__head">
+          <span id="product-seller" class="card-seller"></span>
+          <h1 id="product-name"></h1>
+          <p id="product-description" class="text-muted" style="margin-top: var(--space-2);"></p>
+        </div>
+
+        <div class="product-price-box">
+          <div class="product-price-row">
+            <span class="text-muted" style="font-size: var(--fs-sm);">정가</span>
+            <span id="product-base-price" class="card-price-base"></span>
+          </div>
+          <p class="text-muted" style="font-size: var(--fs-sm); margin-top: var(--space-1);">
+            최대 <span id="product-max-participants"></span>명까지 모집합니다
+          </p>
+
+          <table id="price-tiers-table" class="price-tiers-table" hidden>
+            <thead>
+              <tr>
+                <th>모집 인원</th>
+                <th>1인당 가격</th>
+              </tr>
+            </thead>
+            <tbody id="price-tiers-body"></tbody>
+          </table>
+        </div>
+
+        <div class="product-actions">
+          <button type="button" id="buy-alone-btn" class="btn btn-secondary">혼자 구매하기</button>
+          <button type="button" id="create-team-btn" class="btn btn-primary">신규 팀 신설하기</button>
+          <a href="/" class="btn btn-ghost">계속 쇼핑하기</a>
+        </div>
+
+        <div class="team-list-section">
+          <h2>모집 중인 공구팀</h2>
+
+          <!-- 팀 목록 로딩/빈 목록/에러 상태. -->
+          <div id="team-status" class="product-status" role="status" hidden></div>
+
+          <ul id="team-list" class="team-list"></ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div data-include="footer"></div>
+
+  <script src="/js/include.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/product.js"></script>
+</body>
+</html>

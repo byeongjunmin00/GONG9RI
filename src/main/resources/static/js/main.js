@@ -41,14 +41,14 @@
 
   /**
    * 상품 1개 → 카드 마크업(design-system.html의 .card 구조 재사용).
-   * 상세 페이지가 아직 없어 href="#" placeholder만 둔다.
-   * TODO(상세 페이지 작업 시 갱신): 실제 상세 페이지 경로(예: /products/{productId}.html)로 교체.
+   * 상세 페이지(product.html)로 이동한다. 라우팅 방식은 쿼리스트링(?id=)이다
+   * (정적 리소스 서빙 구조상 /products/{id} 경로 세그먼트 매핑이 없어서다. frontend/product-detail design.md 참고).
    */
   function createProductCard(product) {
     var link = document.createElement('a');
     link.className = 'card';
-    link.href = '#';
-    link.setAttribute('aria-label', (product.name || '상품') + ' 상세보기 (준비 중)');
+    link.href = 'product.html?id=' + product.productId;
+    link.setAttribute('aria-label', (product.name || '상품') + ' 상세보기');
 
     var imageEl = document.createElement('div');
     imageEl.className = 'card-image';
