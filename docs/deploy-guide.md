@@ -2,6 +2,13 @@
 
 이 문서는 브라우저 대시보드 조작이 필요해 AI가 대신 할 수 없는 부분 — 아래 순서대로 직접 진행하면 됨. Railway UI는 계속 바뀔 수 있어서, 메뉴 이름이 조금 다르면 비슷한 기능을 찾아서 진행하면 됨(추측하지 말고 실제 화면 기준으로).
 
+## 실제 배포 결과 (2026-08-07)
+
+- **배포 URL**: https://gong9ri-production.up.railway.app/
+- Railway 프로젝트: `empathetic-recreation`(Railway가 자동으로 지어준 이름) / 환경: `production`
+- Railway 계정은 민병준만 가입돼있음 — 위 URL은 누구나(팀원·튜터님 포함) 별도 계정·로그인 없이 그냥 브라우저로 접속 가능(공개 웹사이트와 동일). Railway 대시보드(재배포/로그/변수 수정 등 "관리")는 계정 있는 사람만 가능.
+- `main`에 push할 때마다 Railway가 자동으로 재배포함(추가 조작 불필요).
+
 ## 0. 준비된 것
 
 - `Dockerfile` — Railway가 push할 때마다 이 파일을 자동 감지해서 빌드함(별도 설정 없이 그대로 인식됨)
@@ -22,7 +29,7 @@
 
 ## 3. 앱 서비스에 환경변수 설정
 
-앱 서비스(GONG9RI 컨테이너) → "Variables" 탭에서 아래 5개를 추가. Railway는 다른 서비스 변수를 `${{서비스이름.변수이름}}` 문법으로 참조할 수 있음 — 위 2번에서 확인한 실제 변수 이름을 그대로 넣기:
+앱 서비스(GONG9RI 컨테이너) → "Variables" 탭에서 아래 6개를 추가(Raw Editor로 한 번에 붙여넣기 가능). Railway는 다른 서비스 변수를 `${{서비스이름.변수이름}}` 문법으로 참조할 수 있음 — 위 2번에서 확인한 실제 변수 이름을 그대로 넣기:
 
 ```
 DB_URL=jdbc:mysql://${{MySQL.MYSQLHOST}}:${{MySQL.MYSQLPORT}}/${{MySQL.MYSQLDATABASE}}?serverTimezone=UTC&createDatabaseIfNotExist=true
@@ -30,9 +37,12 @@ DB_USERNAME=${{MySQL.MYSQLUSER}}
 DB_PASSWORD=${{MySQL.MYSQLPASSWORD}}
 REDIS_HOST=${{Redis.REDISHOST}}
 REDIS_PORT=${{Redis.REDISPORT}}
+REDIS_PASSWORD=${{Redis.REDISPASSWORD}}
 ```
 
 (서비스 이름이 `MySQL`/`Redis`가 아니라 다르게 표시되면 그 이름으로 바꿔서 참조)
+
+> **주의**: `REDIS_PASSWORD`를 빠뜨리면 안 됨 — Railway의 관리형 Redis는 비밀번호 인증이 필요한데, 로컬 Redis는 비밀번호 없이 열려있어서 이 필요성을 놓치기 쉬움(실제로 처음 배포 때 이걸 빠뜨려서 캐싱 경로만 500 에러가 났었음, `application.yaml`의 `spring.data.redis.password: ${REDIS_PASSWORD:}` 참고).
 
 ## 4. 공개 URL 생성
 
