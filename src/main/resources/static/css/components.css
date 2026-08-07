@@ -3,6 +3,10 @@
  */
 
 /* ---------- Button ---------- */
+.btn[hidden] {
+  display: none;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -234,4 +238,25 @@
   font-size: var(--fs-xs);
   color: var(--color-coral);
   font-weight: 600;
+}
+
+/* ---------- Product status (상품 목록 로딩/빈 목록/에러 안내) ---------- */
+.product-status {
+  margin-top: var(--space-5);
+  margin-bottom: var(--space-5);
+  text-align: center;
+  font-size: var(--fs-sm);
+  color: var(--color-text-muted);
+}
+
+.product-status--error {
+  color: var(--color-coral);
+  font-weight: 600;
+}
+
+/* ---------- Load more (상품 더 보기) ---------- */
+.load-more-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-6);
 }
