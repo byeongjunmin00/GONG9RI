@@ -41,3 +41,10 @@
   - `git status`/`git diff`로 004 스코프 확인: `docs/ERD.md`, `docs/policy/caching.md`, `CacheConfig.java`, `CacheConfigTest.java`, `SellerRevenueCachingTest.java` 삭제 등은 diff에 섞여 있으나 grep으로 확인한 결과 이 파일들엔 upsert-fix/004 관련 내용이 전혀 없음 — 미커밋 상태로 남아있던 003(집계 컬럼 전환, Redis 캐싱 제거)의 잔여 변경이며 004 Generate가 건드린 범위가 아님을 확인. `PaymentService.java`/`PaymentRepository.java`의 diff도 마찬가지로 캐시 무효화→컬럼 증가 전환(003)과 `findDistinctSellerIdsWithPayments` 신규(004)가 섞여 있었는데, 004에 해당하는 부분만 계획과 일치함을 확인. 004 자체의 범위 침범은 없음.
 
 - **판정**: **PASS**. `docs/dev/ongoing/seller-revenue-summary-upsert-fix.md`를 `docs/dev/mypage/view/changes/004-upsert-fix.md`로 채번 이동하고, `docs/dev/mypage/view/design.md`를 최종 상태로 갱신함(죽은 코드 정리 내역 추가).
+
+## Attempt 2 — 2026-08-06  ✅ PASS (문서 참조 경로 정리)
+
+- 시도: Evaluate 통과로 계획 문서가 `docs/dev/ongoing/seller-revenue-summary-upsert-fix.md` → `docs/dev/mypage/view/changes/004-upsert-fix.md`로 이관됐는데, 그 이관 전 경로(`docs/dev/ongoing/...`)를 참조하던 코드 주석·문서가 갱신 안 된 채 남아있던 걸 확인함(외부 리뷰에서 지적). `grep -rl`로 전체 재확인해 7곳(코드 주석 5곳: `SellerRevenueSummaryRepository.java`, `SellerMypageService.java`, `SellerRevenueSummaryBackfillService.java`, `SellerRevenueSummaryConcurrencyTest.java`, `SellerRevenueSummaryTest.java` / 문서 2곳: `docs/db/seller_revenue_summary.md`, `docs/dev/mypage/view/design.md`)를 찾아 `sed`로 전부 새 경로(`docs/dev/mypage/view/changes/004-upsert-fix.md`)로 일괄 교체. 이번 로그 파일(`docs/logs/mypage/view/004-upsert-fix.md`) 자체의 옛 경로 언급은 과거 시점을 서술하는 append-only 기록이라 의도적으로 그대로 둠(수정 대상 아님).
+- 결과: `./gradlew compileJava compileTestJava` → `BUILD SUCCESSFUL`(주석/문서만 바뀐 순수 텍스트 변경이라 예상대로 컴파일 영향 없음).
+- 원인: (해당 없음 — 기능 결함이 아니라 문서 참조 경로가 실제 파일 이동을 못 따라간 것)
+- 증거: `grep -rl "docs/dev/ongoing/seller-revenue-summary-upsert-fix.md" --include="*.java" --include="*.md" .` 실행 결과가 `docs/logs/mypage/view/004-upsert-fix.md` 한 건만 남음(의도된 예외)을 확인.
