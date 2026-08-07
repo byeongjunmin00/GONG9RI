@@ -9,14 +9,16 @@
  *   PRODUCT_NOT_FOUND(404)면 "상품을 찾을 수 없습니다" 안내로 전환한다.
  * - GET /api/products/{id}/teams → 모집중 팀 목록 렌더링. 빈 배열이면 빈 상태 안내(에러 아님).
  * - "기존 팀 참가하기"(POST /api/teams/{teamId}/join), "신규 팀 신설하기"(POST /api/products/{id}/teams)는
- *   성공 시 안내 배너 + 팀 목록 재조회. 401/403/409/404는 에러 코드별로 처리한다.
- * - "혼자 구매하기"는 결제 페이지가 없어 API 호출/이동 없이 준비 중 안내만 띄운다.
+ *   성공 시 안내 배너 + 팀 목록 재조회, 배너에 결제(checkout.html)로 이동하는 링크를 추가로 노출한다
+ *   (자동 리다이렉트는 하지 않는다). 401/403/409/404는 에러 코드별로 처리한다.
+ * - "혼자 구매하기"는 checkout.html?productId={id}로 이동한다(API 호출 없음).
  * - 상품명/설명/판매자명/서버 에러 message 등 신뢰할 수 없는 문자열은 textContent로만 대입해 XSS를 방지한다.
  */
 (function () {
   var pageAlertEl = document.getElementById('page-alert');
   var pageAlertTextEl = document.getElementById('page-alert-text');
   var pageAlertLoginLinkEl = document.getElementById('page-alert-login-link');
+  var pageAlertPayLinkEl = document.getElementById('page-alert-pay-link');
   var statusEl = document.getElementById('product-status');
   var detailEl = document.getElementById('product-detail');
 
@@ -35,7 +37,7 @@
   var teamListEl = document.getElementById('team-list');
 
   if (
-    !pageAlertEl || !pageAlertTextEl || !pageAlertLoginLinkEl || !statusEl || !detailEl ||
+    !pageAlertEl || !pageAlertTextEl || !pageAlertLoginLinkEl || !pageAlertPayLinkEl || !statusEl || !detailEl ||
     !sellerEl || !nameEl || !descriptionEl || !basePriceEl || !maxParticipantsEl ||
     !priceTiersTableEl || !priceTiersBodyEl || !buyAloneBtn || !createTeamBtn ||
     !teamStatusEl || !teamListEl
@@ -59,17 +61,32 @@
     }
   }
 
-  function showPageAlert(text, variant, showLoginLink) {
+  /**
+   * @param {string} text
+   * @param {string} variant  'success' | 'error'
+   * @param {boolean} [showLoginLink]  401 처리 시 로그인 페이지 링크 노출
+   * @param {string} [payLinkHref]  신설/참가 성공 시 결제로 이동하는 링크 href
+   *   (checkout.html?productId=...&teamId=...). 없으면 링크를 숨긴다.
+   */
+  function showPageAlert(text, variant, showLoginLink, payLinkHref) {
     pageAlertEl.hidden = false;
     pageAlertEl.className = 'form-alert form-alert--' + variant;
     pageAlertTextEl.textContent = text;
     pageAlertLoginLinkEl.hidden = !showLoginLink;
+
+    if (payLinkHref) {
+      pageAlertPayLinkEl.href = payLinkHref;
+      pageAlertPayLinkEl.hidden = false;
+    } else {
+      pageAlertPayLinkEl.hidden = true;
+    }
   }
 
   function hidePageAlert() {
     pageAlertEl.hidden = true;
     pageAlertTextEl.textContent = '';
     pageAlertLoginLinkEl.hidden = true;
+    pageAlertPayLinkEl.hidden = true;
   }
 
   function showStatus(text, variant) {
@@ -264,7 +281,8 @@
 
     window.Api.post('/teams/' + teamId + '/join')
       .then(function () {
-        showPageAlert('공구팀에 참가했습니다.', 'success');
+        var payLink = 'checkout.html?productId=' + currentProductId + '&teamId=' + teamId;
+        showPageAlert('공구팀에 참가했습니다.', 'success', false, payLink);
         loadTeams(currentProductId);
       })
       .catch(function (err) {
@@ -278,8 +296,10 @@
     createTeamBtn.disabled = true;
 
     window.Api.post('/products/' + currentProductId + '/teams')
-      .then(function () {
-        showPageAlert('신규 공구팀을 만들었습니다.', 'success');
+      .then(function (team) {
+        var newTeamId = team && team.teamId;
+        var payLink = 'checkout.html?productId=' + currentProductId + '&teamId=' + newTeamId;
+        showPageAlert('신규 공구팀을 만들었습니다.', 'success', false, payLink);
         loadTeams(currentProductId);
       })
       .catch(function (err) {
@@ -291,8 +311,7 @@
   }
 
   function handleBuyAlone() {
-    hidePageAlert();
-    showPageAlert('결제 기능은 준비 중입니다.', 'success');
+    window.location.href = 'checkout.html?productId=' + currentProductId;
   }
 
   function loadProduct(productId) {

@@ -37,6 +37,7 @@
   | `PRODUCT_NOT_FOUND` | 404 | 존재하지 않는 상품 |
   | `TEAM_NOT_FOUND` | 404 | 존재하지 않는 팀 |
   | `TEAM_FULL` | 409 | 정원 초과 (동시 요청 경합 시) |
+  | `FORBIDDEN` | 403 | 판매자 계정으로 결제 시도 (구매자만 결제 가능) |
   | `UNAUTHORIZED` | 401 | 미인증 |
 
 ---

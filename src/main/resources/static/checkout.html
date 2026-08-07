@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>결제 — GONG9RI</title>
+
+  <!-- 폰트: 헤딩 - Poppins(Google Fonts CDN), 본문 - Pretendard(jsdelivr CDN) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&display=swap"
+    rel="stylesheet"
+  />
+  <link
+    rel="stylesheet"
+    as="style"
+    crossorigin
+    href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"
+  />
+
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/layout.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+</head>
+<body>
+  <div data-include="header"></div>
+
+  <main>
+    <section class="section container">
+      <div style="max-width: 640px; margin: 0 auto;">
+        <!-- 결제 시도 결과(성공/실패) 공통 안내. js/checkout.js가 텍스트와 표시 여부를 제어한다. -->
+        <div id="page-alert" class="form-alert" role="alert" hidden>
+          <span id="page-alert-text"></span>
+          <a id="page-alert-login-link" href="/login.html" hidden>로그인하기</a>
+        </div>
+
+        <!-- 잘못된 접근 / 상품·팀 없음 / 로딩 / 에러 상태. 이 상태가 보이는 동안 아래 영역은 숨겨진다. -->
+        <div id="checkout-status" class="product-status" role="status" hidden></div>
+
+        <!-- 상품 정보 확인 + 결제하기/삭제(취소) 영역. -->
+        <div id="checkout-detail" class="product-detail" hidden>
+          <div class="section__head">
+            <span id="checkout-seller" class="card-seller"></span>
+            <h1 id="checkout-name"></h1>
+          </div>
+
+          <div class="product-price-box">
+            <div class="product-price-row">
+              <span id="checkout-amount-label" class="text-muted" style="font-size: var(--fs-sm);">결제 금액</span>
+              <span id="checkout-amount" class="card-price-best"></span>
+            </div>
+
+            <p id="checkout-team-notice" class="form-hint" hidden>
+              공구팀 결제는 결제 시점의 팀 인원 수를 기준으로 서버가 최종 금액을 확정합니다. 아래 표는 참고용입니다.
+            </p>
+
+            <table id="checkout-price-tiers-table" class="price-tiers-table" hidden>
+              <thead>
+                <tr>
+                  <th>모집 인원</th>
+                  <th>1인당 가격</th>
+                </tr>
+              </thead>
+              <tbody id="checkout-price-tiers-body"></tbody>
+            </table>
+          </div>
+
+          <div class="product-actions">
+            <button type="button" id="pay-btn" class="btn btn-primary">결제하기</button>
+            <button type="button" id="cancel-btn" class="btn btn-secondary">삭제(취소)</button>
+          </div>
+        </div>
+
+        <!-- 결제 완료 요약 영역. -->
+        <div id="checkout-summary" class="product-detail" hidden>
+          <div class="section__head">
+            <h1>결제가 완료되었습니다</h1>
+          </div>
+
+          <div class="product-price-box">
+            <div class="product-price-row">
+              <span class="text-muted" style="font-size: var(--fs-sm);">상품명</span>
+              <span id="summary-product-name"></span>
+            </div>
+            <div class="product-price-row">
+              <span class="text-muted" style="font-size: var(--fs-sm);">결제 금액</span>
+              <span id="summary-amount" class="card-price-best"></span>
+            </div>
+            <div class="product-price-row">
+              <span class="text-muted" style="font-size: var(--fs-sm);">상태</span>
+              <span id="summary-status"></span>
+            </div>
+            <div class="product-price-row">
+              <span class="text-muted" style="font-size: var(--fs-sm);">결제 시각</span>
+              <span id="summary-paid-at"></span>
+            </div>
+          </div>
+
+          <div class="product-actions">
+            <a href="/" class="btn btn-ghost">계속 쇼핑하기</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div data-include="footer"></div>
+
+  <script src="/js/include.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/checkout.js"></script>
+</body>
+</html>
