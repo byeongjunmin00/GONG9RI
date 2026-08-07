@@ -1,0 +1,78 @@
+/*
+ * tokens.css — GONG9RI 디자인 토큰
+ * 색상 / 타이포그래피 / 스페이싱 / 라운드 / 그림자 등 CSS 커스텀 프로퍼티 정의.
+ * 무드: 오프화이트 뉴트럴 베이스 + 코럴·핑크·퍼플·오렌지 웜 그라디언트 포인트
+ *       (인스타그램 피드 감성 — 화사하고 생기 있는 느낌)
+ */
+
+:root {
+  /* ---------- Color: Neutral base ---------- */
+  --color-bg: #FFF9F5;           /* 오프화이트 배경 */
+  --color-surface: #FFFFFF;      /* 카드 등 표면 */
+  --color-surface-alt: #FFF3EC;  /* 은은한 웜톤 서브 표면 */
+  --color-border: #F0E4DC;
+  --color-text: #2B2530;         /* 차콜에 가까운 진한 플럼 톤 텍스트 */
+  --color-text-muted: #7A7280;
+  --color-text-on-brand: #FFFFFF;
+
+  /* ---------- Color: Brand accents (warm gradient family) ---------- */
+  --color-orange: #FFA24C;
+  --color-coral: #FF6B6B;
+  --color-pink: #FF4D8D;
+  --color-purple: #8B5CF6;
+
+  /* 대표 브랜드 그라디언트 — 버튼/포인트 텍스트/뱃지 등에 사용 */
+  --gradient-brand: linear-gradient(135deg, var(--color-orange) 0%, var(--color-coral) 35%, var(--color-pink) 65%, var(--color-purple) 100%);
+  /* 배경용 은은한 버전 */
+  --gradient-brand-soft: linear-gradient(135deg, rgba(255, 162, 76, 0.14) 0%, rgba(255, 107, 107, 0.14) 35%, rgba(255, 77, 141, 0.14) 65%, rgba(139, 92, 246, 0.14) 100%);
+
+  /* ---------- Color: Semantic (상태 뱃지 등) ---------- */
+  --color-success: #2FBF71;      /* 성사 */
+  --color-success-bg: #E4F8ED;
+  --color-warning: #FF9F43;      /* 모집중 */
+  --color-warning-bg: #FFF1E1;
+  --color-danger: #9A94A6;       /* 미성사(중립적으로 처리) */
+  --color-danger-bg: #F1EEF4;
+
+  /* ---------- Typography ---------- */
+  --font-heading: 'Poppins', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Segoe UI', Roboto, sans-serif;
+  --font-body: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Segoe UI', Roboto, 'Malgun Gothic', sans-serif;
+
+  --fs-xs: 0.75rem;    /* 12px */
+  --fs-sm: 0.875rem;   /* 14px */
+  --fs-base: 1rem;     /* 16px */
+  --fs-lg: 1.125rem;   /* 18px */
+  --fs-xl: 1.25rem;    /* 20px */
+  --fs-2xl: 1.5rem;    /* 24px */
+  --fs-3xl: 2rem;      /* 32px */
+  --fs-4xl: 2.5rem;    /* 40px */
+  --fs-5xl: 3rem;      /* 48px */
+
+  --lh-tight: 1.25;
+  --lh-normal: 1.6;
+
+  /* ---------- Spacing ---------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* ---------- Radius ---------- */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-full: 999px;
+
+  /* ---------- Shadow (warm-tinted soft shadow) ---------- */
+  --shadow-sm: 0 2px 8px rgba(139, 92, 246, 0.08);
+  --shadow-md: 0 8px 24px rgba(255, 77, 141, 0.12);
+  --shadow-lg: 0 16px 40px rgba(255, 107, 107, 0.16);
+
+  /* ---------- Layout ---------- */
+  --container-max: 1200px;
+  --header-height: 72px;
+}

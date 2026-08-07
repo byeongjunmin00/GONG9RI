@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GONG9RI 디자인 시스템</title>
+
+  <!-- 폰트: 헤딩 - Poppins(Google Fonts CDN), 본문 - Pretendard(jsdelivr CDN) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&display=swap"
+    rel="stylesheet"
+  />
+  <link
+    rel="stylesheet"
+    as="style"
+    crossorigin
+    href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"
+  />
+
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/layout.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+</head>
+<body>
+  <div data-include="header"></div>
+
+  <main>
+    <section class="section container">
+      <div class="section__head">
+        <p class="text-muted" style="font-weight:700; letter-spacing: 0.08em; text-transform: uppercase; font-size: var(--fs-xs);">Design System</p>
+        <h1>
+          <span class="text-gradient">갬성 있는</span> GONG9RI 디자인 시스템
+        </h1>
+        <p class="text-muted" style="margin-top: var(--space-2); max-width: 640px;">
+          색상 · 타이포그래피 · 버튼 · 카드 · 뱃지 · 폼 컴포넌트를 한눈에 확인하는 쇼케이스 페이지입니다.
+          이후 페이지들은 이 토큰과 컴포넌트를 그대로 재사용합니다.
+        </p>
+      </div>
+    </section>
+
+    <!-- ================= 색상 팔레트 ================= -->
+    <section class="section container">
+      <div class="section__head">
+        <h2 class="section__title">색상 팔레트</h2>
+        <p class="text-muted">오프화이트 뉴트럴 베이스 + 코럴 · 핑크 · 퍼플 · 오렌지 웜 그라디언트 포인트</p>
+      </div>
+
+      <div class="grid-auto">
+        <div class="card">
+          <div style="height: 96px; background: var(--color-bg); border-bottom: 1px solid var(--color-border);"></div>
+          <div class="card-body">
+            <span class="card-title" style="font-size: var(--fs-sm);">bg</span>
+            <span class="text-muted" style="font-size: var(--fs-xs);">#FFF9F5</span>
+          </div>
+        </div>
+        <div class="card">
+          <div style="height: 96px; background: var(--color-surface); border-bottom: 1px solid var(--color-border);"></div>
+          <div class="card-body">
+            <span class="card-title" style="font-size: var(--fs-sm);">surface</span>
+            <span class="text-muted" style="font-size: var(--fs-xs);">#FFFFFF</span>
+          </div>
+        </div>
+        <div class="card">
+          <div style="height: 96px; background: var(--color-orange);"></div>
+          <div class="card-body">
+            <span class="card-title" style="font-size: var(--fs-sm);">orange</span>
+            <span class="text-muted" style="font-size: var(--fs-xs);">#FFA24C</span>
+          </div>
+        </div>
+        <div class="card">
+          <div style="height: 96px; background: var(--color-coral);"></div>
+          <div class="card-body">
+            <span class="card-title" style="font-size: var(--fs-sm);">coral</span>
+            <span class="text-muted" style="font-size: var(--fs-xs);">#FF6B6B</span>
+          </div>
+        </div>
+        <div class="card">
+          <div style="height: 96px; background: var(--color-pink);"></div>
+          <div class="card-body">
+            <span class="card-title" style="font-size: var(--fs-sm);">pink</span>
+            <span class="text-muted" style="font-size: var(--fs-xs);">#FF4D8D</span>
+          </div>
+        </div>
+        <div class="card">
+          <div style="height: 96px; background: var(--color-purple);"></div>
+          <div class="card-body">
+            <span class="card-title" style="font-size: var(--fs-sm);">purple</span>
+            <span class="text-muted" style="font-size: var(--fs-xs);">#8B5CF6</span>
+          </div>
+        </div>
+        <div class="card">
+          <div style="height: 96px; background: var(--gradient-brand);"></div>
+          <div class="card-body">
+            <span class="card-title" style="font-size: var(--fs-sm);">gradient-brand</span>
+            <span class="text-muted" style="font-size: var(--fs-xs);">버튼/포인트 텍스트</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= 타이포그래피 ================= -->
+    <section class="section container">
+      <div class="section__head">
+        <h2 class="section__title">타이포그래피</h2>
+        <p class="text-muted">헤딩: Poppins · 본문: Pretendard</p>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap: var(--space-4);">
+        <h1>H1 — 인스타 감성 헤드라인 <span class="text-gradient">Aa</span></h1>
+        <h2>H2 — 섹션 타이틀 Aa 가나다</h2>
+        <h3>H3 — 카드 그룹 타이틀 Aa 가나다</h3>
+        <h4>H4 — 상품명급 타이틀 Aa 가나다</h4>
+        <p style="font-size: var(--fs-lg);">Body Large — 18px 본문 텍스트 예시입니다. Pretendard 가나다라마바사</p>
+        <p>Body Base — 16px 기본 본문 텍스트입니다. 공동구매로 더 저렴하게, 함께 사면 더 즐겁게.</p>
+        <p class="text-muted" style="font-size: var(--fs-sm);">Body Small / Muted — 14px 보조 텍스트, 캡션 등에 사용합니다.</p>
+        <p class="text-muted" style="font-size: var(--fs-xs);">Caption — 12px, 라벨/메타 정보용</p>
+      </div>
+    </section>
+
+    <!-- ================= 버튼 ================= -->
+    <section class="section container">
+      <div class="section__head">
+        <h2 class="section__title">버튼</h2>
+        <p class="text-muted">Primary(그라디언트) / Secondary(아웃라인) / Ghost / 크기 variant</p>
+      </div>
+
+      <div style="display:flex; flex-wrap:wrap; gap: var(--space-4); align-items:center;">
+        <button type="button" class="btn btn-primary">공동구매 참여하기</button>
+        <button type="button" class="btn btn-secondary">계속 쇼핑하기</button>
+        <button type="button" class="btn btn-ghost">취소</button>
+        <button type="button" class="btn btn-primary btn-sm">Small Primary</button>
+        <button type="button" class="btn btn-secondary btn-sm">Small Secondary</button>
+        <button type="button" class="btn btn-primary" disabled style="opacity:.5; cursor:not-allowed;">비활성화</button>
+      </div>
+
+      <div style="max-width: 320px; margin-top: var(--space-4);">
+        <button type="button" class="btn btn-primary btn-block">결제하기</button>
+      </div>
+    </section>
+
+    <!-- ================= 카드 ================= -->
+    <section class="section container">
+      <div class="section__head">
+        <h2 class="section__title">상품 카드</h2>
+        <p class="text-muted">이미지 + 상품명 + 기본가 + 베스트 공구가 + 상태 뱃지</p>
+      </div>
+
+      <div class="grid-cards" style="max-width: 900px;">
+        <div class="card">
+          <div class="card-image">
+            <span class="badge badge-recruiting">모집중</span>
+          </div>
+          <div class="card-body">
+            <span class="card-seller">제주농장</span>
+            <h3 class="card-title">제주 감귤 5kg</h3>
+            <div class="card-price-row">
+              <span class="card-price-base">25,000원</span>
+              <span class="card-price-best">15,000원</span>
+            </div>
+            <span class="card-price-label">10인 모이면 1인당 최저가</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-image">
+            <span class="badge badge-success">성사</span>
+          </div>
+          <div class="card-body">
+            <span class="card-seller">서울베이커리</span>
+            <h3 class="card-title">수제 크루아상 세트</h3>
+            <div class="card-price-row">
+              <span class="card-price-base">18,000원</span>
+              <span class="card-price-best">12,000원</span>
+            </div>
+            <span class="card-price-label">공구 성사 완료</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-image">
+            <span class="badge badge-failed">미성사</span>
+          </div>
+          <div class="card-body">
+            <span class="card-seller">강원목장</span>
+            <h3 class="card-title">유기농 우유 1L x 6</h3>
+            <div class="card-price-row">
+              <span class="card-price-base">14,000원</span>
+              <span class="card-price-best">9,900원</span>
+            </div>
+            <span class="card-price-label">모집 기간 종료 (인원 미달)</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= 뱃지 ================= -->
+    <section class="section container">
+      <div class="section__head">
+        <h2 class="section__title">뱃지 (공구 상태)</h2>
+      </div>
+
+      <div style="display:flex; gap: var(--space-3); flex-wrap:wrap;">
+        <span class="badge badge-recruiting">모집중</span>
+        <span class="badge badge-success">성사</span>
+        <span class="badge badge-failed">미성사</span>
+      </div>
+    </section>
+
+    <!-- ================= 폼 ================= -->
+    <section class="section container">
+      <div class="section__head">
+        <h2 class="section__title">폼 요소</h2>
+        <p class="text-muted">로그인/회원가입/상품등록 폼에서 재사용</p>
+      </div>
+
+      <form style="max-width: 480px;" onsubmit="return false;">
+        <div class="form-group">
+          <label class="form-label" for="ds-username">아이디</label>
+          <input class="form-input" type="text" id="ds-username" name="username" placeholder="아이디를 입력하세요" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="ds-password">비밀번호</label>
+          <input class="form-input" type="password" id="ds-password" name="password" placeholder="비밀번호를 입력하세요" />
+          <p class="form-hint">8자 이상, 영문+숫자를 포함해주세요.</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="ds-email">이메일</label>
+          <input class="form-input" type="email" id="ds-email" name="email" placeholder="example@gong9ri.com" />
+          <p class="form-error">이미 사용 중인 이메일입니다.</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="ds-desc">상품 설명</label>
+          <textarea class="form-textarea" id="ds-desc" name="description" placeholder="상품 설명을 입력하세요"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">제출</button>
+      </form>
+    </section>
+  </main>
+
+  <div data-include="footer"></div>
+
+  <script src="/js/include.js"></script>
+  <script src="/js/api.js"></script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+<!--
+  header.html — 공통 헤더 partial
+  js/include.js가 fetch로 이 파일을 가져와 data-include="header" 컨테이너에 삽입한다.
+  * 현재는 비로그인 상태를 기준으로 한 고정 마크업이다.
+    로그인 여부에 따른 실제 전환(세션 연동)은 이번 작업 범위 밖 — 로그인 관련 페이지 작업에서 다룬다.
+  * 아래 링크(href)는 아직 만들어지지 않은 개별 페이지를 가리키는 자리표시자(placeholder)다.
+    해당 페이지가 실제로 만들어지면 경로를 맞춰 갱신한다.
+-->
+<header class="site-header">
+  <div class="container site-header__inner">
+    <a href="/" class="site-header__logo">
+      GONG<span class="text-gradient">9</span>RI
+    </a>
+
+    <nav class="site-header__nav" aria-label="주요 메뉴">
+      <a href="/">메인</a>
+      <a href="/seller/products/new.html">판매 물품 등록</a>
+    </nav>
+
+    <div class="site-header__auth">
+      <a href="/login.html" class="btn btn-secondary btn-sm">로그인</a>
+      <a href="/signup.html" class="btn btn-primary btn-sm">회원가입</a>
+    </div>
+  </div>
+</header>
