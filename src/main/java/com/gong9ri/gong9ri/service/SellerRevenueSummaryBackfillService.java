@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * seller_revenue_summary 1회성 백필(docs/db/seller_revenue_summary.md,
- * docs/dev/ongoing/seller-revenue-summary-upsert-fix.md) — {@code SellerRevenueSummaryRepository.incrementPaid}가
+ * docs/dev/mypage/view/changes/004-upsert-fix.md) — {@code SellerRevenueSummaryRepository.incrementPaid}가
  * upsert로 바뀐 뒤부터는 새 결제가 요약 행을 스스로 만들지만, 그 전환 이전부터 존재하던 결제 이력이 있는
  * 판매자는 아직 요약 행이 없을 수 있다. 이건 "조회마다 신경 쓸 문제"가 아니라 "배포 시점에 한 번만
  * 처리하는 문제"라, {@code SellerMypageService.revenue()}(조회 경로)에서는 절대 호출하지 않는다 —

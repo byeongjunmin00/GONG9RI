@@ -35,7 +35,7 @@ import org.springframework.boot.test.context.SpringBootTest;
  * 정확히 유지하는지 검증한다.
  *
  * 특히 이 테스트는 **요약 행이 아직 전혀 없는 상태**(그 판매자의 "첫 결제"들)에서 여러 결제가
- * 동시에 몰리는 경쟁 상황을 정면으로 검증한다(docs/dev/ongoing/seller-revenue-summary-upsert-fix.md) —
+ * 동시에 몰리는 경쟁 상황을 정면으로 검증한다(docs/dev/mypage/view/changes/004-upsert-fix.md) —
  * 이전 방식(조건부 UPDATE + 조회 시 지연 부트스트랩)에서는 이 경쟁 상황에서 결제가 유실될 수 있었다.
  * 그래서 스레드를 시작하기 전에 요약 행을 미리 만들어두지 않는다(예전엔 sellerMypageService.revenue()로
  * 0행을 부트스트랩해뒀지만, 이제 그 부트스트랩 자체가 없어졌고, 없어도 되는 게 이번 수정의 핵심이다).

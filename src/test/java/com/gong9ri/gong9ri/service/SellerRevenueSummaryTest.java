@@ -32,7 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
  * mypage/seller-revenue 컬럼 집계 방식(docs/db/seller_revenue_summary.md, 2026-08-06 upsert 전환) 검증.
  * group_buy_team.current_count와 같은 방식(결제/환불 트랜잭션 안에서 seller_revenue_summary를 즉시
  * 갱신)이지만, 요약 행 생성 시점을 "조회 시(지연 부트스트랩)"에서 "결제 시(upsert)"로 정정했다
- * (docs/dev/ongoing/seller-revenue-summary-upsert-fix.md) — revenue()는 이제 순수 읽기라 조회만으로는
+ * (docs/dev/mypage/view/changes/004-upsert-fix.md) — revenue()는 이제 순수 읽기라 조회만으로는
  * 어떤 행도 만들지 않는다.
  *
  * 동시 다발 결제 정합성(멀티스레드) 검증은 별도 클래스 SellerRevenueSummaryConcurrencyTest에서 한다
