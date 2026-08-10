@@ -138,3 +138,53 @@
   |------|------|------|
   | `FORBIDDEN` | 403 | 구매자 계정으로 시도 |
   | `UNAUTHORIZED` | 401 | 미인증 |
+
+---
+
+## 알림
+
+### GET /api/buyer/mypage/notifications — 구매자 알림 목록
+
+- 응답: `200 OK`
+  ```json
+  [
+    {
+      "notificationId": 1,
+      "type": "TEAM_REFUNDED",
+      "message": "참여하신 공구팀이 미성사되어 환불 처리되었습니다.",
+      "relatedTeamId": 5,
+      "isRead": false,
+      "createdAt": "2026-08-10T10:00:00"
+    }
+  ]
+  ```
+
+- 에러:
+  | 코드 | HTTP | 설명 |
+  |------|------|------|
+  | `FORBIDDEN` | 403 | 판매자 계정으로 시도 |
+  | `UNAUTHORIZED` | 401 | 미인증 |
+
+---
+
+### GET /api/seller/mypage/notifications — 판매자 알림 목록
+
+- 응답: `200 OK`
+  ```json
+  [
+    {
+      "notificationId": 2,
+      "type": "TEAM_REFUNDED",
+      "message": "등록하신 상품의 공구팀이 미성사되어 환불 처리되었습니다.",
+      "relatedTeamId": 5,
+      "isRead": false,
+      "createdAt": "2026-08-10T10:00:00"
+    }
+  ]
+  ```
+
+- 에러:
+  | 코드 | HTTP | 설명 |
+  |------|------|------|
+  | `FORBIDDEN` | 403 | 구매자 계정으로 시도 |
+  | `UNAUTHORIZED` | 401 | 미인증 |

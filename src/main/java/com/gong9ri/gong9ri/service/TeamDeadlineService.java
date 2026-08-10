@@ -4,6 +4,7 @@ import com.gong9ri.gong9ri.entity.GroupBuyTeam;
 import com.gong9ri.gong9ri.entity.Payment;
 import com.gong9ri.gong9ri.entity.PaymentStatus;
 import com.gong9ri.gong9ri.entity.TeamStatus;
+import com.gong9ri.gong9ri.event.TeamRefundedEvent;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.PaymentRepository;
 import com.gong9ri.gong9ri.repository.SellerRevenueSummaryRepository;
@@ -11,6 +12,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +30,7 @@ public class TeamDeadlineService {
     private final GroupBuyTeamRepository groupBuyTeamRepository;
     private final PaymentRepository paymentRepository;
     private final SellerRevenueSummaryRepository sellerRevenueSummaryRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public List<Long> findExpiredRecruitingTeamIds() {
         return groupBuyTeamRepository.findIdsByStatusAndDeadlineBefore(TeamStatus.RECRUITING, LocalDateTime.now());
@@ -67,6 +70,12 @@ public class TeamDeadlineService {
                 log.warn("판매자 수익 요약 환불 반영 실패(요약 행 없음, 백필 필요 추정): sellerId={}, teamId={}, "
                         + "refundedAmount={}, refundedCount={}", sellerId, teamId, refundedAmount, refundedCount);
             }
+
+            // 커밋된 이후에만 소비돼야 하는 이벤트다(TeamRefundedEventListener가
+            // @TransactionalEventListener(AFTER_COMMIT)로 구독) — 이 트랜잭션이 롤백되면 이 publishEvent
+            // 호출 자체는 있었어도 리스너가 절대 실행되지 않는다, 그래서 여기서 바로 발행해도 안전하다.
+            List<Long> buyerMemberIds = paidPayments.stream().map(payment -> payment.getMember().getId()).toList();
+            eventPublisher.publishEvent(new TeamRefundedEvent(teamId, sellerId, buyerMemberIds));
         }
 
         log.info("공구팀 마감 실패 처리 완료: teamId={}, refundedPaymentCount={}", teamId, paidPayments.size());

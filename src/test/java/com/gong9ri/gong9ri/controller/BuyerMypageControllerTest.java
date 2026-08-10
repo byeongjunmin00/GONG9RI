@@ -8,12 +8,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.entity.GroupBuyTeam;
 import com.gong9ri.gong9ri.entity.Member;
+import com.gong9ri.gong9ri.entity.Notification;
+import com.gong9ri.gong9ri.entity.NotificationType;
 import com.gong9ri.gong9ri.entity.Payment;
 import com.gong9ri.gong9ri.entity.Product;
 import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.entity.TeamParticipation;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.MemberRepository;
+import com.gong9ri.gong9ri.repository.NotificationRepository;
 import com.gong9ri.gong9ri.repository.PaymentRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
 import com.gong9ri.gong9ri.repository.TeamParticipationRepository;
@@ -50,6 +53,9 @@ class BuyerMypageControllerTest {
 
     @Autowired
     private PaymentRepository paymentRepository;
+
+    @Autowired
+    private NotificationRepository notificationRepository;
 
     private Member saveMember(String username, Role role) {
         Member member = new Member(username, "encoded-password", "테스트유저", username + "@test.com", role);
@@ -150,6 +156,52 @@ class BuyerMypageControllerTest {
     @DisplayName("비로그인으로 공구 참여 목록 조회 시 401 UNAUTHORIZED")
     void teams_unauthorized() throws Exception {
         mockMvc.perform(get("/api/buyer/mypage/teams"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    @DisplayName("알림 목록 조회 성공")
+    void notifications_success() throws Exception {
+        Member buyer = saveMember("mpBuyer3", Role.BUYER);
+        notificationRepository.save(new Notification(buyer, NotificationType.TEAM_REFUNDED,
+                "참여하신 공구팀이 미성사되어 환불 처리되었습니다.", null));
+
+        mockMvc.perform(get("/api/buyer/mypage/notifications").with(asUser(buyer)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].type").value("TEAM_REFUNDED"))
+                .andExpect(jsonPath("$.data[0].isRead").value(false));
+    }
+
+    @Test
+    @DisplayName("알림 목록은 본인 알림만 보이고 타인 알림은 안 보인다 (스코핑)")
+    void notifications_scoping_onlyOwnNotifications() throws Exception {
+        Member buyerA = saveMember("mpBuyerF1", Role.BUYER);
+        Member buyerB = saveMember("mpBuyerF2", Role.BUYER);
+        notificationRepository.save(new Notification(buyerA, NotificationType.TEAM_REFUNDED, "A 알림", null));
+        notificationRepository.save(new Notification(buyerB, NotificationType.TEAM_REFUNDED, "B 알림", null));
+
+        mockMvc.perform(get("/api/buyer/mypage/notifications").with(asUser(buyerA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].message").value("A 알림"));
+    }
+
+    @Test
+    @DisplayName("판매자 계정으로 알림 목록 조회 시 403 FORBIDDEN")
+    void notifications_forbidden_seller() throws Exception {
+        Member seller = saveMember("mpSeller6", Role.SELLER);
+
+        mockMvc.perform(get("/api/buyer/mypage/notifications").with(asUser(seller)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("비로그인으로 알림 목록 조회 시 401 UNAUTHORIZED")
+    void notifications_unauthorized() throws Exception {
+        mockMvc.perform(get("/api/buyer/mypage/notifications"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
     }

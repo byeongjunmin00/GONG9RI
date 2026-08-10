@@ -4,8 +4,10 @@ import com.gong9ri.gong9ri.common.exception.BusinessException;
 import com.gong9ri.gong9ri.common.exception.ErrorCode;
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.dto.BuyerTeamResponse;
+import com.gong9ri.gong9ri.dto.NotificationResponse;
 import com.gong9ri.gong9ri.dto.PurchaseResponse;
 import com.gong9ri.gong9ri.entity.Role;
+import com.gong9ri.gong9ri.repository.NotificationRepository;
 import com.gong9ri.gong9ri.repository.PaymentRepository;
 import com.gong9ri.gong9ri.repository.TeamParticipationRepository;
 import java.util.List;
@@ -20,6 +22,7 @@ public class BuyerMypageService {
 
     private final PaymentRepository paymentRepository;
     private final TeamParticipationRepository teamParticipationRepository;
+    private final NotificationRepository notificationRepository;
 
     public List<PurchaseResponse> purchases(MemberUserDetails principal) {
         requireBuyer(principal);
@@ -32,6 +35,13 @@ public class BuyerMypageService {
         requireBuyer(principal);
         return teamParticipationRepository.findAllByMemberIdWithTeamAndProduct(principal.getMember().getId()).stream()
                 .map(BuyerTeamResponse::from)
+                .toList();
+    }
+
+    public List<NotificationResponse> notifications(MemberUserDetails principal) {
+        requireBuyer(principal);
+        return notificationRepository.findAllByMemberIdOrderByCreatedAtDesc(principal.getMember().getId()).stream()
+                .map(NotificationResponse::from)
                 .toList();
     }
 

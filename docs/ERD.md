@@ -14,6 +14,7 @@
 | `team_participation` | 회원이 어떤 팀에 참여했는지 |
 | `payment` | 결제 내역 |
 | `seller_revenue_summary` | 판매자별 결제 집계(총매출·PAID건수·REFUNDED건수)를 미리 계산해둔 요약 행 |
+| `notification` | 회원(구매자/판매자)에게 남기는 알림 레코드 |
 
 ## member (회원)
 
@@ -107,6 +108,20 @@
 
 **설계 결정**: `current_count`와 동일한 이유·방식 — 매번 SUM/COUNT하지 않고 결제/환불 트랜잭션 안에서 즉시 갱신한다. 캐싱(Redis+TTL) 대신 이 방식을 택한 이유는 돈 관련 데이터에 staleness 여지를 두지 않기 위함(2026-08-05, 튜터 피드백 반영).
 
+## notification (알림)
+
+| 컬럼 | 타입 | 설명 |
+|---|---|---|
+| id | bigint (PK) | ID |
+| member_id | bigint (FK → member.id) | 알림 수신자 |
+| type | varchar | 알림 종류 (예: `TEAM_REFUNDED`) |
+| message | varchar | 알림 본문 |
+| related_team_id | bigint (FK → group_buy_team.id, nullable) | 관련 공구팀 |
+| is_read | boolean | 읽음 여부 |
+| created_at | datetime | 생성 시각 |
+
+**설계 결정**: 환불 트리거를 이벤트 기반으로 확장하면서(발제 "비동기 이벤트" 항목), 환불 완료 이벤트를 구독해 구매자/판매자에게 알림을 남기는 용도로 추가함. 실제 이메일/SMS 발송 채널은 없고 DB 기록 + 마이페이지 조회까지만 지원(상세: `docs/dev/ongoing/refund-event-messaging.md`).
+
 ## 관계 정리 (요약)
 
 ```
@@ -119,6 +134,8 @@ member (1) ─── (N) payment
 product (1) ─── (N) payment
 group_buy_team (1) ─── (N) payment [nullable]
 member (1) ─── (1) seller_revenue_summary
+member (1) ─── (N) notification
+group_buy_team (1) ─── (N) notification [nullable]
 ```
 
 ## 결정된 것 (2026-07-27)

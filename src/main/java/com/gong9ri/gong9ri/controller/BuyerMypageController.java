@@ -3,6 +3,7 @@ package com.gong9ri.gong9ri.controller;
 import com.gong9ri.gong9ri.common.response.ApiResponse;
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.dto.BuyerTeamResponse;
+import com.gong9ri.gong9ri.dto.NotificationResponse;
 import com.gong9ri.gong9ri.dto.PurchaseResponse;
 import com.gong9ri.gong9ri.service.BuyerMypageService;
 import java.util.List;
@@ -30,5 +31,11 @@ public class BuyerMypageController {
     public ResponseEntity<ApiResponse<List<BuyerTeamResponse>>> teams(
             @AuthenticationPrincipal MemberUserDetails principal) {
         return ResponseEntity.ok(ApiResponse.success(buyerMypageService.teams(principal)));
+    }
+
+    @GetMapping("/notifications")
+    public ResponseEntity<ApiResponse<List<NotificationResponse>>> notifications(
+            @AuthenticationPrincipal MemberUserDetails principal) {
+        return ResponseEntity.ok(ApiResponse.success(buyerMypageService.notifications(principal)));
     }
 }

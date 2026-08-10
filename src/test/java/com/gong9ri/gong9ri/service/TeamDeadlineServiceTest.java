@@ -13,6 +13,7 @@ import com.gong9ri.gong9ri.entity.TeamParticipation;
 import com.gong9ri.gong9ri.entity.TeamStatus;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.MemberRepository;
+import com.gong9ri.gong9ri.repository.NotificationRepository;
 import com.gong9ri.gong9ri.repository.PaymentRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
 import com.gong9ri.gong9ri.repository.TeamParticipationRepository;
@@ -49,6 +50,9 @@ class TeamDeadlineServiceTest {
 
     @Autowired
     private PaymentRepository paymentRepository;
+
+    @Autowired
+    private NotificationRepository notificationRepository;
 
     private Member saveMember(String username, Role role) {
         return memberRepository.save(new Member(username, "pw", "테스트유저", username + "@test.com", role));
@@ -135,6 +139,30 @@ class TeamDeadlineServiceTest {
         assertEquals(TeamStatus.SUCCESS, updatedTeam.getStatus());
         Payment updatedPayment = paymentRepository.findById(payment.getId()).orElseThrow();
         assertEquals(PaymentStatus.PAID, updatedPayment.getStatus(), "SUCCESS 팀의 결제는 환불 대상이 아니다");
+    }
+
+    @Test
+    @DisplayName("환불이 발생해도 이 트랜잭션이 커밋되지 않으면(테스트 클래스 @Transactional 롤백) 환불 완료 알림은 생성되지 않는다")
+    void processDeadline_transactionNotCommitted_doesNotCreateRefundNotifications() {
+        // TeamRefundedEvent는 processDeadline() 안에서 publishEvent로 발행되지만, 구독자
+        // (TeamRefundedEventListener)는 @TransactionalEventListener(phase = AFTER_COMMIT)라
+        // 이 트랜잭션이 실제로 커밋될 때만 실행된다. 이 테스트 클래스는 클래스 레벨 @Transactional로
+        // 테스트가 끝나면 항상 롤백되므로(커밋되지 않음), processDeadline이 환불까지 정상 수행되더라도
+        // 알림은 절대 생성되지 않아야 한다 — 이게 AFTER_COMMIT 리스너의 핵심 정합성 보장이다.
+        Member seller = saveMember("dlSeller6", Role.SELLER);
+        Product product = saveProduct(seller);
+        Member leader = saveMember("dlLeader6", Role.BUYER);
+        GroupBuyTeam team = saveTeam(product, leader, LocalDateTime.now().minusMinutes(1));
+        paymentRepository.save(new Payment(leader, product, team, 10000));
+
+        teamDeadlineService.processDeadline(team.getId());
+
+        GroupBuyTeam updatedTeam = groupBuyTeamRepository.findById(team.getId()).orElseThrow();
+        assertEquals(TeamStatus.FAILED, updatedTeam.getStatus(), "환불 처리 자체는 이 트랜잭션 안에서 정상 수행돼야 한다");
+        assertEquals(0, notificationRepository.findAllByMemberIdOrderByCreatedAtDesc(leader.getId()).size(),
+                "커밋되지 않은 트랜잭션에서는 환불 완료 알림이 생성되면 안 된다");
+        assertEquals(0, notificationRepository.findAllByMemberIdOrderByCreatedAtDesc(seller.getId()).size(),
+                "커밋되지 않은 트랜잭션에서는 판매자에게도 알림이 생성되면 안 된다");
     }
 
     @Test

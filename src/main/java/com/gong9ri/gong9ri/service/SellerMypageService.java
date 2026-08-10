@@ -3,11 +3,13 @@ package com.gong9ri.gong9ri.service;
 import com.gong9ri.gong9ri.common.exception.BusinessException;
 import com.gong9ri.gong9ri.common.exception.ErrorCode;
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
+import com.gong9ri.gong9ri.dto.NotificationResponse;
 import com.gong9ri.gong9ri.dto.RevenueResponse;
 import com.gong9ri.gong9ri.dto.SellerProductResponse;
 import com.gong9ri.gong9ri.dto.SellerTeamResponse;
 import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
+import com.gong9ri.gong9ri.repository.NotificationRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
 import com.gong9ri.gong9ri.repository.SellerRevenueSummaryRepository;
 import java.util.List;
@@ -23,6 +25,7 @@ public class SellerMypageService {
     private final ProductRepository productRepository;
     private final GroupBuyTeamRepository groupBuyTeamRepository;
     private final SellerRevenueSummaryRepository sellerRevenueSummaryRepository;
+    private final NotificationRepository notificationRepository;
 
     public List<SellerProductResponse> products(MemberUserDetails principal) {
         requireSeller(principal);
@@ -51,6 +54,13 @@ public class SellerMypageService {
         requireSeller(principal);
         return groupBuyTeamRepository.findAllBySellerIdWithProduct(principal.getMember().getId()).stream()
                 .map(SellerTeamResponse::from)
+                .toList();
+    }
+
+    public List<NotificationResponse> notifications(MemberUserDetails principal) {
+        requireSeller(principal);
+        return notificationRepository.findAllByMemberIdOrderByCreatedAtDesc(principal.getMember().getId()).stream()
+                .map(NotificationResponse::from)
                 .toList();
     }
 
