@@ -8,7 +8,9 @@
     비로그인 마크업을 그대로 유지한다.
   * nav 링크(판매 물품 등록/판매자 마이페이지/구매자 마이페이지)는 로그인 상태·역할에 따라
     숨김/노출된다 — 기본값은 `hidden`이며, header-auth.js가 로그인한 역할과 일치하는
-    `data-role` 링크만 `hidden = false`로 노출한다("메인"은 `data-role`이 없어 항상 노출).
+    `data-role` 링크만 `hidden = false`로 노출한다. 별도 "메인" nav 링크는 없다 — 로고
+    자체가 이미 `/`로 가는 링크라 중복이고, 역할 링크가 전부 숨겨진 상태(비로그인 등)에서
+    "메인" 하나만 덩그러니 남는 게 어색해 제거했다.
     각 페이지 자체의 접근 제어(비로그인으로 URL 직접 접근 시 등)는 이 헤더 표시와 무관하게
     서버 401/403 사후 판정으로 그대로 유지된다.
   * 로그인(`/login.html`)·회원가입(`/signup.html`) 링크는 실제 페이지가 만들어졌다(frontend/auth 작업).
@@ -25,7 +27,6 @@
     </a>
 
     <nav class="site-header__nav" aria-label="주요 메뉴">
-      <a href="/">메인</a>
       <a href="/seller/products/new.html" data-role="SELLER" hidden>판매 물품 등록</a>
       <a href="/seller/mypage.html" data-role="SELLER" hidden>판매자 마이페이지</a>
       <a href="/buyer/mypage.html" data-role="BUYER" hidden>구매자 마이페이지</a>
