@@ -53,6 +53,7 @@
     formAlertEl.className = 'form-alert form-alert--error';
     formAlertTextEl.textContent = text;
     formAlertLoginLinkEl.hidden = !showLoginLink;
+    formAlertEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   function hideAlert() {

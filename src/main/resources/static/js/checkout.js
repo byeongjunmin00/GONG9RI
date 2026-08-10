@@ -77,6 +77,7 @@
     pageAlertEl.className = 'form-alert form-alert--' + variant;
     pageAlertTextEl.textContent = text;
     pageAlertLoginLinkEl.hidden = !showLoginLink;
+    pageAlertEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   function hidePageAlert() {

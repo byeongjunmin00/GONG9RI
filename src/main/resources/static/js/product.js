@@ -82,6 +82,8 @@
     } else {
       pageAlertPayLinkEl.hidden = true;
     }
+
+    pageAlertEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   function hidePageAlert() {

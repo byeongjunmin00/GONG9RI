@@ -63,6 +63,7 @@
     pageAlertTextEl.textContent = text;
     pageAlertLoginLinkEl.hidden = !showLoginLink;
     mypageSectionsEl.hidden = true;
+    pageAlertEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   function showStatus(el, text, variant) {

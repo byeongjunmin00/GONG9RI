@@ -35,6 +35,7 @@
     alertEl.hidden = false;
     alertEl.textContent = text;
     alertEl.className = 'form-alert form-alert--error';
+    alertEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   function hideAlert() {
