@@ -23,6 +23,8 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -66,6 +68,12 @@ public class AuthController {
 
         MemberUserDetails principal = (MemberUserDetails) authentication.getPrincipal();
         log.info("로그인 성공: memberId={}, username={}", principal.getMember().getId(), principal.getMember().getUsername());
+        MemberResponse response = MemberResponse.from(principal.getMember());
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<MemberResponse>> me(@AuthenticationPrincipal MemberUserDetails principal) {
         MemberResponse response = MemberResponse.from(principal.getMember());
         return ResponseEntity.ok(ApiResponse.success(response));
     }

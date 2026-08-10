@@ -1,0 +1,74 @@
+/**
+ * header-auth.js — 헤더 로그인 상태 연동
+ *
+ * js/include.js가 모든 data-include 삽입을 끝낸 뒤 document에 발행하는
+ * 'gong9ri:includes-ready' 이벤트를 구독해, 헤더 DOM이 준비된 뒤에만 동작한다.
+ *
+ * 흐름:
+ * 1. GET /api/auth/me 호출
+ *    - 성공(200): 로그인 상태 → #header-auth-guest 숨기고 #header-auth-user 노출
+ *      (사용자 이름 표시), 로그인한 역할(BUYER/SELLER)에 해당하는 nav 링크에
+ *      강조 클래스만 추가한다(링크 자체는 숨기지 않는다 — 기존 401/403 사후 판정 원칙 유지).
+ *    - 실패(401 등): 비로그인 상태 → 아무것도 하지 않고 기존 비로그인 마크업을 그대로 둔다.
+ * 2. #header-auth-logout 클릭 시 POST /api/auth/logout 호출 후 성공하면 현재 페이지를 새로고침한다.
+ *
+ * 이 파일은 window.Api(js/api.js)에 의존한다 — HTML에서 api.js보다 뒤에 로드해야 한다.
+ */
+(function () {
+  function applyLoggedInState(member) {
+    var guest = document.getElementById('header-auth-guest');
+    var user = document.getElementById('header-auth-user');
+    var nameEl = document.getElementById('header-auth-user-name');
+
+    if (nameEl) {
+      nameEl.textContent = member.name + '님';
+    }
+    if (guest) {
+      guest.hidden = true;
+    }
+    if (user) {
+      user.hidden = false;
+    }
+
+    var roleLinks = document.querySelectorAll('.site-header__nav a[data-role]');
+    Array.prototype.forEach.call(roleLinks, function (link) {
+      if (link.getAttribute('data-role') === member.role) {
+        link.classList.add('nav-link--role-active');
+      }
+    });
+  }
+
+  function bindLogout() {
+    var logoutBtn = document.getElementById('header-auth-logout');
+    if (!logoutBtn || !window.Api) {
+      return;
+    }
+    logoutBtn.addEventListener('click', function () {
+      window.Api.post('/auth/logout')
+        .then(function () {
+          window.location.reload();
+        })
+        .catch(function (err) {
+          console.error('[header-auth.js] 로그아웃 실패:', err);
+        });
+    });
+  }
+
+  function init() {
+    bindLogout();
+
+    if (!window.Api) {
+      return;
+    }
+
+    window.Api.get('/auth/me')
+      .then(function (member) {
+        applyLoggedInState(member);
+      })
+      .catch(function () {
+        // 미인증(401 등) — 비로그인 상태로 간주하고 기존 마크업을 그대로 유지한다.
+      });
+  }
+
+  document.addEventListener('gong9ri:includes-ready', init);
+})();

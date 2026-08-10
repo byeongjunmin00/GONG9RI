@@ -467,6 +467,25 @@
   gap: var(--space-2);
 }
 
+/* ---------- Header auth (헤더 로그인 상태 표시) ---------- */
+/* .site-header__auth는 layout.css에서 display: flex를 선언하고 있어
+   네이티브 [hidden]이 무시될 수 있으므로 명시적으로 보정한다. */
+.site-header__auth[hidden] {
+  display: none;
+}
+
+.header-auth-user__name {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+/* 로그인한 역할에 해당하는 nav 링크 강조 — 링크 자체는 숨기지 않는다 */
+.site-header__nav a.nav-link--role-active {
+  color: var(--color-pink);
+  font-weight: 800;
+}
+
 /* ---------- Revenue cards (판매자 마이페이지 — 수익 현황) ---------- */
 .revenue-cards {
   display: grid;

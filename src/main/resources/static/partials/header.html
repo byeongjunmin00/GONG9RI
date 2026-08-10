@@ -1,19 +1,22 @@
 <!--
   header.html — 공통 헤더 partial
   js/include.js가 fetch로 이 파일을 가져와 data-include="header" 컨테이너에 삽입한다.
-  * 현재는 비로그인 상태를 기준으로 한 고정 마크업이다.
-    로그인 여부에 따른 실제 전환(세션 연동)은 아직 범위 밖 — "현재 로그인 사용자 조회" API가 없어
-    새로고침 후에도 신뢰성 있게 로그인 상태를 재현할 방법이 없다(docs/dev/frontend/auth/design.md 참고).
-    로그아웃 버튼/호출도 같은 이유로 아직 두지 않았다.
+  * 헤더 로그인 상태가 연동되어 있다(js/header-auth.js, docs/dev/frontend/header-auth/design.md).
+    include.js가 삽입 완료 시 발행하는 'gong9ri:includes-ready' 이벤트를 header-auth.js가 구독해
+    GET /api/auth/me를 호출하고, 성공(로그인 상태)이면 #header-auth-guest를 숨기고
+    #header-auth-user를 보여주며(사용자 이름 표시 + 로그아웃 버튼), 실패(401 등)면 아래
+    비로그인 마크업을 그대로 유지한다.
+  * nav 링크(판매 물품 등록/판매자 마이페이지/구매자 마이페이지)는 로그인 여부·역할과 무관하게
+    항상 전부 노출한다(숨기지 않음) — 로그인한 역할에 해당하는 링크에는 header-auth.js가
+    `data-role` 속성을 기준으로 강조 클래스(`nav-link--role-active`)만 추가한다.
+    기존 원칙(비로그인/역할이 다른 상태에서 클릭해도 페이지는 열리고 각 API 호출에서
+    401/403으로 사후 판정)은 그대로 유지한다.
   * 로그인(`/login.html`)·회원가입(`/signup.html`) 링크는 실제 페이지가 만들어졌다(frontend/auth 작업).
     "판매 물품 등록"(`/seller/products/new.html`)도 실제 페이지가 만들어졌다(frontend/seller-product-new 작업).
     "판매자 마이페이지"(`/seller/mypage.html`)도 실제 페이지가 만들어졌다(frontend/seller-mypage 작업).
     "구매자 마이페이지"(`/buyer/mypage.html`)도 실제 페이지가 만들어졌다(frontend/buyer-mypage 작업).
     이 페이지들은 서브디렉토리에 있어 SecurityConfig의 정적 리소스 permitAll 매처에
     "/**/*.html"이 추가돼 있어야 비로그인 상태에서도 정상 렌더링된다.
-    "판매자 마이페이지"/"구매자 마이페이지" 모두 로그인 여부/역할과 무관하게 항상 노출한다
-    (헤더 로그인 상태 미연동 원칙 — 비로그인/역할이 다른 상태에서 클릭해도 페이지는 열리고
-    각 API 호출에서 401/403으로 사후 판정한다).
 -->
 <header class="site-header">
   <div class="container site-header__inner">
@@ -23,14 +26,19 @@
 
     <nav class="site-header__nav" aria-label="주요 메뉴">
       <a href="/">메인</a>
-      <a href="/seller/products/new.html">판매 물품 등록</a>
-      <a href="/seller/mypage.html">판매자 마이페이지</a>
-      <a href="/buyer/mypage.html">구매자 마이페이지</a>
+      <a href="/seller/products/new.html" data-role="SELLER">판매 물품 등록</a>
+      <a href="/seller/mypage.html" data-role="SELLER">판매자 마이페이지</a>
+      <a href="/buyer/mypage.html" data-role="BUYER">구매자 마이페이지</a>
     </nav>
 
-    <div class="site-header__auth">
+    <div class="site-header__auth" id="header-auth-guest">
       <a href="/login.html" class="btn btn-secondary btn-sm">로그인</a>
       <a href="/signup.html" class="btn btn-primary btn-sm">회원가입</a>
+    </div>
+
+    <div class="site-header__auth" id="header-auth-user" hidden>
+      <span class="header-auth-user__name" id="header-auth-user-name"></span>
+      <button type="button" class="btn btn-secondary btn-sm" id="header-auth-logout">로그아웃</button>
     </div>
   </div>
 </header>
