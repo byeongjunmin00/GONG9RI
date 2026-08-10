@@ -75,7 +75,7 @@ public class ProductService {
         Member seller = principal.getMember();
 
         Product product = new Product(seller, request.name(), request.description(),
-                request.basePrice(), request.maxParticipants());
+                request.basePrice(), request.maxParticipants(), request.imageUrl());
         Product saved = productRepository.save(product);
 
         List<PriceTier> priceTiers = savePriceTiers(saved, request.priceTiers());
@@ -95,7 +95,8 @@ public class ProductService {
         Product product = findProductWithSeller(productId);
         requireOwner(principal, product);
 
-        product.update(request.name(), request.description(), request.basePrice(), request.maxParticipants());
+        product.update(request.name(), request.description(), request.basePrice(), request.maxParticipants(),
+                request.imageUrl());
         priceTierRepository.deleteByProductId(productId);
         List<PriceTier> priceTiers = savePriceTiers(product, request.priceTiers());
 

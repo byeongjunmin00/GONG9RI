@@ -10,7 +10,8 @@ public record ProductSummaryResponse(
         Integer bestPrice,
         Integer maxParticipants,
         String sellerName,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        String imageUrl
 ) {
     public static ProductSummaryResponse of(Product product, Integer bestPrice) {
         return new ProductSummaryResponse(
@@ -20,7 +21,8 @@ public record ProductSummaryResponse(
                 bestPrice,
                 product.getMaxParticipants(),
                 product.getSeller().getName(),
-                product.getCreatedAt()
+                product.getCreatedAt(),
+                product.getImageUrl()
         );
     }
 }

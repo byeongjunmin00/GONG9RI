@@ -55,7 +55,7 @@ class TeamDeadlineServiceTest {
     }
 
     private Product saveProduct(Member seller) {
-        return productRepository.save(new Product(seller, "마감테스트상품", "설명", 10000, 10));
+        return productRepository.save(new Product(seller, "마감테스트상품", "설명", 10000, 10, null));
     }
 
     private GroupBuyTeam saveTeam(Product product, Member leader, LocalDateTime deadline) {

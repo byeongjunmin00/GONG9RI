@@ -332,6 +332,11 @@
   border-radius: var(--radius-md);
 }
 
+.product-detail-image {
+  max-width: 400px;
+  border-radius: var(--radius-lg);
+}
+
 .product-price-row {
   display: flex;
   align-items: baseline;

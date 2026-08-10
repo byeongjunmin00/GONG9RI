@@ -86,7 +86,7 @@ class TeamConcurrencyTest {
         memberIdsToClean.add(seller.getId());
 
         Product product = productRepository.save(
-                new Product(seller, "동시성테스트상품", "설명", 10000, maxParticipants));
+                new Product(seller, "동시성테스트상품", "설명", 10000, maxParticipants, null));
         productIdToClean = product.getId();
 
         Member leader = memberRepository.save(

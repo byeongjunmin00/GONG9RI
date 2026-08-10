@@ -61,7 +61,7 @@ class TeamControllerTest {
     }
 
     private Product saveProduct(Member seller, int maxParticipants) {
-        return productRepository.save(new Product(seller, "제주 감귤 5kg", "설명", 25000, maxParticipants));
+        return productRepository.save(new Product(seller, "제주 감귤 5kg", "설명", 25000, maxParticipants, null));
     }
 
     private GroupBuyTeam saveTeam(Product product, Member leader, int maxParticipants) {

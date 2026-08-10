@@ -22,7 +22,8 @@
         "bestPrice": 15000,
         "maxParticipants": 10,
         "sellerName": "제주농장",
-        "createdAt": "2026-07-24T10:00:00"
+        "createdAt": "2026-07-24T10:00:00",
+        "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg"
       }
     ],
     "page": 0,
@@ -52,7 +53,8 @@
       { "minCount": 5, "price": 18000 },
       { "minCount": 10, "price": 15000 }
     ],
-    "createdAt": "2026-07-24T10:00:00"
+    "createdAt": "2026-07-24T10:00:00",
+    "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg"
   }
   ```
 
@@ -75,6 +77,7 @@
   | priceTiers | List | Y | 가격 구간표 (최소 1개) |
   | priceTiers[].minCount | int | Y | 해당 가격 적용 최소 인원 |
   | priceTiers[].price | int | Y | 1인당 가격 |
+  | imageUrl | String | N | 상품 이미지 URL (없으면 프론트에서 그라디언트 placeholder 표시) |
 
 - 응답: `201 Created`
   ```json
@@ -88,7 +91,8 @@
       { "minCount": 5, "price": 18000 },
       { "minCount": 10, "price": 15000 }
     ],
-    "createdAt": "2026-07-24T10:00:00"
+    "createdAt": "2026-07-24T10:00:00",
+    "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg"
   }
   ```
 

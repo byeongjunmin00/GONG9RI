@@ -59,7 +59,7 @@ class SellerMypageControllerTest {
     }
 
     private Product saveProduct(Member seller, String name, int maxParticipants) {
-        return productRepository.save(new Product(seller, name, "설명", 25000, maxParticipants));
+        return productRepository.save(new Product(seller, name, "설명", 25000, maxParticipants, null));
     }
 
     @Test

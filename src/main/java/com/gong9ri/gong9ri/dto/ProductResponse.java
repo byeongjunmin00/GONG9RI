@@ -14,7 +14,8 @@ public record ProductResponse(
         Integer basePrice,
         Integer maxParticipants,
         List<PriceTierResponse> priceTiers,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        String imageUrl
 ) {
     public static ProductResponse of(Product product, List<PriceTier> priceTiers) {
         return new ProductResponse(
@@ -26,7 +27,8 @@ public record ProductResponse(
                 product.getBasePrice(),
                 product.getMaxParticipants(),
                 priceTiers.stream().map(PriceTierResponse::from).toList(),
-                product.getCreatedAt()
+                product.getCreatedAt(),
+                product.getImageUrl()
         );
     }
 }

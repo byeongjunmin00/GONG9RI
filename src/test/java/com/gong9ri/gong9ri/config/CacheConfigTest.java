@@ -48,7 +48,7 @@ class CacheConfigTest {
                 productListConfig.get().getValueSerializationPair();
 
         ProductSummaryResponse summary = new ProductSummaryResponse(
-                1L, "제주 감귤 5kg", 25000, 15000, 10, "테스트판매자", LocalDateTime.now());
+                1L, "제주 감귤 5kg", 25000, 15000, 10, "테스트판매자", LocalDateTime.now(), null);
         ProductPageResponse original = new ProductPageResponse(List.of(summary), 0, 20, 1L);
 
         ByteBuffer serialized = valueSerializer.write(original);
@@ -76,7 +76,7 @@ class CacheConfigTest {
         ProductResponse original = new ProductResponse(
                 1L, 2L, "테스트판매자", "제주 감귤 5kg", "직접 재배한 감귤", 25000, 10,
                 List.of(new PriceTierResponse(2, 22000), new PriceTierResponse(10, 15000)),
-                LocalDateTime.now());
+                LocalDateTime.now(), null);
 
         ByteBuffer serialized = valueSerializer.write(original);
         Object deserialized = valueSerializer.read(serialized);

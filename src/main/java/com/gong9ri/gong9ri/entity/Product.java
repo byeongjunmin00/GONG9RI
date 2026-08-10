@@ -59,18 +59,22 @@ public class Product {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-    public Product(Member seller, String name, String description, Integer basePrice, Integer maxParticipants) {
+    public Product(Member seller, String name, String description, Integer basePrice, Integer maxParticipants,
+            String imageUrl) {
         this.seller = seller;
         this.name = name;
         this.description = description;
         this.basePrice = basePrice;
         this.maxParticipants = maxParticipants;
+        this.imageUrl = imageUrl;
     }
 
-    public void update(String name, String description, Integer basePrice, Integer maxParticipants) {
+    public void update(String name, String description, Integer basePrice, Integer maxParticipants,
+            String imageUrl) {
         this.name = name;
         this.description = description;
         this.basePrice = basePrice;
         this.maxParticipants = maxParticipants;
+        this.imageUrl = imageUrl;
     }
 }

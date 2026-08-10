@@ -75,7 +75,7 @@ class PaymentControllerTest {
     }
 
     private Product saveProduct(Member seller, int basePrice, int maxParticipants) {
-        return productRepository.save(new Product(seller, "제주 감귤 5kg", "설명", basePrice, maxParticipants));
+        return productRepository.save(new Product(seller, "제주 감귤 5kg", "설명", basePrice, maxParticipants, null));
     }
 
     private GroupBuyTeam saveTeamWithCount(Product product, Member leader, int maxParticipants, int currentCount) {

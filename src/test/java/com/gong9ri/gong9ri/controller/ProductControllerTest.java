@@ -62,7 +62,7 @@ class ProductControllerTest {
     }
 
     private Product saveProduct(Member seller) {
-        Product product = new Product(seller, "제주 감귤 5kg", "직접 재배한 감귤", 25000, 10);
+        Product product = new Product(seller, "제주 감귤 5kg", "직접 재배한 감귤", 25000, 10, null);
         Product saved = productRepository.save(product);
         priceTierRepository.save(new PriceTier(saved, 2, 22000));
         priceTierRepository.save(new PriceTier(saved, 10, 15000));

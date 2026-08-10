@@ -77,7 +77,7 @@ class SellerRevenueSummaryTest {
     }
 
     private Product saveProduct(Member seller) {
-        return productRepository.save(new Product(seller, "요약테스트상품", "설명", 10000, 10));
+        return productRepository.save(new Product(seller, "요약테스트상품", "설명", 10000, 10, null));
     }
 
     private MemberUserDetails asPrincipal(Member member) {

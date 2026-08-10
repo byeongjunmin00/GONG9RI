@@ -52,6 +52,12 @@
 
     var imageEl = document.createElement('div');
     imageEl.className = 'card-image';
+    if (product.imageUrl) {
+      var imgEl = document.createElement('img');
+      imgEl.src = product.imageUrl;
+      imgEl.alt = product.name || '';
+      imageEl.appendChild(imgEl);
+    }
     link.appendChild(imageEl);
 
     var bodyEl = document.createElement('div');

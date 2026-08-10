@@ -25,6 +25,7 @@
   var descriptionInput = document.getElementById('description');
   var basePriceInput = document.getElementById('basePrice');
   var maxParticipantsInput = document.getElementById('maxParticipants');
+  var imageUrlInput = document.getElementById('imageUrl');
 
   var priceTierRowsEl = document.getElementById('price-tier-rows');
   var addPriceTierBtn = document.getElementById('add-price-tier-btn');
@@ -34,7 +35,7 @@
 
   if (
     !formAlertEl || !formAlertTextEl || !formAlertLoginLinkEl ||
-    !form || !nameInput || !descriptionInput || !basePriceInput || !maxParticipantsInput ||
+    !form || !nameInput || !descriptionInput || !basePriceInput || !maxParticipantsInput || !imageUrlInput ||
     !priceTierRowsEl || !addPriceTierBtn || !priceTiersErrorEl || !submitBtn
   ) {
     return;
@@ -233,6 +234,7 @@
     var description = descriptionInput.value.trim();
     var basePriceRaw = basePriceInput.value.trim();
     var maxParticipantsRaw = maxParticipantsInput.value.trim();
+    var imageUrl = imageUrlInput.value.trim();
 
     // UX 보조용 최소 필수값 체크. 실제 판정 기준(SSOT)은 서버 응답(VALIDATION_FAILED)이다.
     if (!name || !basePriceRaw || !maxParticipantsRaw) {
@@ -268,6 +270,7 @@
       basePrice: basePrice,
       maxParticipants: maxParticipants,
       priceTiers: collected.tiers,
+      imageUrl: imageUrl || null,
     })
       .then(function (product) {
         window.location.href = '/product.html?id=' + product.productId;

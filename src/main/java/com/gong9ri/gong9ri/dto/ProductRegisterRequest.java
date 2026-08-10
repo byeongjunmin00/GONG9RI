@@ -11,6 +11,7 @@ public record ProductRegisterRequest(
         String description,
         @NotNull Integer basePrice,
         @NotNull Integer maxParticipants,
-        @NotEmpty @Valid List<PriceTierRequest> priceTiers
+        @NotEmpty @Valid List<PriceTierRequest> priceTiers,
+        String imageUrl
 ) {
 }

@@ -21,6 +21,7 @@
   var pageAlertPayLinkEl = document.getElementById('page-alert-pay-link');
   var statusEl = document.getElementById('product-status');
   var detailEl = document.getElementById('product-detail');
+  var imageEl = document.getElementById('product-image');
 
   var sellerEl = document.getElementById('product-seller');
   var nameEl = document.getElementById('product-name');
@@ -38,6 +39,7 @@
 
   if (
     !pageAlertEl || !pageAlertTextEl || !pageAlertLoginLinkEl || !pageAlertPayLinkEl || !statusEl || !detailEl ||
+    !imageEl ||
     !sellerEl || !nameEl || !descriptionEl || !basePriceEl || !maxParticipantsEl ||
     !priceTiersTableEl || !priceTiersBodyEl || !buyAloneBtn || !createTeamBtn ||
     !teamStatusEl || !teamListEl
@@ -144,6 +146,14 @@
   }
 
   function renderProduct(product) {
+    clearChildren(imageEl);
+    if (product.imageUrl) {
+      var imgEl = document.createElement('img');
+      imgEl.src = product.imageUrl;
+      imgEl.alt = product.name || '';
+      imageEl.appendChild(imgEl);
+    }
+
     sellerEl.textContent = product.sellerName || '';
     nameEl.textContent = product.name || '';
     descriptionEl.textContent = product.description || '';

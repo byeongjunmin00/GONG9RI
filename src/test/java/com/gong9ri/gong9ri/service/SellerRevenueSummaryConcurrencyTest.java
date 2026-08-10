@@ -95,7 +95,7 @@ class SellerRevenueSummaryConcurrencyTest {
         memberIdsToClean.add(seller.getId());
 
         Product product = productRepository.save(
-                new Product(seller, "동시성매출테스트상품", "설명", 10000, 100));
+                new Product(seller, "동시성매출테스트상품", "설명", 10000, 100, null));
         productIdToClean = product.getId();
 
         // 이번 검증의 핵심: 요약 행을 미리 만들어두지 않는다(부트스트랩 없음). incrementPaid가 upsert라

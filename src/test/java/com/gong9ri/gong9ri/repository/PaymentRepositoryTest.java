@@ -47,7 +47,7 @@ class PaymentRepositoryTest {
     void findDistinctSellerIdsWithPayments_returnsDistinctSellerIds() {
         Member seller = saveMember("repoTestSeller1", Role.SELLER);
         Member buyer = saveMember("repoTestBuyer1", Role.BUYER);
-        Product product = productRepository.save(new Product(seller, "레포지토리테스트상품", "설명", 10000, 10));
+        Product product = productRepository.save(new Product(seller, "레포지토리테스트상품", "설명", 10000, 10, null));
 
         paymentRepository.save(new Payment(buyer, product, null, 10000));
         paymentRepository.save(new Payment(buyer, product, null, 10000));
@@ -63,7 +63,7 @@ class PaymentRepositoryTest {
     @DisplayName("결제 이력이 없는 판매자는 조회 결과에 포함되지 않는다")
     void findDistinctSellerIdsWithPayments_excludesSellersWithoutPayments() {
         Member sellerWithoutPayments = saveMember("repoTestSeller2", Role.SELLER);
-        productRepository.save(new Product(sellerWithoutPayments, "결제없는상품", "설명", 10000, 10));
+        productRepository.save(new Product(sellerWithoutPayments, "결제없는상품", "설명", 10000, 10, null));
 
         List<Long> sellerIds = paymentRepository.findDistinctSellerIdsWithPayments();
 
