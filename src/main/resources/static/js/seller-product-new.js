@@ -1,0 +1,287 @@
+/**
+ * seller-product-new.js — 판매 물품 등록 페이지(seller/products/new.html) 전용 스크립트
+ *
+ * 이 페이지는 static/ 루트가 아닌 서브디렉토리(/seller/products/new.html)에 있으므로,
+ * 성공 후 이동(product.html) 등 페이지 이동은 반드시 절대경로("/product.html?id=...")를 쓴다
+ * (상대경로를 쓰면 /seller/products/product.html처럼 잘못된 경로로 풀린다).
+ *
+ * - 폼 로드 시 별도 API 호출 없음(로그인 상태를 사전에 확인하지 않는 기존 원칙과 동일).
+ * - 가격 구간(priceTiers)은 최소 1행을 항상 유지하는 동적 행 목록이다.
+ *   행이 1개뿐일 때는 그 행의 삭제 버튼을 숨긴다(마지막 1행 삭제 불가).
+ * - 클라이언트 가드레일 검증(오름차순/중복 금지/범위 권장)은 UX 보조일 뿐 SSOT가 아니다.
+ *   최종 판정은 서버 응답(400 VALIDATION_FAILED)이다.
+ * - "등록하기"(POST /api/products) 성공(201) 시 product.html?id={productId}로 이동한다.
+ *   실패: 400(공통 에러 배너) / 401(로그인 필요 안내 + 로그인 링크) / 403(서버 message).
+ * - "취소하기"는 API 호출 없이 정적 링크(<a href="/">)로 처리한다(product-detail의 "계속 쇼핑하기"와 동일 패턴).
+ * - 서버 에러 message 등 신뢰할 수 없는 문자열은 textContent로만 대입해 XSS를 방지한다.
+ */
+(function () {
+  var formAlertEl = document.getElementById('form-alert');
+  var formAlertTextEl = document.getElementById('form-alert-text');
+  var formAlertLoginLinkEl = document.getElementById('form-alert-login-link');
+
+  var form = document.getElementById('product-form');
+  var nameInput = document.getElementById('name');
+  var descriptionInput = document.getElementById('description');
+  var basePriceInput = document.getElementById('basePrice');
+  var maxParticipantsInput = document.getElementById('maxParticipants');
+
+  var priceTierRowsEl = document.getElementById('price-tier-rows');
+  var addPriceTierBtn = document.getElementById('add-price-tier-btn');
+  var priceTiersErrorEl = document.getElementById('price-tiers-error');
+
+  var submitBtn = document.getElementById('submit-btn');
+
+  if (
+    !formAlertEl || !formAlertTextEl || !formAlertLoginLinkEl ||
+    !form || !nameInput || !descriptionInput || !basePriceInput || !maxParticipantsInput ||
+    !priceTierRowsEl || !addPriceTierBtn || !priceTiersErrorEl || !submitBtn
+  ) {
+    return;
+  }
+
+  function showAlert(text, showLoginLink) {
+    formAlertEl.hidden = false;
+    formAlertEl.className = 'form-alert form-alert--error';
+    formAlertTextEl.textContent = text;
+    formAlertLoginLinkEl.hidden = !showLoginLink;
+  }
+
+  function hideAlert() {
+    formAlertEl.hidden = true;
+    formAlertTextEl.textContent = '';
+    formAlertLoginLinkEl.hidden = true;
+  }
+
+  function showPriceTiersError(text) {
+    priceTiersErrorEl.hidden = false;
+    priceTiersErrorEl.textContent = text;
+  }
+
+  function hidePriceTiersError() {
+    priceTiersErrorEl.hidden = true;
+    priceTiersErrorEl.textContent = '';
+  }
+
+  /**
+   * 가격 구간 행이 1개뿐이면 그 행의 삭제 버튼을 숨긴다(마지막 1행 삭제 불가).
+   * 2개 이상이면 모든 행의 삭제 버튼을 보여준다.
+   */
+  function updateRemoveButtonsVisibility() {
+    var rows = priceTierRowsEl.querySelectorAll('.price-tier-row');
+    var onlyOneRow = rows.length <= 1;
+    rows.forEach(function (row) {
+      var removeBtn = row.querySelector('.price-tier-row__remove');
+      if (removeBtn) {
+        removeBtn.hidden = onlyOneRow;
+      }
+    });
+  }
+
+  function createPriceTierRow() {
+    var row = document.createElement('div');
+    row.className = 'price-tier-row';
+
+    var minCountGroup = document.createElement('div');
+    minCountGroup.className = 'form-group price-tier-row__field';
+    var minCountLabel = document.createElement('label');
+    minCountLabel.className = 'form-label';
+    minCountLabel.textContent = '최소 인원';
+    var minCountInput = document.createElement('input');
+    minCountInput.className = 'form-input';
+    minCountInput.type = 'number';
+    minCountInput.min = '1';
+    minCountInput.step = '1';
+    minCountInput.placeholder = '예: 2';
+    minCountInput.setAttribute('data-field', 'minCount');
+    minCountGroup.appendChild(minCountLabel);
+    minCountGroup.appendChild(minCountInput);
+
+    var priceGroup = document.createElement('div');
+    priceGroup.className = 'form-group price-tier-row__field';
+    var priceLabel = document.createElement('label');
+    priceLabel.className = 'form-label';
+    priceLabel.textContent = '1인당 가격';
+    var priceInput = document.createElement('input');
+    priceInput.className = 'form-input';
+    priceInput.type = 'number';
+    priceInput.min = '0';
+    priceInput.step = '1';
+    priceInput.placeholder = '예: 18000';
+    priceInput.setAttribute('data-field', 'price');
+    priceGroup.appendChild(priceLabel);
+    priceGroup.appendChild(priceInput);
+
+    var removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn btn-ghost btn-sm price-tier-row__remove';
+    removeBtn.textContent = '삭제';
+    removeBtn.setAttribute('aria-label', '이 가격 구간 삭제');
+    removeBtn.addEventListener('click', function () {
+      removePriceTierRow(row);
+    });
+
+    row.appendChild(minCountGroup);
+    row.appendChild(priceGroup);
+    row.appendChild(removeBtn);
+
+    return row;
+  }
+
+  function addPriceTierRow() {
+    priceTierRowsEl.appendChild(createPriceTierRow());
+    updateRemoveButtonsVisibility();
+  }
+
+  function removePriceTierRow(row) {
+    var rows = priceTierRowsEl.querySelectorAll('.price-tier-row');
+    if (rows.length <= 1) {
+      return; // 최소 1행은 유지한다.
+    }
+    priceTierRowsEl.removeChild(row);
+    updateRemoveButtonsVisibility();
+  }
+
+  /**
+   * @returns {{tiers: Array<{minCount: number, price: number}>|null, message: string|null}}
+   *   tiers가 null이면 message에 담긴 사유로 제출을 막아야 한다.
+   */
+  function collectPriceTiers() {
+    var rows = priceTierRowsEl.querySelectorAll('.price-tier-row');
+    var tiers = [];
+
+    for (var i = 0; i < rows.length; i++) {
+      var minCountInput = rows[i].querySelector('[data-field="minCount"]');
+      var priceInput = rows[i].querySelector('[data-field="price"]');
+      var minCountRaw = minCountInput ? minCountInput.value.trim() : '';
+      var priceRaw = priceInput ? priceInput.value.trim() : '';
+
+      if (!minCountRaw || !priceRaw) {
+        return { tiers: null, message: '가격 구간의 최소 인원과 가격을 모두 입력해주세요.' };
+      }
+
+      var minCount = Number(minCountRaw);
+      var price = Number(priceRaw);
+
+      if (!Number.isInteger(minCount) || !Number.isInteger(price) || minCount < 1 || price < 0) {
+        return { tiers: null, message: '가격 구간의 값이 올바르지 않습니다.' };
+      }
+
+      tiers.push({ minCount: minCount, price: price });
+    }
+
+    return { tiers: tiers, message: null };
+  }
+
+  /**
+   * 서버가 강제하지 않는 부분(오름차순/중복/범위)을 UX로 보완하는 가드레일. SSOT는 서버 응답이다.
+   * @param {Array<{minCount: number, price: number}>} tiers
+   * @param {number} maxParticipants
+   * @returns {string|null} 문제가 있으면 안내 문구, 없으면 null
+   */
+  function validatePriceTiersGuardrail(tiers, maxParticipants) {
+    var seen = {};
+    var previousMinCount = null;
+
+    for (var i = 0; i < tiers.length; i++) {
+      var tier = tiers[i];
+
+      if (seen[tier.minCount]) {
+        return '가격 구간의 최소 인원은 중복될 수 없습니다.';
+      }
+      seen[tier.minCount] = true;
+
+      if (previousMinCount !== null && tier.minCount <= previousMinCount) {
+        return '가격 구간은 최소 인원 오름차순으로 입력해주세요.';
+      }
+      previousMinCount = tier.minCount;
+
+      if (tier.minCount < 2) {
+        return '가격 구간의 최소 인원은 2명 이상을 권장합니다.';
+      }
+
+      if (typeof maxParticipants === 'number' && tier.minCount > maxParticipants) {
+        return '가격 구간의 최소 인원은 팀 최대 인원 이하여야 합니다.';
+      }
+    }
+
+    return null;
+  }
+
+  function handlePostError(err) {
+    console.error('[seller-product-new.js] product register failed:', err);
+
+    var status = err && err.status;
+    var code = err && err.code;
+    var message = (err && err.message) || '상품 등록에 실패했습니다. 잠시 후 다시 시도해주세요.';
+
+    if (status === 401 || code === 'UNAUTHORIZED') {
+      showAlert('로그인이 필요합니다.', true);
+      return;
+    }
+
+    // 403(FORBIDDEN, 구매자 계정) / 400(VALIDATION_FAILED) 등 나머지는 서버 message를 그대로 안내한다.
+    showAlert(message, false);
+  }
+
+  form.addEventListener('submit', function (event) {
+    event.preventDefault();
+    hideAlert();
+    hidePriceTiersError();
+
+    var name = nameInput.value.trim();
+    var description = descriptionInput.value.trim();
+    var basePriceRaw = basePriceInput.value.trim();
+    var maxParticipantsRaw = maxParticipantsInput.value.trim();
+
+    // UX 보조용 최소 필수값 체크. 실제 판정 기준(SSOT)은 서버 응답(VALIDATION_FAILED)이다.
+    if (!name || !basePriceRaw || !maxParticipantsRaw) {
+      showAlert('상품명, 정가, 팀 최대 인원을 모두 입력해주세요.');
+      return;
+    }
+
+    var basePrice = Number(basePriceRaw);
+    var maxParticipants = Number(maxParticipantsRaw);
+
+    if (!Number.isInteger(basePrice) || basePrice < 0 || !Number.isInteger(maxParticipants) || maxParticipants < 2) {
+      showAlert('정가와 팀 최대 인원 값이 올바르지 않습니다.');
+      return;
+    }
+
+    var collected = collectPriceTiers();
+    if (collected.tiers === null) {
+      showPriceTiersError(collected.message);
+      return;
+    }
+
+    var guardrailMessage = validatePriceTiersGuardrail(collected.tiers, maxParticipants);
+    if (guardrailMessage) {
+      showPriceTiersError(guardrailMessage);
+      return;
+    }
+
+    submitBtn.disabled = true;
+
+    window.Api.post('/products', {
+      name: name,
+      description: description,
+      basePrice: basePrice,
+      maxParticipants: maxParticipants,
+      priceTiers: collected.tiers,
+    })
+      .then(function (product) {
+        window.location.href = '/product.html?id=' + product.productId;
+      })
+      .catch(function (err) {
+        submitBtn.disabled = false;
+        handlePostError(err);
+      });
+  });
+
+  addPriceTierBtn.addEventListener('click', function () {
+    addPriceTierRow();
+  });
+
+  // 초기 1행 세팅(최소 1행 유지 원칙).
+  addPriceTierRow();
+})();

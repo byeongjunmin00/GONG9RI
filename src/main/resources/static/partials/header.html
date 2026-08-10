@@ -6,8 +6,9 @@
     새로고침 후에도 신뢰성 있게 로그인 상태를 재현할 방법이 없다(docs/dev/frontend/auth/design.md 참고).
     로그아웃 버튼/호출도 같은 이유로 아직 두지 않았다.
   * 로그인(`/login.html`)·회원가입(`/signup.html`) 링크는 실제 페이지가 만들어졌다(frontend/auth 작업).
-    "판매 물품 등록"(`/seller/products/new.html`)은 아직 해당 페이지가 없는 자리표시자(placeholder)다.
-    해당 페이지가 실제로 만들어지면 경로를 맞춰 갱신한다.
+    "판매 물품 등록"(`/seller/products/new.html`)도 실제 페이지가 만들어졌다(frontend/seller-product-new 작업).
+    이 페이지는 서브디렉토리에 있어 SecurityConfig의 정적 리소스 permitAll 매처에
+    "/**/*.html"이 추가돼 있어야 비로그인 상태에서도 정상 렌더링된다.
 -->
 <header class="site-header">
   <div class="container site-header__inner">

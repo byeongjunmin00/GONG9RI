@@ -394,3 +394,26 @@
 .team-item-count {
   font-weight: 700;
 }
+
+/* ---------- Price tier rows (판매 물품 등록 — 가격 구간 입력) ---------- */
+.price-tier-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.price-tier-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.price-tier-row__field {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.price-tier-row__remove {
+  flex-shrink: 0;
+}

@@ -42,7 +42,9 @@ public class SecurityConfig {
                 .securityContext(context -> context.securityContextRepository(securityContextRepository))
                 .exceptionHandling(handling -> handling.authenticationEntryPoint(authenticationEntryPoint))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/*.html", "/css/**", "/js/**", "/partials/**").permitAll()
+                        // "/*.html"은 단일 세그먼트만 매칭하므로(예: /login.html), 서브디렉토리 정적 페이지
+                        // (예: /seller/products/new.html)까지 허용하도록 "/**/*.html"을 나란히 추가한다.
+                        .requestMatchers("/", "/*.html", "/**/*.html", "/css/**", "/js/**", "/partials/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
                         .anyRequest().authenticated());
