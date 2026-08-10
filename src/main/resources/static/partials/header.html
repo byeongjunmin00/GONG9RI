@@ -6,11 +6,11 @@
     GET /api/auth/me를 호출하고, 성공(로그인 상태)이면 #header-auth-guest를 숨기고
     #header-auth-user를 보여주며(사용자 이름 표시 + 로그아웃 버튼), 실패(401 등)면 아래
     비로그인 마크업을 그대로 유지한다.
-  * nav 링크(판매 물품 등록/판매자 마이페이지/구매자 마이페이지)는 로그인 여부·역할과 무관하게
-    항상 전부 노출한다(숨기지 않음) — 로그인한 역할에 해당하는 링크에는 header-auth.js가
-    `data-role` 속성을 기준으로 강조 클래스(`nav-link--role-active`)만 추가한다.
-    기존 원칙(비로그인/역할이 다른 상태에서 클릭해도 페이지는 열리고 각 API 호출에서
-    401/403으로 사후 판정)은 그대로 유지한다.
+  * nav 링크(판매 물품 등록/판매자 마이페이지/구매자 마이페이지)는 로그인 상태·역할에 따라
+    숨김/노출된다 — 기본값은 `hidden`이며, header-auth.js가 로그인한 역할과 일치하는
+    `data-role` 링크만 `hidden = false`로 노출한다("메인"은 `data-role`이 없어 항상 노출).
+    각 페이지 자체의 접근 제어(비로그인으로 URL 직접 접근 시 등)는 이 헤더 표시와 무관하게
+    서버 401/403 사후 판정으로 그대로 유지된다.
   * 로그인(`/login.html`)·회원가입(`/signup.html`) 링크는 실제 페이지가 만들어졌다(frontend/auth 작업).
     "판매 물품 등록"(`/seller/products/new.html`)도 실제 페이지가 만들어졌다(frontend/seller-product-new 작업).
     "판매자 마이페이지"(`/seller/mypage.html`)도 실제 페이지가 만들어졌다(frontend/seller-mypage 작업).
@@ -26,9 +26,9 @@
 
     <nav class="site-header__nav" aria-label="주요 메뉴">
       <a href="/">메인</a>
-      <a href="/seller/products/new.html" data-role="SELLER">판매 물품 등록</a>
-      <a href="/seller/mypage.html" data-role="SELLER">판매자 마이페이지</a>
-      <a href="/buyer/mypage.html" data-role="BUYER">구매자 마이페이지</a>
+      <a href="/seller/products/new.html" data-role="SELLER" hidden>판매 물품 등록</a>
+      <a href="/seller/mypage.html" data-role="SELLER" hidden>판매자 마이페이지</a>
+      <a href="/buyer/mypage.html" data-role="BUYER" hidden>구매자 마이페이지</a>
     </nav>
 
     <div class="site-header__auth" id="header-auth-guest">

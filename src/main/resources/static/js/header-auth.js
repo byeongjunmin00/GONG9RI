@@ -7,9 +7,10 @@
  * 흐름:
  * 1. GET /api/auth/me 호출
  *    - 성공(200): 로그인 상태 → #header-auth-guest 숨기고 #header-auth-user 노출
- *      (사용자 이름 표시), 로그인한 역할(BUYER/SELLER)에 해당하는 nav 링크에
- *      강조 클래스만 추가한다(링크 자체는 숨기지 않는다 — 기존 401/403 사후 판정 원칙 유지).
- *    - 실패(401 등): 비로그인 상태 → 아무것도 하지 않고 기존 비로그인 마크업을 그대로 둔다.
+ *      (사용자 이름 표시), 로그인한 역할(BUYER/SELLER)에 해당하는 nav 링크만
+ *      hidden 속성을 해제해 노출하고 강조 클래스도 추가한다(기본값은 hidden이라
+ *      역할이 다른 링크는 그대로 숨겨진 채 유지된다).
+ *    - 실패(401 등): 비로그인 상태 → 아무것도 하지 않아 nav 링크가 기본값(hidden)인 채로 유지된다.
  * 2. #header-auth-logout 클릭 시 POST /api/auth/logout 호출 후 성공하면 현재 페이지를 새로고침한다.
  *
  * 이 파일은 window.Api(js/api.js)에 의존한다 — HTML에서 api.js보다 뒤에 로드해야 한다.
@@ -34,6 +35,7 @@
     Array.prototype.forEach.call(roleLinks, function (link) {
       if (link.getAttribute('data-role') === member.role) {
         link.classList.add('nav-link--role-active');
+        link.hidden = false;
       }
     });
   }

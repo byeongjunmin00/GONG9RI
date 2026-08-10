@@ -2,7 +2,7 @@
 
 ## 개요
 
-공통 헤더(`partials/header.html`)가 실제 로그인 상태(로그인 여부 + 역할 `BUYER`/`SELLER`)에 따라 다르게 보이도록 연동한다. 비로그인 시 기존과 동일하게 로그인/회원가입 버튼을 보여주고, 로그인 시 사용자 이름 + 로그아웃 버튼으로 전환한다. nav 링크(판매 물품 등록/판매자 마이페이지/구매자 마이페이지)는 로그인 여부·역할과 무관하게 항상 전부 노출하는 기존 프로젝트 원칙을 유지하고, 로그인한 역할에 해당하는 링크에만 시각적 강조를 준다.
+공통 헤더(`partials/header.html`)가 실제 로그인 상태(로그인 여부 + 역할 `BUYER`/`SELLER`)에 따라 다르게 보이도록 연동한다. 비로그인 시 기존과 동일하게 로그인/회원가입 버튼을 보여주고, 로그인 시 사용자 이름 + 로그아웃 버튼으로 전환한다. nav 링크(판매 물품 등록/판매자 마이페이지/구매자 마이페이지)는 **로그인한 역할과 일치할 때만 노출**하고, 비로그인이거나 역할이 다르면 숨긴다(`changes/002-nav-visibility.md`에서 "역할 무관 항상 노출·강조만" 방침을 뒤집은 결정 — 아래 "역할별 nav 표시" 참고). 이 헤더 표시 여부와 무관하게, 각 페이지 자체의 서버 401/403 사후 판정(URL 직접 접근 시)은 기존과 동일하게 유지된다.
 
 ## 인터페이스 / 산출물
 
@@ -23,14 +23,14 @@ src/main/resources/static/
 - **실행 시점 보장**: `include.js`의 `includeAll()`이 모든 `data-include` 삽입을 끝낸 뒤 `document`에 `gong9ri:includes-ready`를 정확히 1회 발행한다. `header-auth.js`는 이 이벤트를 구독해야만 동작을 시작한다(헤더 DOM이 아직 없는 시점에 실행되는 경합 방지).
 - **로그인 상태 판정**: `Api.get('/auth/me')` 성공(200) → 로그인 상태로 간주, 응답 실패(401 등) → `.catch`에서 아무 것도 하지 않아 기존 비로그인 마크업을 그대로 유지한다(신규 에러 분기 없음).
 - **헤더 토글**: 로그인 시 `#header-auth-guest`에 `hidden = true`, `#header-auth-user`에 `hidden = false`를 대입. 두 영역 모두 동일한 `.site-header__auth` 클래스를 쓰는 마크업이며 `innerHTML` 조작은 없다. 사용자 이름은 `#header-auth-user-name.textContent = member.name + '님'`로만 대입(XSS 방지).
-- **역할별 nav 강조**: nav 링크는 숨기지 않는다(항상 노출, 기존 401/403 사후 판정 원칙 유지). `.site-header__nav a[data-role]` 중 로그인한 `member.role`과 일치하는 링크에만 `nav-link--role-active` 클래스를 추가한다.
+- **역할별 nav 표시**: `.site-header__nav a[data-role]`(3개: 판매 물품 등록/판매자 마이페이지=`SELLER`, 구매자 마이페이지=`BUYER`)는 마크업 기본값이 `hidden`이다(비로그인 상태를 기본으로 간주). 로그인한 `member.role`과 일치하는 링크만 `hidden = false`로 노출하고 `nav-link--role-active` 클래스도 함께 추가한다. 역할이 다른 링크는 손대지 않아 기본 `hidden`이 유지된다. `data-role`이 없는 "메인" 링크는 항상 노출.
 - **로그아웃**: `#header-auth-logout` 클릭 시 `Api.post('/auth/logout')` 성공 후 `window.location.reload()`(현재 페이지 새로고침). 실패는 콘솔 로그만 남기고 별도 UI 처리 없음.
 
 ## 규칙 / 검증
 
-- **`[hidden]` 특이도 보정**: `layout.css`가 `.site-header__auth { display: flex; }`(특이도 0,1,0)를 선언하고 있어 네이티브 `[hidden]`이 무시된다. `components.css`에 `.site-header__auth[hidden] { display: none; }`(특이도 0,2,0)를 추가해 보정한다(`.btn[hidden]` 등 기존 패턴과 동일).
+- **`[hidden]` 특이도 보정**: `layout.css`가 `.site-header__auth { display: flex; }`(특이도 0,1,0)를 선언하고 있어 네이티브 `[hidden]`이 무시된다. `components.css`에 `.site-header__auth[hidden] { display: none; }`(특이도 0,2,0)를 추가해 보정한다(`.btn[hidden]` 등 기존 패턴과 동일). nav 링크(`<a>`)는 `base.css`가 `display`를 선언하지 않아 이 보정이 필요 없다(네이티브 `[hidden]` 동작 그대로 사용).
 - **서버 문자열은 `textContent`로만 대입** — `header-auth.js`에 `innerHTML` 사용 없음.
-- **역할 무관 nav 원칙 유지** — 로그인/역할과 무관하게 링크는 항상 클릭 가능하고 최종 판정은 서버 401/403(기존 페이지들과 동일).
+- **역할 불일치 시 접근은 헤더가 아니라 서버가 막는다** — nav에서 안 보여도 URL 직접 접근은 가능하며, 그 경우 각 페이지가 기존처럼 서버 401/403 응답으로 사후 판정한다(헤더 표시는 UX 편의일 뿐 접근 제어 수단이 아님).
 
 ## 관련 코드 위치
 
@@ -39,4 +39,4 @@ src/main/resources/static/
 - `src/main/resources/static/partials/header.html` — 로그인 상태 토글 마크업
 - `src/main/resources/static/css/components.css` — 헤더 로그인 상태 스타일 3개 규칙
 - 위 10개 정적 HTML 페이지 — `<script>` 태그 추가
-- 경위: `docs/dev/frontend/header-auth/changes/001-header-auth.md`, 실행 로그: `docs/logs/frontend/header-auth/001-header-auth.md`
+- 경위: `docs/dev/frontend/header-auth/changes/001-header-auth.md`(초기 "강조만" 구현), `changes/002-nav-visibility.md`(숨김으로 전환), 실행 로그: `docs/logs/frontend/header-auth/001-header-auth.md`, `002-nav-visibility.md`
