@@ -7,8 +7,11 @@
     로그아웃 버튼/호출도 같은 이유로 아직 두지 않았다.
   * 로그인(`/login.html`)·회원가입(`/signup.html`) 링크는 실제 페이지가 만들어졌다(frontend/auth 작업).
     "판매 물품 등록"(`/seller/products/new.html`)도 실제 페이지가 만들어졌다(frontend/seller-product-new 작업).
-    이 페이지는 서브디렉토리에 있어 SecurityConfig의 정적 리소스 permitAll 매처에
+    "판매자 마이페이지"(`/seller/mypage.html`)도 실제 페이지가 만들어졌다(frontend/seller-mypage 작업).
+    이 페이지들은 서브디렉토리에 있어 SecurityConfig의 정적 리소스 permitAll 매처에
     "/**/*.html"이 추가돼 있어야 비로그인 상태에서도 정상 렌더링된다.
+    "판매자 마이페이지"도 로그인 여부/역할과 무관하게 항상 노출한다(헤더 로그인 상태 미연동 원칙 —
+    비로그인/구매자 상태에서 클릭해도 페이지는 열리고 각 API 호출에서 401/403으로 사후 판정한다).
 -->
 <header class="site-header">
   <div class="container site-header__inner">
@@ -19,6 +22,7 @@
     <nav class="site-header__nav" aria-label="주요 메뉴">
       <a href="/">메인</a>
       <a href="/seller/products/new.html">판매 물품 등록</a>
+      <a href="/seller/mypage.html">판매자 마이페이지</a>
     </nav>
 
     <div class="site-header__auth">

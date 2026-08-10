@@ -417,3 +417,86 @@
 .price-tier-row__remove {
   flex-shrink: 0;
 }
+
+/* ---------- Mypage (판매자/구매자 마이페이지 — 목록형 섹션) ---------- */
+.mypage-section {
+  margin-bottom: var(--space-7);
+}
+
+.mypage-section:last-child {
+  margin-bottom: 0;
+}
+
+.mypage-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.mypage-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.mypage-list-item__info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.mypage-list-item__title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+}
+
+.mypage-list-item__meta {
+  font-size: var(--fs-sm);
+  color: var(--color-text-muted);
+}
+
+.mypage-list-item__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* ---------- Revenue cards (판매자 마이페이지 — 수익 현황) ---------- */
+.revenue-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-4);
+}
+
+/* 네이티브 [hidden]은 author 스타일시트의 .revenue-cards(display: grid)에 밀려 무시될 수 있으므로 명시적으로 보정한다. */
+.revenue-cards[hidden] {
+  display: none;
+}
+
+.revenue-card {
+  padding: var(--space-4);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+.revenue-card__label {
+  display: block;
+  font-size: var(--fs-sm);
+  color: var(--color-text-muted);
+}
+
+.revenue-card__value {
+  display: block;
+  margin-top: var(--space-1);
+  font-family: var(--font-heading);
+  font-size: var(--fs-xl);
+  font-weight: 800;
+}

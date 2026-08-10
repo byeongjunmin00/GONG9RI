@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>판매자 마이페이지 — GONG9RI</title>
+
+  <!-- 폰트: 헤딩 - Poppins(Google Fonts CDN), 본문 - Pretendard(jsdelivr CDN) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&display=swap"
+    rel="stylesheet"
+  />
+  <link
+    rel="stylesheet"
+    as="style"
+    crossorigin
+    href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"
+  />
+
+  <!-- 서브디렉토리(/seller/)에 있는 페이지라 CSS/JS/partial 참조는 반드시 절대경로로 쓴다. -->
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/layout.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+</head>
+<body>
+  <div data-include="header"></div>
+
+  <main>
+    <section class="section container">
+      <div class="section__head">
+        <h1><span class="text-gradient">판매자 마이페이지</span></h1>
+      </div>
+
+      <!-- 401 로그인 필요 안내(세 API 중 하나라도 401이면 표시하고 아래 섹션 전체를 숨긴다). -->
+      <div id="page-alert" class="form-alert" role="alert" hidden>
+        <span id="page-alert-text"></span>
+        <a id="page-alert-login-link" href="/login.html" hidden>로그인하기</a>
+      </div>
+
+      <div id="mypage-sections">
+        <!-- 등록 상품 목록 -->
+        <section class="mypage-section">
+          <div class="section__head">
+            <h2>등록 상품 목록</h2>
+          </div>
+
+          <!-- 로딩/빈 목록/에러(403 등) 상태. js/seller-mypage.js가 제어한다. -->
+          <div id="products-status" class="product-status" role="status" hidden></div>
+
+          <ul id="products-list" class="mypage-list"></ul>
+        </section>
+
+        <!-- 수익 현황 -->
+        <section class="mypage-section">
+          <div class="section__head">
+            <h2>수익 현황</h2>
+          </div>
+
+          <div id="revenue-status" class="product-status" role="status" hidden></div>
+
+          <div id="revenue-cards" class="revenue-cards" hidden>
+            <div class="revenue-card">
+              <span class="revenue-card__label">총 매출</span>
+              <span id="revenue-total" class="revenue-card__value"></span>
+            </div>
+            <div class="revenue-card">
+              <span class="revenue-card__label">결제 완료 건수</span>
+              <span id="revenue-paid-count" class="revenue-card__value"></span>
+            </div>
+            <div class="revenue-card">
+              <span class="revenue-card__label">환불 건수</span>
+              <span id="revenue-refunded-count" class="revenue-card__value"></span>
+            </div>
+          </div>
+        </section>
+
+        <!-- 공구 참여 현황 -->
+        <section class="mypage-section">
+          <div class="section__head">
+            <h2>공구 참여 현황</h2>
+          </div>
+
+          <div id="teams-status" class="product-status" role="status" hidden></div>
+
+          <ul id="teams-list" class="mypage-list"></ul>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <div data-include="footer"></div>
+
+  <script src="/js/include.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/seller-mypage.js"></script>
+</body>
+</html>

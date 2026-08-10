@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>판매 물품 수정 — GONG9RI</title>
+
+  <!-- 폰트: 헤딩 - Poppins(Google Fonts CDN), 본문 - Pretendard(jsdelivr CDN) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&display=swap"
+    rel="stylesheet"
+  />
+  <link
+    rel="stylesheet"
+    as="style"
+    crossorigin
+    href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"
+  />
+
+  <!-- 서브디렉토리(/seller/products/)에 있는 페이지라 CSS/JS/partial 참조는 반드시 절대경로로 쓴다. -->
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/layout.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+</head>
+<body>
+  <div data-include="header"></div>
+
+  <main>
+    <section class="section container">
+      <div style="max-width: 640px; margin: 0 auto;">
+        <div class="section__head" style="text-align: center;">
+          <h1><span class="text-gradient">판매 물품 수정</span></h1>
+          <p class="text-muted" style="margin-top: var(--space-2);">
+            상품 정보와 공구 가격 구간을 수정해주세요.
+          </p>
+        </div>
+
+        <!-- 필드로 원인을 특정할 수 없는 공통 에러/안내(예: VALIDATION_FAILED, 401, 403, 404). js/seller-product-edit.js가 제어한다. -->
+        <div id="form-alert" class="form-alert" role="alert" hidden>
+          <span id="form-alert-text"></span>
+          <a id="form-alert-login-link" href="/login.html" hidden>로그인하기</a>
+        </div>
+
+        <!-- 잘못된 접근 / 상품 없음 / 로딩 상태. 이 상태가 보이는 동안 아래 폼은 숨겨진다. -->
+        <div id="edit-status" class="product-status" role="status" hidden></div>
+
+        <form id="product-form" novalidate hidden>
+          <div class="form-group">
+            <label class="form-label" for="name">상품명</label>
+            <input
+              class="form-input"
+              type="text"
+              id="name"
+              name="name"
+              placeholder="상품명을 입력하세요"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="description">상품 설명</label>
+            <textarea
+              class="form-textarea"
+              id="description"
+              name="description"
+              placeholder="상품 설명을 입력하세요 (선택)"
+            ></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="basePrice">정가</label>
+            <input
+              class="form-input"
+              type="number"
+              id="basePrice"
+              name="basePrice"
+              min="0"
+              step="1"
+              placeholder="1인 구매 시 가격"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="maxParticipants">팀 최대 인원</label>
+            <input
+              class="form-input"
+              type="number"
+              id="maxParticipants"
+              name="maxParticipants"
+              min="2"
+              step="1"
+              placeholder="공구팀 최대 모집 인원"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" id="price-tiers-label">가격 구간</label>
+            <p class="form-hint">
+              모집 인원 구간별 1인당 가격을 최소 인원 오름차순으로 입력하세요. 최소 1개 이상 필요합니다.
+            </p>
+
+            <div id="price-tier-rows" class="price-tier-rows" role="group" aria-labelledby="price-tiers-label"></div>
+
+            <button type="button" id="add-price-tier-btn" class="btn btn-ghost btn-sm">+ 가격 구간 추가</button>
+
+            <!-- 가격 구간 클라이언트 가드레일 검증 에러(오름차순/중복/범위). 최종 판정은 서버 응답이다. -->
+            <p id="price-tiers-error" class="form-error" role="alert" hidden></p>
+          </div>
+
+          <div class="product-actions">
+            <button type="submit" id="submit-btn" class="btn btn-primary">저장하기</button>
+            <a href="/seller/mypage.html" class="btn btn-secondary">취소하기</a>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <div data-include="footer"></div>
+
+  <script src="/js/include.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/seller-product-edit.js"></script>
+</body>
+</html>
