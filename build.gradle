@@ -32,6 +32,9 @@ dependencyManagement {
 
 dependencies {
     implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+    // 정책 RAG 검색용 VectorStore/SimpleVectorStore — spring-ai-starter-model-openai에는
+    // 포함되지 않아 별도 추가(docs/logs/ai/policy-rag/001-policy-rag.md 참고, 버전은 BOM이 관리).
+    implementation 'org.springframework.ai:spring-ai-vector-store'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'

@@ -22,3 +22,10 @@ spring:
       # 테스트는 실제 OpenAI를 호출하지 않고 ChatClient를 목(mock)으로 대체한다 — 컨텍스트 로딩 시
       # 빈 생성 자체가 막히지 않도록 형식만 맞는 더미 키를 둔다(비용·네트워크 의존 없음).
       api-key: dummy-test-key-not-real
+
+policy-rag:
+  indexing:
+    # PolicyDocumentIndexer(ApplicationRunner)를 꺼서 @SpringBootTest 컨텍스트 로딩마다 실제 OpenAI
+    # 임베딩 API를 호출하는 걸 막는다(더미 키라 401 → 기존 테스트 전부 깨짐). 검색 로직 자체는
+    # PolicyRagServiceImplTest에서 VectorStore를 목으로 대체해 검증한다.
+    enabled: false

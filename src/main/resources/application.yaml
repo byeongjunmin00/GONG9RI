@@ -37,6 +37,13 @@ team:
   # docs/logs/team/crud/003-atomic-comparison.md 참고
   join-strategy: lock
 
+policy-rag:
+  indexing:
+    # 정책 문서 RAG 색인(PolicyDocumentIndexer) on/off. 기동 시 1회 실제 OpenAI 임베딩 API를 호출한다
+    # (docs/dev/ongoing/ai-policy-rag.md) — 테스트 환경(src/test/resources/application.yaml)에서는
+    # 반드시 false로 꺼서 @SpringBootTest 컨텍스트 로딩마다 실호출이 나가지 않게 한다.
+    enabled: true
+
 logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %5p [%X{traceId}] %-40.40logger{39} : %m%n"
