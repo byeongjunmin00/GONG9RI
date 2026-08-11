@@ -14,6 +14,7 @@
 
 - `group_buy_team`, `payment` 기존 테이블 재사용 — 상세: `docs/db/group_buy_team.md`, `docs/db/payment.md`
 - 신규 테이블/컬럼 없음. 기존 인덱스(`idx_status_deadline`, `idx_team_status`)를 그대로 활용.
+- **성능 병목 개선(발제 필수9) — EXPLAIN 기반 실측**: 스캔 쿼리(`status='RECRUITING' AND deadline<NOW()`)가 `idx_status_deadline`를 실제로 타는지, 인덱스가 없었다면 어땠을지를 합성 데이터(20만 건)로 재현해서 EXPLAIN·실행시간을 비교함 — 인덱스 없으면 전체 테이블 스캔(20만 건, 평균 52ms), 있으면 커버링 인덱스 레인지 스캔(매칭 33,336건만, 평균 13ms, 약 4배). 상세: `docs/logs/team/deadline-check/003-explain-analysis.md`.
 
 ## 이벤트 흐름
 
