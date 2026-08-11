@@ -92,3 +92,4 @@
   | `ALREADY_JOINED` | 409 | 이미 참가한 팀 |
   | `FORBIDDEN` | 403 | 판매자 계정으로 시도 |
   | `UNAUTHORIZED` | 401 | 미인증 |
+  | `TOO_MANY_REQUESTS` | 429 | 같은 클라이언트(IP)가 10초 안에 20회를 초과해서 요청(트래픽 제어, `docs/dev/team/crud/design.md` 참고) |
