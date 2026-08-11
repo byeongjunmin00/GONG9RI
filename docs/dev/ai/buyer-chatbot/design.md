@@ -2,7 +2,7 @@
 
 ## 개요
 
-구매자가 자연어로 채팅하면 AI가 필요시 백엔드 API(Tool)를 직접 호출해서 실시간 데이터를 근거로 답한다. 응답은 SSE로 토큰 단위 스트리밍되고, 대화는 세션 단위로 저장되어 멀티턴이 가능하다. 발제 AI 필수2(Tool Calling), 필수3(장애격리·비용인식), 도전(SSE 스트리밍+멀티턴)을 이 기능 하나로 묶어 구현한다. AI 도전 나머지 하나(RAG)는 전용운 담당(별도 진행) — 발제 요구사항에 "RAG+Tool Calling 결합"이 있어 나중에 이 서비스에 결합될 수 있으므로, 프롬프트/컨텍스트 조립을 한 곳에 모아두되 지금 RAG 훅은 만들지 않는다.
+구매자가 자연어로 채팅하면 AI가 필요시 백엔드 API(Tool)를 직접 호출해서 실시간 데이터를 근거로 답하고, 정책 관련 질문에는 RAG로 검색한 정책 문서 스니펫을 근거로 답한다. 응답은 SSE로 토큰 단위 스트리밍되고, 대화는 세션 단위로 저장되어 멀티턴이 가능하다. 발제 AI 필수2(Tool Calling), 필수3(장애격리·비용인식), 도전(SSE 스트리밍+멀티턴)을 이 기능 하나로 묶어 구현했고, AI 도전 나머지 하나(RAG, 전용운이 `ai/policy-rag`로 검색 부분만 별도 구현)는 이 서비스에 실제로 결합했다(아래 "RAG 결합" 참고).
 
 ## API / 인터페이스
 
@@ -44,6 +44,15 @@ SSE 스트리밍은 컨트롤러 요청 스레드가 즉시 `SseEmitter`를 반�
 - **성공 시**: `ChatMessage`(USER) + `ChatMessage`(ASSISTANT) + `ChatInteractionLog.success` 저장 + 세션 `touch()`.
 - **실패 시**: `ChatMessage`(USER)만 저장(어시스턴트 메시지는 실제 응답이 아니므로 저장 안 함) + `ChatInteractionLog.failure` 저장 + 세션 `touch()`.
 
+## RAG 결합 (발제 도전 "RAG+Tool Calling 결합")
+
+`ai/policy-rag`(전용운)가 만든 `PolicyRagService.findRelevantSnippets(query)`(REST 아닌 인터페이스, 생성자 주입)를 `streamChat()`에서 매 턴 호출한다.
+
+- **호출 시점**: 세션 조회/이력 로딩과 마찬가지로 스트림 시작 전, 원래 요청 스레드에서 동기로 호출(임베딩 API 1회 호출이라 짧게 걸림). 검색 결과를 시스템 프롬프트에 조립한 뒤에 `ChatClient` 스트림을 시작한다.
+- **장애 격리**: `PolicyRagService` 호출이 실패해도(임베딩 API 장애 등) `try/catch`로 잡아 빈 목록으로 처리하고 챗봇 턴 자체는 정상 진행한다 — RAG는 답변을 보강하는 부가 기능이지 챗봇 동작의 필수 전제가 아님(`BuyerChatServiceTest.streamChat_ragServiceThrows_stillProceedsNormally`로 검증).
+- **관련성 판단은 시스템 프롬프트가 맡는다**: `PolicyRagService`는 항상 topK를 그대로 반환하고 관련 없는 스니펫을 걸러주지 않는다(`ai/policy-rag` 설계, threshold 필터링이 이 코퍼스 규모에서 신뢰할 수 없다고 실측 확인됨). 그래서 시스템 프롬프트 뒤에 스니펫을 붙일 때 "질문과 관련이 없으면 참고하지 말고 무시해라"는 지시를 같이 넣는다.
+- **실제 통합 중 발견한 프롬프트 함정**: 첫 실호출 검증에서, RAG 스니펫이 정확한 답을 담고 있는데도 모델이 "정확한 정보는 확인할 수 없습니다"로 불필요하게 얼버무리는 걸 발견했다. 원인은 기존 시스템 프롬프트의 "도구로 확인하지 않은 사실을 추측해서 답하지 마라"는 지시가 RAG로 확인된 정책 정보까지 "확인 안 된 것"으로 취급하게 만든 것 — 프롬프트에 "아래 제공되는 정책 문서로도 확인 안 된 사실을 추측하지 마라(반대로) 관련된 정책 스니펫이 제공되면 그건 이미 확인된 사실이니 망설이지 말고 답변 근거로 사용해라"를 명시해서 해결. 실제 호출로 재검증: "제 돈은 언제 돌려받을 수 있나요?"(정책 문서와 어휘가 겹치지 않는 패러프레이즈, `ai/policy-rag` Attempt 2에서 어려움을 겪었던 표현) → "공구 기한이 지나면 자동으로 실패 처리 및 환불이 진행됩니다"로 정확하고 확신 있게 답변. 서비스 무관 질문(날씨) 거절은 회귀 없이 그대로 유지됨.
+
 ## 비용인식 — 대시보드
 
 `GET /api/chat/stats`(모델별 누적 토큰·P95 응답지연·에러율), `GET /api/buyer/chat/sessions/{id}/usage`(세션별 누적 토큰). 이 프로젝트 데이터 규모에서는 DB 퍼센타일 함수 대신, 로그를 모델별/세션별로 모아 애플리케이션 레벨에서 정렬 후 계산하는 방식을 택함(단순함 우선). 별도 프론트 대시보드 UI는 스코프 밖 — 전용운이 필요하면 이 JSON을 그대로 붙여 쓸 수 있음.
@@ -54,6 +63,7 @@ SSE 스트리밍은 컨트롤러 요청 스레드가 즉시 `SseEmitter`를 반�
 - `repository/{ChatSessionRepository,ChatMessageRepository,ChatInteractionLogRepository}.java`, `ProductRepository.findTop10ByNameContainingIgnoreCase`(신규)
 - `dto/{ChatMessageRequest,ChatMessageResponse,ChatSessionUsageResponse,ChatStatsResponse,ProductSearchResult}.java` — `BuyerTeamResponse`(기존 mypage DTO)를 Tool 2 응답에 재사용
 - `service/{BuyerChatService,ChatLogRecorder,ChatbotTools}.java` — `ChatbotTools`는 요청마다 `new`
+- `service/{PolicyRagService,PolicyRagServiceImpl}.java`, `config/{PolicyRagVectorStoreConfig,PolicyDocumentIndexer}.java` — 전용운 담당(`ai/policy-rag`), `BuyerChatService`가 생성자 주입으로 사용
 - `controller/BuyerChatController.java`
 - `common/exception/ErrorCode.java` — `CHAT_SESSION_NOT_FOUND` 추가
-- 테스트: `service/ChatbotToolsTest`(Tool 메서드 직접 단위 테스트 — mock ChatClient로는 Spring AI의 실제 tool 실행 메커니즘을 안 타므로), `service/ChatLogRecorderTest`(세션 생성/재사용/만료/소유권, 성공·실패 턴 기록), `service/BuyerChatServiceTest`(스트리밍·폴백 분류·핵심서비스 무영향·N턴 윈도잉), `controller/BuyerChatControllerTest`(권한/스코핑)
+- 테스트: `service/ChatbotToolsTest`(Tool 메서드 직접 단위 테스트 — mock ChatClient로는 Spring AI의 실제 tool 실행 메커니즘을 안 타므로), `service/ChatLogRecorderTest`(세션 생성/재사용/만료/소유권, 성공·실패 턴 기록), `service/BuyerChatServiceTest`(스트리밍·폴백 분류·핵심서비스 무영향·N턴 윈도잉·RAG 결합), `controller/BuyerChatControllerTest`(권한/스코핑)

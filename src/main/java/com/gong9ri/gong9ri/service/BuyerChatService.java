@@ -58,10 +58,12 @@ public class BuyerChatService {
 
     private static final String SYSTEM_PROMPT = """
             너는 공동구매 플랫폼 GONG9RI의 구매자 전용 채팅 상담원이다. 구매자가 상품이나 본인의 공구
-            참여 현황을 물어보면, 반드시 제공된 도구(searchProducts, getMyTeamParticipations)를 호출해서
-            실제 데이터를 확인한 뒤에 답해라. 도구로 확인하지 않은 사실을 추측해서 답하지 마라 — 확실하지
-            않으면 모른다고 솔직히 답해라. GONG9RI 공동구매 서비스와 무관한 질문에는 답하지 말고, 이
-            서비스와 관련된 것만 도와줄 수 있다고 안내해라.
+            참여 현황처럼 실시간 데이터가 필요한 질문을 하면, 반드시 제공된 도구(searchProducts,
+            getMyTeamParticipations)를 호출해서 실제 데이터를 확인한 뒤에 답해라. 도구로도, 아래
+            제공되는 정책 문서로도 확인 안 된 사실을 추측해서 답하지 마라 — 확실하지 않으면 모른다고
+            솔직히 답해라. 반대로 아래에 관련된 정책 문서 스니펫이 제공되면, 그건 이미 확인된 사실이니
+            망설이지 말고 그 내용을 그대로 답변 근거로 사용해라. GONG9RI 공동구매 서비스와 무관한
+            질문에는 답하지 말고, 이 서비스와 관련된 것만 도와줄 수 있다고 안내해라.
             """;
 
     private final ChatClient.Builder chatClientBuilder;
@@ -71,6 +73,7 @@ public class BuyerChatService {
     private final ProductRepository productRepository;
     private final TeamParticipationRepository teamParticipationRepository;
     private final ChatLogRecorder chatLogRecorder;
+    private final PolicyRagService policyRagService;
 
     @Transactional(readOnly = true)
     public List<ChatMessageResponse> history(MemberUserDetails principal, Long sessionId) {
@@ -149,6 +152,7 @@ public class BuyerChatService {
         ChatSession session = chatLogRecorder.getOrCreateSession(buyer, request.sessionId());
         List<Message> history = loadRecentHistory(session.getId());
         ChatbotTools tools = new ChatbotTools(buyer.getId(), productRepository, teamParticipationRepository);
+        List<String> ragSnippets = retrieveRagContext(request.content());
 
         SseEmitter emitter = new SseEmitter(EMITTER_TIMEOUT_MS);
         sendEvent(emitter, "session", String.valueOf(session.getId()));
@@ -159,7 +163,7 @@ public class BuyerChatService {
 
         chatClientBuilder.build()
                 .prompt()
-                .system(SYSTEM_PROMPT)
+                .system(buildSystemPrompt(ragSnippets))
                 .messages(history)
                 .user(request.content())
                 .tools(tools)
@@ -242,6 +246,31 @@ public class BuyerChatService {
         } catch (Exception e) {
             log.warn("SSE 전송 실패, 연결이 이미 끊어졌을 수 있음: {}", e.getMessage());
         }
+    }
+
+    // RAG(전용운, ai/policy-rag)는 관련성을 걸러주지 않고 항상 topK를 반환한다(PolicyRagService 계약) —
+    // 관련 없는 문맥이 섞여 있을 수 있다는 전제로 시스템 프롬프트에서 "무관하면 무시하라"고 지시한다.
+    // 검색 자체가 실패해도(임베딩 API 장애 등) 챗봇 턴 전체를 실패시키지 않고 컨텍스트 없이 진행한다 —
+    // RAG는 답변을 보강하는 부가 기능이지, 챗봇이 동작하기 위한 필수 전제가 아니다.
+    private List<String> retrieveRagContext(String query) {
+        try {
+            return policyRagService.findRelevantSnippets(query);
+        } catch (Exception e) {
+            log.warn("정책 RAG 검색 실패, 컨텍스트 없이 진행: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    private String buildSystemPrompt(List<String> ragSnippets) {
+        if (ragSnippets.isEmpty()) {
+            return SYSTEM_PROMPT;
+        }
+        StringBuilder prompt = new StringBuilder(SYSTEM_PROMPT);
+        prompt.append("\n\n다음은 참고할 수 있는 정책 문서 스니펫이다. 질문과 관련이 없으면 참고하지 말고 무시해라:\n\n");
+        for (String snippet : ragSnippets) {
+            prompt.append(snippet).append("\n\n---\n\n");
+        }
+        return prompt.toString();
     }
 
     private List<Message> loadRecentHistory(Long sessionId) {

@@ -72,6 +72,9 @@ class BuyerChatServiceTest {
     @MockitoBean
     private ChatClient.Builder chatClientBuilder;
 
+    @MockitoBean
+    private PolicyRagService policyRagService;
+
     private ChatClient chatClient;
     private ChatClient.ChatClientRequestSpec requestSpec;
     private ChatClient.StreamResponseSpec streamResponseSpec;
@@ -92,6 +95,7 @@ class BuyerChatServiceTest {
         when(requestSpec.tools(any())).thenReturn(requestSpec);
         when(requestSpec.options(any())).thenReturn(requestSpec);
         when(requestSpec.stream()).thenReturn(streamResponseSpec);
+        when(policyRagService.findRelevantSnippets(anyString())).thenReturn(List.of());
 
         buyer = memberRepository.save(new Member("chatSvcBuyer1", "pw", "구매자", "chatSvcBuyer1@test.com",
                 Role.BUYER));
@@ -247,5 +251,43 @@ class BuyerChatServiceTest {
         assertEquals(10, sentHistory.size());
         assertEquals("msg-3", sentHistory.get(0).getText());
         assertEquals("msg-12", sentHistory.get(9).getText());
+    }
+
+    @Test
+    @DisplayName("RAG 검색 결과가 있으면 무관하면 무시하라는 지시와 함께 시스템 프롬프트에 포함된다")
+    void streamChat_withRagContext_includesSnippetsInSystemPrompt() throws InterruptedException {
+        when(policyRagService.findRelevantSnippets(anyString()))
+                .thenReturn(List.of("## 규칙\n마감이 지난 팀은 환불 처리된다."));
+        when(streamResponseSpec.chatResponse()).thenReturn(Flux.just(chunkWithUsage("환불됩니다.", 10, 5)));
+
+        buyerChatService.streamChat(new MemberUserDetails(buyer), new ChatMessageRequest(null, "환불은 언제 되나요?"));
+
+        Long sessionId = chatSessionRepository.findAll().stream()
+                .filter(s -> s.getBuyer().getId().equals(buyer.getId())).findFirst().orElseThrow().getId();
+        awaitLogRow(sessionId);
+
+        org.mockito.ArgumentCaptor<String> systemPromptCaptor = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(requestSpec).system(systemPromptCaptor.capture());
+        String systemPrompt = systemPromptCaptor.getValue();
+
+        assertTrue(systemPrompt.contains("마감이 지난 팀은 환불 처리된다"));
+        assertTrue(systemPrompt.contains("질문과 관련이 없으면 참고하지 말고 무시해라"));
+    }
+
+    @Test
+    @DisplayName("RAG 검색이 실패해도 챗봇 턴은 정상적으로 성공한다(RAG는 부가 기능)")
+    void streamChat_ragServiceThrows_stillProceedsNormally() throws InterruptedException {
+        when(policyRagService.findRelevantSnippets(anyString())).thenThrow(new RuntimeException("임베딩 API 장애"));
+        when(streamResponseSpec.chatResponse()).thenReturn(Flux.just(chunkWithUsage("답변", 10, 5)));
+
+        buyerChatService.streamChat(new MemberUserDetails(buyer), new ChatMessageRequest(null, "질문"));
+
+        Long sessionId = chatSessionRepository.findAll().stream()
+                .filter(s -> s.getBuyer().getId().equals(buyer.getId())).findFirst().orElseThrow().getId();
+        awaitLogRow(sessionId);
+
+        List<ChatInteractionLog> logs = chatInteractionLogRepository.findAllBySessionId(sessionId);
+        assertEquals(1, logs.size());
+        assertTrue(logs.get(0).getSuccess());
     }
 }
