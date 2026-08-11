@@ -272,6 +272,7 @@ class BuyerChatServiceTest {
 
         assertTrue(systemPrompt.contains("마감이 지난 팀은 환불 처리된다"));
         assertTrue(systemPrompt.contains("질문과 관련이 없으면 참고하지 말고 무시해라"));
+        assertTrue(systemPrompt.contains("출처"));
     }
 
     @Test

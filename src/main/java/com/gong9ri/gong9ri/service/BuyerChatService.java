@@ -266,7 +266,9 @@ public class BuyerChatService {
             return SYSTEM_PROMPT;
         }
         StringBuilder prompt = new StringBuilder(SYSTEM_PROMPT);
-        prompt.append("\n\n다음은 참고할 수 있는 정책 문서 스니펫이다. 질문과 관련이 없으면 참고하지 말고 무시해라:\n\n");
+        prompt.append("\n\n다음은 참고할 수 있는 정책 문서 스니펫이다. 질문과 관련이 없으면 참고하지 말고 무시해라. ")
+                .append("관련이 있어서 답변에 사용했다면, 각 스니펫 맨 앞의 '# 문서 제목'을 답변 끝에 \"(출처: 문서 제목)\" ")
+                .append("형식으로 반드시 밝혀라:\n\n");
         for (String snippet : ragSnippets) {
             prompt.append(snippet).append("\n\n---\n\n");
         }

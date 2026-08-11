@@ -20,7 +20,7 @@ Spring AI 2.0.0 `@Tool`(`org.springframework.ai.tool.annotation.Tool`) + `ChatCl
 
 - **Tool 1** `searchProducts(keyword)` — `ProductRepository.findTop10ByNameContainingIgnoreCase`(신규 derived query).
 - **Tool 2** `getMyTeamParticipations()` — `TeamParticipationRepository.findAllByMemberIdWithTeamAndProduct`(기존 쿼리, `BuyerMypageService.teams()`와 동일) 재사용.
-- **Tool 호출 실패 시 자연어 안내**: Spring AI의 `DefaultToolExecutionExceptionProcessor`가 기본적으로 `@Tool` 메서드의 예외를 그대로 죽이지 않고 메시지를 LLM에 tool 응답으로 돌려줘서 자연어로 안내하게 하는 구조(jar 디컴파일로 `alwaysThrow` 옵션 존재 확인, 이 프로젝트 스코프에서는 두 Tool 다 예외를 던지는 경로가 없어 실제 재현 테스트는 안 함 — 필요해지면 추가).
+- **Tool 호출 실패 시 자연어 안내**: Spring AI의 `DefaultToolExecutionExceptionProcessor`가 기본적으로 `@Tool` 메서드의 예외를 그대로 죽이지 않고 메시지를 LLM에 tool 응답으로 돌려줘서 자연어로 안내하게 하는 구조(jar 디컴파일로 `alwaysThrow` 옵션 존재 확인). **실제 재현 검증 완료**(재점검 중 "디컴파일 근거만 있고 실제 테스트가 없다"는 걸 스스로 발견해서 보강) — `searchProducts`에 특정 키워드로만 발동하는 임시 예외 트리거를 잠깐 추가해 실제 OpenAI 호출로 확인 후 제거함. 예외가 나도 SSE 스트림은 `onError`(내 장애격리 폴백)가 아니라 정상 `onComplete` 경로로 흘러서, LLM이 "현재 상품 검색 서비스에 일시적인 장애가 발생하여 검색할 수 없습니다..."로 자연어 응답, `chat_interaction_log`에도 `success=true`로 기록됨(도구 실패지만 대화 턴 자체는 정상 완료로 처리) — 상세: `docs/logs/ai/buyer-chatbot/001-buyer-chatbot.md` Attempt 3.
 
 ## 장애격리 (발제 AI 필수3)
 
@@ -52,6 +52,7 @@ SSE 스트리밍은 컨트롤러 요청 스레드가 즉시 `SseEmitter`를 반�
 - **장애 격리**: `PolicyRagService` 호출이 실패해도(임베딩 API 장애 등) `try/catch`로 잡아 빈 목록으로 처리하고 챗봇 턴 자체는 정상 진행한다 — RAG는 답변을 보강하는 부가 기능이지 챗봇 동작의 필수 전제가 아님(`BuyerChatServiceTest.streamChat_ragServiceThrows_stillProceedsNormally`로 검증).
 - **관련성 판단은 시스템 프롬프트가 맡는다**: `PolicyRagService`는 항상 topK를 그대로 반환하고 관련 없는 스니펫을 걸러주지 않는다(`ai/policy-rag` 설계, threshold 필터링이 이 코퍼스 규모에서 신뢰할 수 없다고 실측 확인됨). 그래서 시스템 프롬프트 뒤에 스니펫을 붙일 때 "질문과 관련이 없으면 참고하지 말고 무시해라"는 지시를 같이 넣는다.
 - **실제 통합 중 발견한 프롬프트 함정**: 첫 실호출 검증에서, RAG 스니펫이 정확한 답을 담고 있는데도 모델이 "정확한 정보는 확인할 수 없습니다"로 불필요하게 얼버무리는 걸 발견했다. 원인은 기존 시스템 프롬프트의 "도구로 확인하지 않은 사실을 추측해서 답하지 마라"는 지시가 RAG로 확인된 정책 정보까지 "확인 안 된 것"으로 취급하게 만든 것 — 프롬프트에 "아래 제공되는 정책 문서로도 확인 안 된 사실을 추측하지 마라(반대로) 관련된 정책 스니펫이 제공되면 그건 이미 확인된 사실이니 망설이지 말고 답변 근거로 사용해라"를 명시해서 해결. 실제 호출로 재검증: "제 돈은 언제 돌려받을 수 있나요?"(정책 문서와 어휘가 겹치지 않는 패러프레이즈, `ai/policy-rag` Attempt 2에서 어려움을 겪었던 표현) → "공구 기한이 지나면 자동으로 실패 처리 및 환불이 진행됩니다"로 정확하고 확신 있게 답변. 서비스 무관 질문(날씨) 거절은 회귀 없이 그대로 유지됨.
+- **출처표시(발제 RAG 요구사항)**: 재점검 중 시스템 프롬프트에 "답변에 RAG 스니펫을 썼으면 출처를 밝혀라"는 지시 자체가 아예 없었다는 걸 발견 — 각 스니펫 맨 앞의 "# 문서 제목"을 답변 끝에 "(출처: 문서 제목)" 형식으로 밝히라는 지시를 추가했다. 실제 호출로 검증: "환불은 언제 되나요?" → 답변 끝에 정확히 "(출처: 공구팀 실패(미성사) 및 환불 트리거)"가 붙어서 나옴 — 청킹 시점에 각 청크 앞에 문서 제목을 붙여두는 `PolicyDocumentIndexer`의 기존 설계(전용운) 덕분에 별도 메타데이터 전달 없이 프롬프트 지시만으로 해결됨.
 
 ## 비용인식 — 대시보드
 

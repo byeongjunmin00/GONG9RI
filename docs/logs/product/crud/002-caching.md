@@ -55,3 +55,13 @@
   - 저장소 전체 `build/test-results/test/*.xml`(13개 클래스) 합산: `tests=83 failures=0 errors=0`
   - `docker ps`: `gong9ri-mysql`(mysql:8, 3306), `gong9ri-redis`(redis:7, 6379) 정상 기동 확인.
 - 판정: **PASS** — `docs/dev/product/crud/design.md` 갱신 완료, `docs/dev/ongoing/product-list-detail-caching.md` → `docs/dev/product/crud/changes/002-caching.md` 채번 이동 완료.
+
+## Attempt 2 (적용 전후 실제 응답시간 측정) — 2026-08-11 ✅ PASS
+
+발제 필수10 "캐싱 전략"이 요구하는 "적용 전후 성능 수치 비교"를 재점검 중 발견해서 보강 — Attempt 1/Evaluate에서는 캐시 히트 여부를 리포지토리 호출 횟수로만 검증했고(정확성 검증), 실제 wall-clock 응답시간을 잰 적은 없었다.
+
+- 방법: 로컬 `bootRun` + Redis 컨테이너로 실제 기동. 상품 6개 등록 후, `redis-cli FLUSHALL`로 캐시를 비운 직후 호출(캐시 미스, DB 조회)과 바로 다음 호출(캐시 히트, Redis 조회)의 실제 응답시간을 `curl -w "%{time_total}"`로 반복 측정.
+- **상품 상세 조회(`GET /api/products/{id}`)**: 5회 반복, 캐시 미스 평균 약 10.8ms, 캐시 히트 평균 약 5.3ms — **약 2배**.
+- **상품 목록 조회(`GET /api/products`)**: 5회 반복(첫 회차는 커넥션 워밍업 제외), 캐시 미스 평균 약 13.3ms, 캐시 히트 평균 약 5.5ms — **약 2.4배**.
+- 로컬 DB 데이터가 몇 건뿐이라 절대 ms 차이는 크지 않지만, DB 조회(디스크/네트워크 왕복 포함)와 인메모리 Redis 조회의 구조적 차이가 이 규모에서도 일관되게 나타남 — 실제 운영 데이터 규모(상품 수·동시 조회량)가 커지면 이 격차는 더 벌어질 것으로 예상(DB는 데이터 규모에 비례해 느려지지만 Redis 조회는 거의 일정).
+- 측정 후 테스트 계정·상품 데이터 정리, 임시 Redis 컨테이너 종료 완료.
