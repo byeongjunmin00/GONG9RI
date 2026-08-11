@@ -66,6 +66,20 @@
           </div>
 
           <div class="form-group">
+            <label class="form-label" for="password-confirm">비밀번호 확인</label>
+            <input
+              class="form-input"
+              type="password"
+              id="password-confirm"
+              name="passwordConfirm"
+              autocomplete="new-password"
+              placeholder="비밀번호를 한 번 더 입력하세요"
+            />
+            <!-- 비밀번호 불일치 안내(클라이언트 전용 검증). js/signup.js가 제어한다. -->
+            <p id="password-confirm-error" class="form-error" role="alert" hidden></p>
+          </div>
+
+          <div class="form-group">
             <label class="form-label" for="name">이름</label>
             <input
               class="form-input"

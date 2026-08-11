@@ -15,6 +15,8 @@
 
   var usernameInput = document.getElementById('username');
   var passwordInput = document.getElementById('password');
+  var passwordConfirmInput = document.getElementById('password-confirm');
+  var passwordConfirmErrorEl = document.getElementById('password-confirm-error');
   var nameInput = document.getElementById('name');
   var emailInput = document.getElementById('email');
 
@@ -25,6 +27,8 @@
     !submitBtn ||
     !usernameInput ||
     !passwordInput ||
+    !passwordConfirmInput ||
+    !passwordConfirmErrorEl ||
     !nameInput ||
     !emailInput
   ) {
@@ -53,6 +57,16 @@
     usernameErrorEl.textContent = '';
   }
 
+  function showPasswordConfirmError(text) {
+    passwordConfirmErrorEl.hidden = false;
+    passwordConfirmErrorEl.textContent = text;
+  }
+
+  function hidePasswordConfirmError() {
+    passwordConfirmErrorEl.hidden = true;
+    passwordConfirmErrorEl.textContent = '';
+  }
+
   function getSelectedRole() {
     var checked = form.querySelector('input[name="role"]:checked');
     return checked ? checked.value : '';
@@ -62,16 +76,24 @@
     event.preventDefault();
     hideAlert();
     hideUsernameError();
+    hidePasswordConfirmError();
 
     var username = usernameInput.value.trim();
     var password = passwordInput.value;
+    var passwordConfirm = passwordConfirmInput.value;
     var name = nameInput.value.trim();
     var email = emailInput.value.trim();
     var role = getSelectedRole();
 
     // UX 보조용 최소 필수값 체크. 실제 판정 기준(SSOT)은 서버 응답(VALIDATION_FAILED)이다.
-    if (!username || !password || !name || !email || !role) {
+    if (!username || !password || !passwordConfirm || !name || !email || !role) {
       showAlert('모든 항목을 입력해주세요.');
+      return;
+    }
+
+    // 비밀번호 확인은 서버에 보내지 않는 순수 클라이언트 측 검증이다.
+    if (password !== passwordConfirm) {
+      showPasswordConfirmError('비밀번호가 일치하지 않습니다.');
       return;
     }
 
