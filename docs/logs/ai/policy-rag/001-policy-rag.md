@@ -95,3 +95,13 @@
 - Generator(Attempt 3)의 `./gradlew build` 결과를 별도 세션에서 **독립적으로 재검증**했다: `./gradlew cleanTest test`로 캐시 없이 강제 재실행 → BUILD SUCCESSFUL, `build/test-results/test/*.xml` 34개 파일 집계로 `tests=134 skipped=0 failures=0 errors=0` 재확인(회귀 없음). `PolicyRagServiceImplTest`만 별도로도 `tests=3 failures=0 errors=0` 확인.
 - `git status`로 임시 검증 테스트 파일이 남아있지 않음을 확인(의도한 파일만 untracked로 남아있음).
 - 계획서(`docs/dev/ongoing/ai-policy-rag.md`)의 갱신된 평가 기준 5개 모두 Attempt 3 기록·재검증으로 충족 확인. **최종 판정: PASS.**
+
+## Attempt 4 (후속 — 출처표시용 "표시용 출처명" 분리) — 2026-08-11 ✅ PASS
+
+민병준이 `ai/buyer-chatbot`에 이 RAG를 연결하면서 "답변에 스니펫을 쓰면 출처를 밝혀라"는 지시를 추가했는데, 그때는 청크 맨 앞의 내부 문서 제목("공구팀 실패(미성사) 및 환불 트리거")을 그대로 인용하게 했다(`docs/logs/ai/buyer-chatbot/001-buyer-chatbot.md` Attempt 3). 사용자가 "내부 개발용 제목을 구매자에게 그대로 노출해도 되나"라고 지적 — 정보 유출은 아니지만("환불은 언제 되나요" 답변에 필요한 정책 내용 자체는 원래 고객에게 공개되는 정보) "미성사"·"트리거" 같은 표현이 고객 응대 말투로는 어색하다는 데 동의해서 보강함.
+
+- **변경**: `PolicyDocumentIndexer`에 `DISPLAY_SOURCE_NAME_BY_PATH`(파일 경로 → 고객 응대용 이름: "환불 정책", "공구 성사 기준") 맵을 추가하고, 청크 텍스트에 내부 제목(`# ...`)은 그대로 두면서 별도로 "표시용 출처명: {이름}" 줄을 함께 임베딩하도록 `splitIntoSections`를 수정. `docs/policy/*.md` 원본과 `src/main/resources/policy/*.md` 반입 사본은 이번에도 건드리지 않음(코드에서만 텍스트 조립).
+- **테스트**: `config/PolicyDocumentIndexerTest`(신규) — `PolicyDocumentIndexer`가 생성자 주입 `VectorStore` 하나뿐인 순수 POJO라는 걸 이용해 스프링 컨텍스트 없이 `run(null)` 직접 호출 → `vectorStore.add(...)`에 전달된 `Document` 텍스트에 내부 제목과 "표시용 출처명" 줄이 둘 다 포함되는지 검증.
+- **실제 호출로 검증**(임시 `DisplaySourceNameManualVerificationIT`, `@TestPropertySource`로 실제 색인+API 키 활성화, 검증 후 삭제): "환불은 언제 되나요?" 질의로 실제 검색된 스니펫 3개 전부 "표시용 출처명: 환불 정책" 포함 확인 → 실제 ChatClient 호출(민병준이 `ai/buyer-chatbot`에 반영한 것과 같은 지시문으로) 결과 답변 끝에 정확히 **"(출처: 환불 정책)"**만 붙고, 답변 어디에도 내부 제목("공구팀 실패")이 인용 형태로 등장하지 않음을 확인.
+- `./gradlew cleanTest test` 137케이스(136 + 신규 1) 전부 통과, 회귀 없음.
+- 이 변경에 맞춰 `BuyerChatService`의 출처표시 지시문도 함께 갱신함(`docs/logs/ai/buyer-chatbot/001-buyer-chatbot.md` Attempt 4 참고) — 두 기능이 같은 텍스트 형식(`표시용 출처명: ...` 줄)에 의존하므로 한쪽만 바꾸면 안 됨을 유의.

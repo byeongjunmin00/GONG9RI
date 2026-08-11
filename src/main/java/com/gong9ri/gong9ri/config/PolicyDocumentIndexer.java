@@ -46,6 +46,14 @@ import org.springframework.util.StreamUtils;
  * 있다(그 경우의 안전망은 {@code BuyerChatService} 프롬프트 몫 — {@link com.gong9ri.gong9ri.service.PolicyRagService}
  * 계약 참고). **원본 {@code docs/policy/*.md}와 반입 사본({@code src/main/resources/policy/*.md})은
  * 건드리지 않는다** — 예시 문구는 이 컴포넌트가 청크 텍스트를 만드는 시점(임베딩 직전)에만 코드로 덧붙인다.
+ *
+ * <p><b>출처표시용 "표시용 출처명" — 내부 문서 제목과 분리</b>: 청크 맨 앞의 {@code # 문서 제목}(예:
+ * "공구팀 실패(미성사) 및 환불 트리거")은 개발팀이 내부 문서 관리용으로 지은 이름이라 "미성사", "트리거"
+ * 같은 표현이 구매자에게 그대로 노출되면 어색하다({@code docs/dev/ai/buyer-chatbot/design.md}의 RAG
+ * 출처표시 기능이 처음엔 이 내부 제목을 그대로 인용했음). 그래서 내부 제목 줄은 임베딩 문맥용으로 그대로
+ * 두고({@code docs/policy/*.md} 원본도 안 바꿈), 별도로 {@code DISPLAY_SOURCE_NAME_BY_PATH}에 고객
+ * 응대에 어울리는 이름("환불 정책" 등)을 매핑해 청크 텍스트에 "표시용 출처명: {이름}" 줄로 함께 임베딩한다.
+ * {@code BuyerChatService}의 출처표시 지시는 이 줄만 인용하도록 바뀌었다.
  */
 @Slf4j
 @Component
@@ -76,6 +84,12 @@ public class PolicyDocumentIndexer implements ApplicationRunner {
                     "인원이 다 차면 바로 구매 확정되는 거예요?",
                     "정원이 다 차면 가격이 바로 확정되나요?"));
 
+    // 챗봇이 출처를 인용할 때 쓸 고객 응대용 이름. 내부 문서 제목(# ...)은 개발 편의상 지은 이름이라
+    // 그대로 노출하면 어색해서 별도로 관리한다(위 클래스 Javadoc "출처표시용 표시용 출처명" 참고).
+    private static final Map<String, String> DISPLAY_SOURCE_NAME_BY_PATH = Map.of(
+            "policy/refund-trigger.md", "환불 정책",
+            "policy/team-success-criteria.md", "공구 성사 기준");
+
     private final VectorStore vectorStore;
 
     @Override
@@ -101,7 +115,8 @@ public class PolicyDocumentIndexer implements ApplicationRunner {
             String sectionTitle = (newlineIndex == -1 ? part : part.substring(0, newlineIndex)).trim();
             String sectionBody = (newlineIndex == -1 ? "" : part.substring(newlineIndex + 1)).trim();
 
-            String text = "# " + title + "\n\n## " + sectionTitle + "\n\n" + sectionBody
+            String text = "# " + title + "\n\n표시용 출처명: " + displaySourceName(classpathPath)
+                    + "\n\n## " + sectionTitle + "\n\n" + sectionBody
                     + buildExampleQuestionsBlock(classpathPath);
             chunks.add(Document.builder()
                     .text(text)
@@ -125,6 +140,10 @@ public class PolicyDocumentIndexer implements ApplicationRunner {
             block.append("- ").append(example).append('\n');
         }
         return block.toString();
+    }
+
+    private String displaySourceName(String classpathPath) {
+        return DISPLAY_SOURCE_NAME_BY_PATH.getOrDefault(classpathPath, classpathPath);
     }
 
     private String extractTitle(String content) {

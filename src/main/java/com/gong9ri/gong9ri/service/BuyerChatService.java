@@ -267,8 +267,9 @@ public class BuyerChatService {
         }
         StringBuilder prompt = new StringBuilder(SYSTEM_PROMPT);
         prompt.append("\n\n다음은 참고할 수 있는 정책 문서 스니펫이다. 질문과 관련이 없으면 참고하지 말고 무시해라. ")
-                .append("관련이 있어서 답변에 사용했다면, 각 스니펫 맨 앞의 '# 문서 제목'을 답변 끝에 \"(출처: 문서 제목)\" ")
-                .append("형식으로 반드시 밝혀라:\n\n");
+                .append("관련이 있어서 답변에 사용했다면, 각 스니펫의 '표시용 출처명:' 뒤에 오는 이름을 답변 끝에 ")
+                .append("\"(출처: 표시용 출처명)\" 형식으로 반드시 밝혀라. 스니펫 맨 앞의 '#'로 시작하는 내부 문서 제목은 ")
+                .append("고객에게 노출하기 위한 이름이 아니니 절대 출처로 쓰지 마라:\n\n");
         for (String snippet : ragSnippets) {
             prompt.append(snippet).append("\n\n---\n\n");
         }

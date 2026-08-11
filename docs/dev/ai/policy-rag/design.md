@@ -30,6 +30,7 @@ public interface PolicyRagService {
 - **원본과 반입 사본이 어긋날 수 있는 리스크**: `docs/policy/*.md`가 수정돼도 이 사본은 자동 갱신되지 않는다 — 정책 문서를 고칠 때는 이 사본도 함께 수동으로 갱신해야 한다.
 - **청크 단위**: 마크다운 `## ` 섹션(규칙 / 근거·배경 / 적용 대상) 단위. 파일 전체를 한 덩어리로 넣는 것보다 관련 없는 배경 설명이 답변에 섞일 여지가 적다.
 - **패러프레이즈 보강**: 각 청크 텍스트 끝에 그 문서 주제로 자주 쓰일 법한 자연스러운 질문 예시("제 돈은 언제 돌려받을 수 있나요?" 등, `PolicyDocumentIndexer.EXAMPLE_QUESTIONS_BY_PATH`)를 "## 이런 질문에도 해당" 블록으로 덧붙여 함께 임베딩한다. **원본·반입 사본 파일 자체는 건드리지 않고, 색인 컴포넌트가 임베딩 직전에만 코드로 덧붙인다.** 미리 예상한 흔한 표현만 보완하는 경량 완화책이며, 예상 못 한 표현은 여전히 놓칠 수 있다(그 경우의 최종 안전망은 챗봇 프롬프트).
+- **출처표시용 "표시용 출처명"**: 청크 맨 앞의 `# 문서 제목`(예: "공구팀 실패(미성사) 및 환불 트리거")은 개발팀 내부 문서 관리용 이름이라 "미성사"·"트리거" 같은 표현을 챗봇이 그대로 구매자에게 인용하면 어색하다(`ai/buyer-chatbot`이 RAG 출처표시 기능을 붙이면서 실제로 이 문제를 겪음, `docs/logs/ai/buyer-chatbot/001-buyer-chatbot.md` Attempt 4). 그래서 내부 제목 줄은 그대로 두고(임베딩 문맥용), `PolicyDocumentIndexer.DISPLAY_SOURCE_NAME_BY_PATH`에 고객 응대용 이름("환불 정책", "공구 성사 기준")을 매핑해 "표시용 출처명: {이름}" 줄로 함께 임베딩한다. 챗봇의 출처표시 지시는 이 줄만 인용하도록 만들어졌다.
 
 ## 규칙 / 검증
 
@@ -46,7 +47,7 @@ public interface PolicyRagService {
 - `src/main/resources/policy/{refund-trigger,team-success-criteria}.md` — 정책 문서 반입 사본
 - `build.gradle` — `spring-ai-vector-store` 의존성 추가(BOM이 버전 관리)
 - `src/main/resources/application.yaml`, `src/test/resources/application.yaml` — `policy-rag.indexing.enabled` 토글
-- 테스트: `service/PolicyRagServiceImplTest.java` — `@MockitoBean VectorStore`로 실제 임베딩 호출 없이 검색 결과 매핑·`SearchRequest` 구성(query/topK/`SIMILARITY_THRESHOLD_ACCEPT_ALL`)을 검증(3케이스). 실제 임베딩 API로 색인·검색·패러프레이즈 개선 여부를 확인한 기록은 `docs/logs/ai/policy-rag/001-policy-rag.md`(자동 테스트에는 실제 호출을 넣지 않음).
+- 테스트: `service/PolicyRagServiceImplTest.java` — `@MockitoBean VectorStore`로 실제 임베딩 호출 없이 검색 결과 매핑·`SearchRequest` 구성(query/topK/`SIMILARITY_THRESHOLD_ACCEPT_ALL`)을 검증(3케이스). `config/PolicyDocumentIndexerTest.java` — 스프링 컨텍스트 없는 순수 단위 테스트로 청크 텍스트에 내부 제목과 표시용 출처명이 함께 포함되는지 검증. 실제 임베딩 API로 색인·검색·패러프레이즈 개선·출처표시 여부를 확인한 기록은 `docs/logs/ai/policy-rag/001-policy-rag.md`(자동 테스트에는 실제 호출을 넣지 않음).
 
 ## 후속 작업 (이 기능 스코프 밖)
 
