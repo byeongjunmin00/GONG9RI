@@ -23,6 +23,14 @@ spring:
       password: ${REDIS_PASSWORD:}
   cache:
     type: redis
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      chat:
+        options:
+          model: gpt-4o-mini
+          temperature: 0.3
+          max-tokens: 500
 
 team:
   # team/join 동시성 전략 비교용 토글: lock(비관적 락, 기본값) | atomic(조건부 UPDATE)

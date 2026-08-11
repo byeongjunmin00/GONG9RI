@@ -1,0 +1,2 @@
+org.springframework.boot.EnvironmentPostProcessor=\
+com.gong9ri.gong9ri.config.DotenvEnvironmentPostProcessor

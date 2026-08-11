@@ -17,3 +17,8 @@ spring:
     # 테스트는 실제 Redis 없이도 돌아가도록 인메모리 캐시(ConcurrentHashMap 기반)를 사용한다.
     # @Cacheable/@CacheEvict 동작 자체는 캐시 구현체와 무관하게 동일하게 검증 가능하다.
     type: simple
+  ai:
+    openai:
+      # 테스트는 실제 OpenAI를 호출하지 않고 ChatClient를 목(mock)으로 대체한다 — 컨텍스트 로딩 시
+      # 빈 생성 자체가 막히지 않도록 형식만 맞는 더미 키를 둔다(비용·네트워크 의존 없음).
+      api-key: dummy-test-key-not-real

@@ -133,3 +133,33 @@
   |------|------|------|
   | `PRODUCT_NOT_FOUND` | 404 | 존재하지 않는 상품 |
   | `FORBIDDEN` | 403 | 본인 상품이 아니거나 구매자 계정 |
+
+---
+
+## POST /api/seller/products/ai-suggest — AI 상품등록 도우미 (판매자 전용)
+
+> 상세 설계: `docs/dev/ai/product-suggestion/design.md`. LLM(OpenAI `gpt-4o-mini`)이 입력을 바탕으로 상품 정보를 **제안만** 한다 — 이 응답을 그대로 저장하지 않는다. 판매자가 검토·수정한 뒤 `POST /api/products`로 직접 등록해야 한다.
+
+- 요청 body:
+  | 필드 | 타입 | 필수 | 설명 |
+  |------|------|------|------|
+  | category | String | Y | `FOOD`(신선식품) 또는 `GENERAL`(그 외) |
+  | inputText | String | Y | 판매자가 대충 적은 상품 설명 |
+
+- 응답: `200 OK`
+  ```json
+  {
+    "suggestedName": "제주 감귤 5kg",
+    "suggestedDescription": "신선한 제주 감귤 5kg, 유통기한은 2주입니다. 냉장 보관을 권장합니다.",
+    "suggestedBasePrice": 10000,
+    "suggestedMaxParticipants": 10
+  }
+  ```
+
+- 에러:
+  | 코드 | HTTP | 설명 |
+  |------|------|------|
+  | `VALIDATION_FAILED` | 400 | 필드 유효성 실패 |
+  | `FORBIDDEN` | 403 | 구매자 계정으로 시도 |
+  | `UNAUTHORIZED` | 401 | 미인증 |
+  | `AI_SUGGESTION_FAILED` | 503 | LLM 호출 실패(타임아웃 등) — `ai_suggestion_log`에도 실패로 기록됨 |
