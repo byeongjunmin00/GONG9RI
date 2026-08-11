@@ -77,6 +77,9 @@
     pageAlertEl.className = 'form-alert form-alert--' + variant;
     pageAlertTextEl.textContent = text;
     pageAlertLoginLinkEl.hidden = !showLoginLink;
+    if (showLoginLink) {
+      pageAlertLoginLinkEl.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+    }
     pageAlertEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 

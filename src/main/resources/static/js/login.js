@@ -38,6 +38,17 @@
     showAlert('회원가입이 완료됐습니다. 로그인해주세요.', 'success');
   }
 
+  // 다른 페이지에서 "로그인이 필요합니다" 안내를 통해 넘어온 경우 로그인 후 그 페이지로 돌아간다.
+  // ?redirect=/product.html%3Fid%3D1 형태 — 오픈 리다이렉트 방지를 위해 같은 출처의 상대 경로만 허용한다
+  // ("/"로 시작하고 "//"·"/\"로 시작하지 않는 경우만, 그 외에는 메인으로 이동).
+  function resolveRedirectTarget() {
+    var redirect = params.get('redirect');
+    if (redirect && /^\/(?!\/|\\)/.test(redirect)) {
+      return redirect;
+    }
+    return '/';
+  }
+
   form.addEventListener('submit', function (event) {
     event.preventDefault();
     hideAlert();
@@ -55,7 +66,7 @@
 
     window.Api.post('/auth/login', { username: username, password: password })
       .then(function () {
-        window.location.href = '/';
+        window.location.href = resolveRedirectTarget();
       })
       .catch(function (err) {
         submitBtn.disabled = false;

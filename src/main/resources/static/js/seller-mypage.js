@@ -62,6 +62,9 @@
     pageAlertEl.className = 'form-alert form-alert--error';
     pageAlertTextEl.textContent = text;
     pageAlertLoginLinkEl.hidden = !showLoginLink;
+    if (showLoginLink) {
+      pageAlertLoginLinkEl.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+    }
     mypageSectionsEl.hidden = true;
     pageAlertEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
