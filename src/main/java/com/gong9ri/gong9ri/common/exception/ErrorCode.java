@@ -15,7 +15,8 @@ public enum ErrorCode {
     ALREADY_JOINED(HttpStatus.CONFLICT, "이미 참가한 공구팀입니다."),
     PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 결제 내역입니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다."),
-    AI_SUGGESTION_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "AI 제안을 생성하지 못했습니다. 잠시 후 다시 시도해주세요.");
+    AI_SUGGESTION_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "AI 제안을 생성하지 못했습니다. 잠시 후 다시 시도해주세요."),
+    CHAT_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 채팅 세션입니다.");
 
     private final HttpStatus httpStatus;
     private final String message;
