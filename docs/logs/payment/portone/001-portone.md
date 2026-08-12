@@ -36,3 +36,12 @@
   - `seller_revenue_summary`(seller_id=5290): `paid_count=1, total_revenue=1000`, `updated_at=21:47:56` — **confirm 시점에만** 증가함을 실측 확인(요청 접수 시점 21:46:29엔 증가하지 않음 — Attempt 1에서 고친 "확정 전 매출 집계" 버그가 실제 시나리오에서도 재발하지 않음).
   - 화면: "결제가 완료되었습니다 / 상태 PAID / 1,000원" 정상 렌더링.
 - **여전히 미실측(다음 단계)**: 웹훅 서명 검증(로컬은 공인 URL이 없어 포트원이 웹훅을 못 보냄 — Railway 배포 후 실측 필요), 공구팀 미성사 자동환불의 실제 PortOne 취소 API 호출(별도 시나리오 셋업 필요).
+
+## Attempt 4 — 2026-08-12 ✅ PASS (프로덕션 웹훅 서명 검증 실측)
+
+- 시도: 이 커밋(`50a3302`, merge 커밋 `a71a1c9`)이 실제로 Railway에 배포됐는지 확인하려고 `POST https://gong9ri-production.up.railway.app/api/webhooks/portone`을 서명 헤더 없이(`webhook-id`/`webhook-timestamp`/`webhook-signature` 전부 누락) 빈 body(`{}`)로 호출했다.
+- **처음엔 오진**: 응답이 `401`이라서 "구버전이라 이 엔드포인트 자체가 없어서 `anyRequest().authenticated()`에 걸린 것"이라고 잘못 판단하고, 배포가 실패했다고 생각했다.
+- **재확인**: Railway 대시보드(Deployments 탭)를 직접 열어보니 이 merge 커밋이 "Deployment successful"로 7분 전 이미 ACTIVE 상태였다. 코드를 다시 보니 `PortOneWebhookService`가 서명 검증 실패 시 `BusinessException(ErrorCode.WEBHOOK_VERIFICATION_FAILED)`를 던지고, 이 에러코드가 `HttpStatus.UNAUTHORIZED`(401)로 매핑돼 있었다 — 즉 401은 배포 실패의 증거가 아니라 **서명 검증 로직이 정상적으로 위조 요청을 거부한 결과**였다.
+- **결과**: 웹훅 서명 검증이 실제 프로덕션 환경에서 의도대로 작동함을 확인 — 서명이 없거나 틀린 요청은 401로 정확히 거부된다. 계획서(`docs/dev/ongoing/payment-portone.md`)의 "웹훅이 위조되거나 서명이 틀린 경우 거부됨을 실측" 기준을 충족.
+- **교훈**: 배포 진단 시 HTTP 상태 코드만 보고 원인을 단정하지 말고, 그 코드가 어느 계층(Spring Security의 인증 실패 vs 애플리케이션의 의도된 비즈니스 예외)에서 나왔는지 코드로 직접 확인해야 한다 — 둘 다 401을 낼 수 있어서 겉보기 증상만으로는 구분이 안 된다.
+- 미실측으로 남은 것: 정상 서명이 포함된 진짜 포트원 웹훅 수신(포트원 콘솔에 웹훅 URL 등록 + 실제 결제/취소 이벤트 발생 필요), 공구팀 미성사 자동환불의 실제 PortOne 취소 API 호출.
