@@ -3,6 +3,7 @@ package com.gong9ri.gong9ri.controller;
 import com.gong9ri.gong9ri.common.exception.BusinessException;
 import com.gong9ri.gong9ri.common.exception.ErrorCode;
 import com.gong9ri.gong9ri.common.response.ApiResponse;
+import com.gong9ri.gong9ri.common.security.LoginAttemptGuard;
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.dto.MemberLoginRequest;
 import com.gong9ri.gong9ri.dto.MemberResponse;
@@ -39,6 +40,7 @@ public class AuthController {
     private final MemberService memberService;
     private final AuthenticationManager authenticationManager;
     private final SecurityContextRepository securityContextRepository;
+    private final LoginAttemptGuard loginAttemptGuard;
 
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<MemberResponse>> signup(@Valid @RequestBody MemberSignupRequest request) {
@@ -52,14 +54,21 @@ public class AuthController {
     public ResponseEntity<ApiResponse<MemberResponse>> login(@Valid @RequestBody MemberLoginRequest request,
                                                                HttpServletRequest httpRequest,
                                                                HttpServletResponse httpResponse) {
+        if (loginAttemptGuard.isLocked(request.username())) {
+            log.warn("로그인 시도 제한(계정 잠금)으로 거절: username={}", request.username());
+            throw new BusinessException(ErrorCode.LOGIN_ATTEMPTS_EXCEEDED);
+        }
+
         Authentication authentication;
         try {
             authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.username(), request.password()));
         } catch (AuthenticationException e) {
+            loginAttemptGuard.recordFailure(request.username());
             log.warn("로그인 실패: username={}", request.username());
             throw new BusinessException(ErrorCode.LOGIN_FAILED);
         }
+        loginAttemptGuard.recordSuccess(request.username());
 
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authentication);

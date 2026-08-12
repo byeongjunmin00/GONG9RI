@@ -65,6 +65,8 @@
   |------|------|------|
   | `VALIDATION_FAILED` | 400 | 필드 누락 |
   | `LOGIN_FAILED` | 401 | 아이디/비밀번호 불일치 |
+  | `TOO_MANY_REQUESTS` | 429 | 같은 클라이언트(IP)가 60초 안에 10회를 초과해서 요청(로그인 시도 제한 — IP 레이어, `docs/dev/auth/login/design.md` 참고) |
+  | `LOGIN_ATTEMPTS_EXCEEDED` | 429 | 같은 계정이 10분 안에 5회 연속 로그인에 실패해서 잠김(로그인 시도 제한 — 계정 레이어). 맞는 비밀번호를 넣어도 잠금 기간 동안은 거절됨 |
 
 ---
 

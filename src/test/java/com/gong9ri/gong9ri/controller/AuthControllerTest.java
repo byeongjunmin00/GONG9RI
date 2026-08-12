@@ -10,11 +10,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.gong9ri.gong9ri.repository.MemberRepository;
 import java.util.Map;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -34,6 +37,26 @@ class AuthControllerTest {
 
     @Autowired
     private MemberRepository memberRepository;
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
+
+    // 로그인 시도 제한(계정 잠금 + IP) 관련 Redis 카운터는 JPA 트랜잭션 롤백 범위 밖이라 직접 정리한다.
+    // 이 클래스의 테스트들은 전부 MockMvc 기본 클라이언트 IP(127.0.0.1)로 /api/auth/login을 호출하므로,
+    // 매 테스트 전후로 IP 레이어 카운터도 리셋해야 테스트 간 누적으로 429가 새는 걸 막을 수 있다.
+    private static final String LOGIN_IP_RATE_LIMIT_KEY = "rate-limit:login:127.0.0.1";
+
+    @BeforeEach
+    void cleanUpBeforeEach() {
+        redisTemplate.delete(LOGIN_IP_RATE_LIMIT_KEY);
+    }
+
+    @AfterEach
+    void cleanUpLoginAttemptKeys() {
+        redisTemplate.delete(LOGIN_IP_RATE_LIMIT_KEY);
+        redisTemplate.delete("login-fail:gonguri-lockout1");
+        redisTemplate.delete("login-fail:gonguri-lockout2");
+    }
 
     @Test
     @DisplayName("정상 회원가입 시 201과 회원 정보를 반환하고 비밀번호는 암호화되어 저장된다")
@@ -250,5 +273,55 @@ class AuthControllerTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    @DisplayName("같은 계정으로 5회 연속 로그인 실패하면 6번째부터 맞는 비밀번호를 넣어도 잠긴다(LOGIN_ATTEMPTS_EXCEEDED)")
+    void login_repeatedFailures_locksAccount() throws Exception {
+        signup("gonguri-lockout1", "password123");
+        Map<String, Object> wrongRequest = Map.of("username", "gonguri-lockout1", "password", "wrong-password");
+
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(post("/api/auth/login")
+                            .contentType("application/json")
+                            .content(objectMapper.writeValueAsString(wrongRequest)))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("LOGIN_FAILED"));
+        }
+
+        // 6번째부터는 맞는 비밀번호를 넣어도 계정 잠금 자체가 authenticate() 호출을 막는다.
+        Map<String, Object> correctRequest = Map.of("username", "gonguri-lockout1", "password", "password123");
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(correctRequest)))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("LOGIN_ATTEMPTS_EXCEEDED"));
+    }
+
+    @Test
+    @DisplayName("로그인에 성공하면 실패 카운터가 리셋되어 그 뒤로는 다시 정상적으로 실패/성공을 셀 수 있다")
+    void login_success_resetsFailureCounter() throws Exception {
+        signup("gonguri-lockout2", "password123");
+        Map<String, Object> wrongRequest = Map.of("username", "gonguri-lockout2", "password", "wrong-password");
+        Map<String, Object> correctRequest = Map.of("username", "gonguri-lockout2", "password", "password123");
+
+        for (int i = 0; i < 4; i++) {
+            mockMvc.perform(post("/api/auth/login")
+                            .contentType("application/json")
+                            .content(objectMapper.writeValueAsString(wrongRequest)))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        // 임계값(5회) 전에 성공 — 카운터가 리셋돼야 한다.
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(correctRequest)))
+                .andExpect(status().isOk());
+
+        // 리셋 안 됐으면 이전 실패 4회 + 이번 시도로 잠길 수 있는 경계 — 정상적으로 다시 로그인 성공해야 한다.
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(correctRequest)))
+                .andExpect(status().isOk());
     }
 }
