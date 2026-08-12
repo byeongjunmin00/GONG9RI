@@ -41,5 +41,5 @@
 - `service/{BuyerMypageService,SellerMypageService,PaymentService,TeamDeadlineService}.java` — `SellerMypageService.revenue()`는 쓰기 없는 순수 조회(클래스 기본 `@Transactional(readOnly = true)` 그대로 사용), `TeamDeadlineService.processDeadline()`은 `applyRefund` 리턴값이 0이면 WARN 로그
 - `controller/{BuyerMypageController,SellerMypageController}.java`
 - `config/CacheConfig.java` — 판매자 수익 캐시 관련 코드 제거(product 목록/상세 캐시만 남음)
-- 테스트: `controller/{BuyerMypageControllerTest(7케이스),SellerMypageControllerTest(11케이스)}.java` — 스코핑 테스트(구매/상품 각 1개), 매출 집계 테스트(요약 행 직접 seed해 GET 응답 wiring 검증 + 무결제 0건 케이스) 포함
+- 테스트: `controller/{BuyerMypageControllerTest(11케이스),SellerMypageControllerTest(15케이스)}.java` — 스코핑 테스트(구매/상품 각 1개), 매출 집계 테스트(요약 행 직접 seed해 GET 응답 wiring 검증 + 무결제 0건 케이스) 포함
 - 테스트: `service/SellerRevenueSummaryTest.java`(결제 시 upsert로 요약 행 생성·증가, 환불 시 감소, 결제 이력 없는 판매자의 순수 0 조회, 1회성 백필, 대량 더미 데이터 드리프트 검증), `service/SellerRevenueSummaryConcurrencyTest.java`(요약 행이 아예 없는 상태에서 동시에 여러 "첫 결제"가 들어와도 정확히 합산되는지 검증, `@SpringBootTest` 논트랜잭션 멀티스레드). `config/CacheConfigTest.java`(순수 단위 테스트) — product 목록/상세 값 직렬화기 검증만 유지

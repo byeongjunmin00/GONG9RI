@@ -4,7 +4,7 @@
 
 구매자가 "환불은 언제 되나요?" 같은 정책 관련 질문을 챗봇에 했을 때 답할 근거 문맥을 가져오는 RAG(검색) 컴포넌트다. 정책 문서(`docs/policy/refund-trigger.md`, `team-success-criteria.md`)를 Spring AI 내장 `SimpleVectorStore`(인메모리)에 임베딩해두고, 자연어 질의를 넣으면 유사도 상위 K개 스니펫을 반환한다.
 
-발제 AI 도전과제 "RAG"에 대응하며, 발제 AI 필수2·3·도전(Tool Calling/장애격리·비용인식/SSE)을 담당한 `ai/buyer-chatbot`(민병준)과 역할을 분담한다 — 이 기능은 **검색까지만** 담당하고, `BuyerChatService`에 실제로 연결하는 것(RAG+Tool Calling 결합)은 이 기능의 스코프 밖이다(`docs/dev/ai/buyer-chatbot/design.md`에 이미 훅 자리만 비워둔 상태로 기록돼 있음).
+발제 AI 도전과제 "RAG"에 대응하며, 발제 AI 필수2·3·도전(Tool Calling/장애격리·비용인식/SSE)을 담당한 `ai/buyer-chatbot`(민병준)과 역할을 분담한다 — 이 기능은 검색을 담당하고, `BuyerChatService`가 이 인터페이스를 생성자 주입받아 RAG+Tool Calling을 결합해 실제로 사용한다(구현 완료, `docs/dev/ai/buyer-chatbot/design.md`의 "RAG 결합" 섹션 참고).
 
 **중요한 설계 제약**: 이 컴포넌트는 "질문과 무관한 내용을 걸러낸다"는 걸 보장하지 않는다. 유사도 threshold로 관련/무관을 가르는 방식은 실측 결과 이 코퍼스 규모(정책 문서 2개, 6청크)에서 신뢰할 수 없다고 확인됐다(`docs/logs/ai/policy-rag/001-policy-rag.md` Attempt 1~2) — 항상 상위 K개를 그대로 반환하며, 반환된 문맥이 질문과 무관할 수 있다는 전제하에 최종 관련성 판단은 **호출하는 쪽(챗봇의 시스템 프롬프트)**의 책임이다.
 
@@ -20,7 +20,7 @@ public interface PolicyRagService {
 
 - 입력: 사용자의 자연어 질의 원문
 - 출력: 유사도 상위 K개(`TOP_K=3`) 정책 스니펫 텍스트. **빈 리스트가 아니라면 항상 관련 있다고 가정하면 안 된다.**
-- 향후 소비 예시(구현 안 됨, 방향만): `BuyerChatService.streamChat()`의 `.system(SYSTEM_PROMPT).messages(history).user(...).tools(tools)` 조립부에서 `findRelevantSnippets(request.content())` 결과를 시스템 프롬프트 뒤에 덧붙이고, "제공된 문맥이 질문과 무관하면 참고하지 말고 무시하라"는 지시를 추가하는 식으로 연결될 수 있다(민병준의 챗봇이 이미 같은 방식의 환각 방어 문구를 쓰고 있어 자연스럽게 이어짐).
+- 실제 소비(구현 완료): `BuyerChatService.streamChat()`이 매 턴 `retrieveRagContext(request.content())`를 통해 `findRelevantSnippets()`를 호출하고, 그 결과를 시스템 프롬프트 뒤에 덧붙이면서 "제공된 문맥이 질문과 무관하면 참고하지 말고 무시하라"는 지시를 함께 준다(`BuyerChatService.java`의 `retrieveRagContext()`/`buildSystemPrompt()`). 검색 자체가 실패해도(임베딩 API 장애 등) 챗봇 턴 전체를 실패시키지 않고 컨텍스트 없이 진행한다.
 
 ## 데이터 모델
 
@@ -49,7 +49,11 @@ public interface PolicyRagService {
 - `src/main/resources/application.yaml`, `src/test/resources/application.yaml` — `policy-rag.indexing.enabled` 토글
 - 테스트: `service/PolicyRagServiceImplTest.java` — `@MockitoBean VectorStore`로 실제 임베딩 호출 없이 검색 결과 매핑·`SearchRequest` 구성(query/topK/`SIMILARITY_THRESHOLD_ACCEPT_ALL`)을 검증(3케이스). `config/PolicyDocumentIndexerTest.java` — 스프링 컨텍스트 없는 순수 단위 테스트로 청크 텍스트에 내부 제목과 표시용 출처명이 함께 포함되는지 검증. 실제 임베딩 API로 색인·검색·패러프레이즈 개선·출처표시 여부를 확인한 기록은 `docs/logs/ai/policy-rag/001-policy-rag.md`(자동 테스트에는 실제 호출을 넣지 않음).
 
-## 후속 작업 (이 기능 스코프 밖)
+## 후속 작업 — 완료됨
 
-- `BuyerChatService`에 이 인터페이스를 실제로 주입해 RAG+Tool Calling을 결합하는 것 — 민병준과 협의 필요.
-- 챗봇 시스템 프롬프트에 "제공된 정책 문맥이 질문과 무관하면 무시하라"는 지시를 추가하는 것(이 인터페이스가 관련성을 보장하지 않으므로 필수).
+이 섹션은 원래 "`BuyerChatService`에 미연결" 상태를 전제로 남겨둔 후속 작업 목록이었으나, 두 항목 모두 이미 완료됐다:
+
+- `BuyerChatService`에 이 인터페이스가 실제로 주입돼 RAG+Tool Calling이 결합됐다(`BuyerChatService.java:76,155,257`).
+- 챗봇 시스템 프롬프트에 "제공된 정책 문맥이 질문과 무관하면 무시하라"는 지시가 추가됐다(`BuyerChatService.java:269`, `buildSystemPrompt()`).
+
+프로덕션 502 장애(2026-08-12) 후속조치로 색인 시점을 부팅 필수 관문에서 분리하는 별도 작업이 `docs/dev/ongoing/policy-rag-boot-decoupling.md`에서 진행 중이다 — 색인 실패가 이제는 이 이미 연결된 실사용 경로(구매자 챗봇)까지 포함해 전체 서비스를 막지 않게 하는 것이 목표다.

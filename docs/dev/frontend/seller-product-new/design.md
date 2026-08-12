@@ -20,7 +20,7 @@ src/main/resources/static/
 ## 데이터 연동
 
 - 폼 로드 시 API 호출 없음(로그인 상태 사전 확인 안 함 — 다른 페이지와 동일 원칙).
-- 이미지 입력 필드는 없음 — `POST /api/products`가 `imageUrl`을 받지 않아 넣어도 저장되지 않는다(main-page/product-detail과 동일 제약).
+- **이미지 입력 필드(이후 추가됨)**: 이 작업 시점엔 이미지 입력 필드가 없었고 `POST /api/products`도 `imageUrl`을 받지 않았다. 이후 `frontend/product-image` 작업에서 "상품 이미지 URL" 입력 필드(`#imageUrl`)가 추가되고 `POST /api/products` 요청 본문에도 `imageUrl`이 포함되도록 백엔드(`ProductRegisterRequest.imageUrl`)까지 함께 확장됐다 — 상세: `docs/dev/frontend/product-image/design.md`.
 - 가격구간: 최소 1행 유지, "행 추가"로 무제한 추가 가능. 클라이언트 가드레일(오름차순, 중복 `minCount` 금지, `2 ≤ minCount ≤ maxParticipants` 권장)은 UX 보조일 뿐 SSOT가 아니다 — 서버가 이 규칙들을 강제하지 않으므로(코드 확인) 최종 판정은 여전히 서버 `400 VALIDATION_FAILED` 응답.
 - 제출: `POST /api/products {name, description, basePrice, maxParticipants, priceTiers}`. 성공(201) → `product.html?id={새 productId}`(절대경로)로 이동. 실패: 401(로그인 필요+링크)/403(서버 message)/400(서버 message, 공통 배너).
 - "취소하기"는 API 호출 없이 `/`로 이동하는 정적 링크.

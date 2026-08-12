@@ -25,10 +25,10 @@ src/main/resources/static/
 
 ## 규칙 / 검증
 
-- **상세 페이지 링크**: `/products/{id}` 상세 페이지가 아직 없어 카드는 `href="#"` placeholder로만 존재한다(`TODO` 주석으로 표시). 상세 페이지가 생기면 이 링크를 실제 경로로 교체해야 한다.
+- **상세 페이지 링크(이후 해소됨)**: 이 작업 시점엔 상세 페이지가 없어 카드가 `href="#"` placeholder였다. 이후 `frontend/product-detail` 작업에서 `js/main.js`가 실제 `product.html?id={productId}` 링크로 갱신됐다 — 상세: `docs/dev/frontend/product-detail/design.md`.
 - **이미지**: `GET /api/products` 응답의 `imageUrl`이 있으면 카드 이미지 영역에 실제 이미지를 렌더링하고, 없으면 기존 placeholder 그라디언트를 그대로 유지한다(하위 호환) — 상세: `docs/dev/frontend/product-image/design.md`.
 - **공구 상태 뱃지 없음**: `GET /api/products` 응답에 공구 상태 필드가 없어 상태 뱃지는 붙이지 않는다. (뱃지는 상세 페이지에서 팀 조회 API와 연동할 때 다룬다.)
-- **로그인 상태 미연동**: 헤더는 디자인 시스템 단계와 동일하게 비로그인 고정 마크업을 그대로 쓴다.
+- **로그인 상태 연동(이후 추가됨)**: 이 작업 시점엔 헤더가 디자인 시스템 단계와 동일하게 비로그인 고정 마크업이었다. 이후 `frontend/header-auth` 작업에서 실제 로그인 상태에 따라 헤더가 바뀌도록 연동됐다 — 상세: `docs/dev/frontend/header-auth/design.md`.
 - **CSS specificity 주의**: `hidden` 속성이 붙는 요소에 `.btn`처럼 자체 `display` 값을 가진 클래스를 같이 쓸 경우, `.btn[hidden] { display: none; }`류의 속성 선택자 보정 규칙이 없으면 `hidden`이 무시된다(이번 작업에서 실제로 겪은 버그, `components.css`에 보정 규칙 추가로 해결).
 
 ## 관련 코드 위치

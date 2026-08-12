@@ -23,7 +23,7 @@ src/main/resources/static/
 - **실행 시점 보장**: `include.js`의 `includeAll()`이 모든 `data-include` 삽입을 끝낸 뒤 `document`에 `gong9ri:includes-ready`를 정확히 1회 발행한다. `header-auth.js`는 이 이벤트를 구독해야만 동작을 시작한다(헤더 DOM이 아직 없는 시점에 실행되는 경합 방지).
 - **로그인 상태 판정**: `Api.get('/auth/me')` 성공(200) → 로그인 상태로 간주, 응답 실패(401 등) → `.catch`에서 아무 것도 하지 않아 기존 비로그인 마크업을 그대로 유지한다(신규 에러 분기 없음).
 - **헤더 토글**: 로그인 시 `#header-auth-guest`에 `hidden = true`, `#header-auth-user`에 `hidden = false`를 대입. 두 영역 모두 동일한 `.site-header__auth` 클래스를 쓰는 마크업이며 `innerHTML` 조작은 없다. 사용자 이름은 `#header-auth-user-name.textContent = member.name + '님'`로만 대입(XSS 방지).
-- **역할별 nav 표시**: `.site-header__nav a[data-role]`(3개: 판매 물품 등록/판매자 마이페이지=`SELLER`, 구매자 마이페이지=`BUYER`)는 마크업 기본값이 `hidden`이다(비로그인 상태를 기본으로 간주). 로그인한 `member.role`과 일치하는 링크만 `hidden = false`로 노출하고 `nav-link--role-active` 클래스도 함께 추가한다. 역할이 다른 링크는 손대지 않아 기본 `hidden`이 유지된다. `data-role`이 없는 "메인" 링크는 항상 노출.
+- **역할별 nav 표시**: `.site-header__nav a[data-role]`(3개: 판매 물품 등록/판매자 마이페이지=`SELLER`, 구매자 마이페이지=`BUYER`)는 마크업 기본값이 `hidden`이다(비로그인 상태를 기본으로 간주). 로그인한 `member.role`과 일치하는 링크만 `hidden = false`로 노출하고 `nav-link--role-active` 클래스도 함께 추가한다. 역할이 다른 링크는 손대지 않아 기본 `hidden`이 유지된다. 별도 "메인" nav 링크는 없다 — 로고 자체가 이미 `/`로 가는 링크라 중복이고, 역할 링크가 전부 숨겨진 상태(비로그인 등)에서 "메인" 하나만 덩그러니 남는 게 어색해 애초에 만들지 않았다(`partials/header.html` 상단 주석 참고).
 - **로그아웃**: `#header-auth-logout` 클릭 시 `Api.post('/auth/logout')` 성공 후 `window.location.reload()`(현재 페이지 새로고침). 실패는 콘솔 로그만 남기고 별도 UI 처리 없음.
 
 ## 규칙 / 검증
