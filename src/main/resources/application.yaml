@@ -45,6 +45,13 @@ sendgrid:
   api-key: ${SENDGRID_API_KEY:}
   from-email: ${SENDGRID_FROM_EMAIL:}
 
+kakao:
+  # 로그인 고도화 3단계 — 카카오 로그인(Authorization Code, 수동 구현). 카카오 개발자 콘솔에서 발급받은
+  # 값을 환경변수로 주입한다(레포에 실제 키를 두지 않는다, OPENAI_API_KEY와 같은 패턴). client-secret은
+  # 콘솔에서 "보안"을 활성화했을 때만 필요 — 안 켰으면 빈 값이어도 됨.
+  client-id: ${KAKAO_CLIENT_ID:}
+  client-secret: ${KAKAO_CLIENT_SECRET:}
+
 team:
   # team/join 동시성 전략 비교용 토글: lock(비관적 락, 기본값) | atomic(조건부 UPDATE)
   # docs/logs/team/crud/003-atomic-comparison.md 참고

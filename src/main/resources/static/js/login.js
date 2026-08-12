@@ -47,6 +47,8 @@
     showAlert('회원가입이 완료됐습니다. 이메일로 온 인증 링크를 클릭한 뒤 로그인해주세요.', 'success', false);
   } else if (params.get('reset') === 'success') {
     showAlert('비밀번호가 변경됐습니다. 새 비밀번호로 로그인해주세요.', 'success', false);
+  } else if (params.get('error') === 'kakao') {
+    showAlert('카카오 로그인에 실패했습니다. 잠시 후 다시 시도해주세요.', 'error', false);
   }
 
   // 다른 페이지에서 "로그인이 필요합니다" 안내를 통해 넘어온 경우 로그인 후 그 페이지로 돌아간다.

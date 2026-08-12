@@ -70,6 +70,12 @@
           <button type="submit" id="login-submit" class="btn btn-primary btn-block">로그인</button>
         </form>
 
+        <p class="text-muted" style="margin: var(--space-3) 0; text-align: center; font-size: var(--fs-sm);">또는</p>
+
+        <!-- 카카오 로그인 — 전체 페이지 리다이렉트 흐름이라 별도 JS 없이 링크로 충분하다(js/login.js 참고). -->
+        <a href="/api/auth/kakao/login" class="btn btn-block"
+           style="background: #FEE500; color: #191919; border: none;">카카오로 로그인</a>
+
         <p class="text-muted" style="margin-top: var(--space-3); text-align: center; font-size: var(--fs-sm);">
           <a href="/forgot-password.html">비밀번호를 잊으셨나요?</a>
         </p>

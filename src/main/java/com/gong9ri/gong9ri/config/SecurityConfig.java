@@ -51,6 +51,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/auth/verify-email").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/verify-email/resend").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/password/reset-request", "/api/auth/password/reset").permitAll()
+                        // 로그인 고도화 3단계 — 카카오 로그인. 인가 요청/콜백 둘 다 로그인 전 사용자가
+                        // 쓰는 흐름이라 인증 없이 열어야 한다.
+                        .requestMatchers(HttpMethod.GET, "/api/auth/kakao/login", "/api/auth/kakao/callback").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
                         // 공구팀 정원 브로드캐스트용 STOMP 핸드셰이크 — 이미 GET /api/products/**로
                         // 공개된 정보를 실시간으로 밀어주는 것뿐이라 인증 불필요.

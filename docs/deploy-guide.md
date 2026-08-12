@@ -142,6 +142,34 @@ APP_BASE_URL=https://gong9ri-production.up.railway.app
 
 **Railway 요금제 메모리 한도는 이미 최대치**(Settings → Resources, 1GB가 현재 플랜 상한, 슬라이더로 더 못 늘림 — "Upgrade for higher limits"만 있음)라는 것도 이번에 확인함. 이 JVM 옵션 조치로도 재발하면, 남은 선택지는 (a) 유료 플랜 전환으로 메모리 한도 자체를 올리거나 (b) heap dump 등으로 정확한 leak 소스를 특정해서 코드를 고치는 것뿐이다.
 
+## 11. 로그인 고도화 3단계 — 카카오 로그인 배포 준비 (2026-08-12)
+
+`docs/dev/auth/social-login/design.md` 기능을 실제로 쓰려면 카카오 개발자 콘솔 설정이 **직접** 필요함 — 코드만 배포해서는 카카오 로그인 버튼을 눌러도 실패한다.
+
+### 11-1. 카카오 개발자 콘솔 앱 등록
+
+1. [developers.kakao.com](https://developers.kakao.com)에서 카카오 계정으로 로그인 → **내 애플리케이션** → **애플리케이션 추가하기**(앱 이름 아무거나, 예: "GONG9RI")
+2. 앱 선택 → **앱 키** 메뉴에서 **REST API 키** 확인(이게 `KAKAO_CLIENT_ID`)
+3. **카카오 로그인** 메뉴 → 활성화 설정 **ON**
+4. 같은 메뉴의 **Redirect URI**에 아래 2개 등록(로컬 개발용 + 프로덕션용 둘 다):
+   ```
+   http://localhost:8080/api/auth/kakao/callback
+   https://gong9ri-production.up.railway.app/api/auth/kakao/callback
+   ```
+5. **동의항목** 메뉴에서 "닉네임"은 기본 제공, **"카카오계정(이메일)"**을 원하면 "선택 동의"로 설정 — 개인 개발자 앱은 콘솔에 등록한 테스트 사용자 계정에 한해서만 이메일이 실제로 오고, 불특정 다수에게 받으려면 카카오 비즈 심사가 필요할 수 있음(실제 화면에서 직접 확인, 여기서 추측 안 함).
+6. (선택) **보안** 메뉴에서 "Client Secret"을 발급해 활성화했다면 그 값이 `KAKAO_CLIENT_SECRET` — 활성화 안 했으면 이 환경변수는 빈 값으로 둬도 됨.
+
+### 11-2. Railway 환경변수 추가
+
+앱 서비스 → **Variables** 탭에서 추가:
+
+```
+KAKAO_CLIENT_ID=<11-1에서 확인한 REST API 키>
+KAKAO_CLIENT_SECRET=<Client Secret 활성화했으면 그 값, 아니면 비워둠>
+```
+
+> `APP_BASE_URL`은 이미 로그인 고도화 2단계에서 설정해뒀다면 그대로 재사용된다(카카오 콜백 리다이렉트 URI를 이 값 + `/api/auth/kakao/callback`으로 조합함) — 안 돼있으면 9-1절 참고해서 같이 설정.
+
 ## 참고 — 확인 안 된 것
 
 - Railway 무료/저가 플랜의 실제 정책(월 크레딧 한도, 미사용 시 슬립 여부 등)은 가입 후 요금제 화면에서 직접 확인할 것 — 여기서 추측해서 적지 않음.

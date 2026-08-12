@@ -1,5 +1,7 @@
 package com.gong9ri.gong9ri.controller;
 
+import com.gong9ri.gong9ri.client.KakaoClient;
+import com.gong9ri.gong9ri.client.KakaoUserInfo;
 import com.gong9ri.gong9ri.common.exception.BusinessException;
 import com.gong9ri.gong9ri.common.exception.ErrorCode;
 import com.gong9ri.gong9ri.common.mail.EmailService;
@@ -13,14 +15,20 @@ import com.gong9ri.gong9ri.dto.MemberResponse;
 import com.gong9ri.gong9ri.dto.MemberSignupRequest;
 import com.gong9ri.gong9ri.dto.PasswordResetConfirmRequest;
 import com.gong9ri.gong9ri.dto.PasswordResetRequestDto;
+import com.gong9ri.gong9ri.entity.Member;
 import com.gong9ri.gong9ri.service.MemberService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -48,12 +56,21 @@ public class AuthController {
     private static final Duration VERIFICATION_TOKEN_TTL = Duration.ofHours(24);
     private static final Duration PASSWORD_RESET_TOKEN_TTL = Duration.ofMinutes(30);
 
+    private static final String KAKAO_OAUTH_STATE_SESSION_KEY = "kakao_oauth_state";
+
     private final MemberService memberService;
     private final AuthenticationManager authenticationManager;
     private final SecurityContextRepository securityContextRepository;
     private final LoginAttemptGuard loginAttemptGuard;
     private final TokenService tokenService;
     private final EmailService emailService;
+    private final KakaoClient kakaoClient;
+
+    @Value("${app.base-url}")
+    private String appBaseUrl;
+
+    @Value("${kakao.client-id}")
+    private String kakaoClientId;
 
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<MemberResponse>> signup(@Valid @RequestBody MemberSignupRequest request) {
@@ -160,6 +177,64 @@ public class AuthController {
         memberService.changePassword(memberId, request.newPassword());
         log.info("비밀번호 재설정 링크 처리 완료: memberId={}", memberId);
         return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    // 로그인 고도화 3단계 — 카카오 로그인. 이 프로젝트는 세션 인증을 전부 수동으로 구현해왔어서
+    // (spring-boot-starter-oauth2-client의 oauth2Login() 자동 필터를 안 씀) 카카오도 같은 방식(직접
+    // Authorization Code 흐름 구현)으로 일관되게 간다 — docs/dev/auth/social-login/design.md.
+    @GetMapping("/kakao/login")
+    public void kakaoLogin(HttpServletRequest httpRequest, HttpServletResponse httpResponse) throws IOException {
+        String state = UUID.randomUUID().toString();
+        httpRequest.getSession(true).setAttribute(KAKAO_OAUTH_STATE_SESSION_KEY, state);
+
+        String authorizeUrl = "https://kauth.kakao.com/oauth/authorize"
+                + "?client_id=" + URLEncoder.encode(kakaoClientId, StandardCharsets.UTF_8)
+                + "&redirect_uri=" + URLEncoder.encode(kakaoRedirectUri(), StandardCharsets.UTF_8)
+                + "&response_type=code"
+                + "&state=" + state;
+        httpResponse.sendRedirect(authorizeUrl);
+    }
+
+    @GetMapping("/kakao/callback")
+    public void kakaoCallback(@RequestParam(required = false) String code,
+                               @RequestParam(required = false) String state,
+                               @RequestParam(required = false) String error,
+                               HttpServletRequest httpRequest,
+                               HttpServletResponse httpResponse) throws IOException {
+        HttpSession session = httpRequest.getSession(false);
+        Object savedState = session != null ? session.getAttribute(KAKAO_OAUTH_STATE_SESSION_KEY) : null;
+        if (error != null || code == null || savedState == null || !savedState.equals(state)) {
+            log.warn("카카오 로그인 거절: error={}, stateOk={}", error, savedState != null && savedState.equals(state));
+            httpResponse.sendRedirect("/login.html?error=kakao");
+            return;
+        }
+        session.removeAttribute(KAKAO_OAUTH_STATE_SESSION_KEY); // state는 1회성
+
+        try {
+            String accessToken = kakaoClient.exchangeCodeForAccessToken(code, kakaoRedirectUri());
+            KakaoUserInfo userInfo = kakaoClient.getUserInfo(accessToken);
+            Member member = memberService.findOrCreateByKakao(userInfo);
+
+            MemberUserDetails principal = new MemberUserDetails(member);
+            Authentication authentication =
+                    new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+            SecurityContext context = SecurityContextHolder.createEmptyContext();
+            context.setAuthentication(authentication);
+            SecurityContextHolder.setContext(context);
+            securityContextRepository.saveContext(context, httpRequest, httpResponse);
+
+            log.info("카카오 로그인 성공: memberId={}", member.getId());
+            httpResponse.sendRedirect("/");
+        } catch (Exception e) {
+            log.warn("카카오 로그인 처리 실패: error={}", e.getMessage());
+            httpResponse.sendRedirect("/login.html?error=kakao");
+        }
+    }
+
+    // redirect_uri는 /kakao/login(인가 요청)과 /kakao/callback(토큰 교환) 양쪽에서 정확히 같은 값이어야
+    // 한다는 카카오 API 요구사항 때문에 한 곳에서만 조립한다.
+    private String kakaoRedirectUri() {
+        return appBaseUrl + "/api/auth/kakao/callback";
     }
 
     private String htmlMessage(String title, String message) {

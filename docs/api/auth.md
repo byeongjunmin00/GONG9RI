@@ -145,6 +145,28 @@
 
 ---
 
+## GET /api/auth/kakao/login — 카카오 로그인 시작
+
+> 사람(브라우저)이 링크를 클릭해서 들어오는 요청 — JSON이 아니라 카카오 인가 페이지로 **302 리다이렉트**한다. `docs/dev/auth/social-login/design.md` 참고.
+
+- 요청: 없음(GET, 파라미터 없음)
+- 응답: `302 Found`, `Location: https://kauth.kakao.com/oauth/authorize?...` — CSRF 방지용 `state`를 세션에 저장한다.
+
+---
+
+## GET /api/auth/kakao/callback — 카카오 로그인 콜백
+
+> 카카오가 직접 호출하는 리다이렉트 대상 — 사람이 직접 호출하는 API가 아니다. 성공/실패 모두 JSON이 아니라 **302 리다이렉트**로만 응답한다.
+
+- 쿼리 파라미터: `code`, `state`(카카오가 자동으로 실어서 리다이렉트함)
+- 응답:
+  | 상황 | 리다이렉트 위치 |
+  |------|------|
+  | 성공(신규 가입 또는 기존 연동 계정 로그인) | `302 Found` → `/` (세션 발급됨) |
+  | 실패(state 불일치, 토큰 교환/사용자 정보 조회 실패, 이메일이 이미 다른 계정에서 사용 중) | `302 Found` → `/login.html?error=kakao` |
+
+---
+
 ## POST /api/auth/logout — 로그아웃
 
 - 요청 body: 없음 — 서버측 세션 무효화(`HttpSession.invalidate()`)

@@ -52,6 +52,11 @@ public class Member {
     @ColumnDefault("false")
     private boolean emailVerified;
 
+    // 로그인 고도화 3단계(소셜 로그인) — 카카오 계정과 연동된 회원만 값이 있다(일반 회원가입 계정은
+    // null). UNIQUE라 같은 카카오 계정으로 중복 가입되지 않는다(docs/dev/auth/social-login/design.md).
+    @Column(unique = true, length = 100)
+    private String kakaoId;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -75,5 +80,15 @@ public class Member {
 
     public void changePassword(String encodedPassword) {
         this.password = encodedPassword;
+    }
+
+    // 카카오 신규 가입 전용 팩토리 — 일반 가입(생성자)과 달리 이메일 인증을 건너뛴다(카카오 로그인
+    // 자체가 본인 확인 수단이라 우리 쪽 인증 게이트가 의미 없음, 이메일 동의를 안 받은 경우 placeholder
+    // 이메일이라 애초에 인증 메일을 보낼 수도 없다 — docs/dev/auth/social-login/design.md).
+    public static Member ofKakao(String kakaoId, String username, String encodedPassword, String name, String email) {
+        Member member = new Member(username, encodedPassword, name, email, Role.BUYER);
+        member.kakaoId = kakaoId;
+        member.emailVerified = true;
+        return member;
     }
 }
