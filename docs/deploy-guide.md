@@ -129,6 +129,14 @@ APP_BASE_URL=https://gong9ri-production.up.railway.app
 
 이 배포 이전에 가입한 계정은 전부 `email_verified = false`(컬럼 기본값)로 시작한다 — 즉 이 기능 배포 이후엔 **기존 계정도 로그인이 막힌다**(인증 메일을 다시 받아야 함). 실사용자가 없는 개발용 프로젝트라 별도 백필 조치는 하지 않음 — 실사용자가 생긴 뒤에 이 기능을 배포하는 상황이라면, 배포 직전에 기존 row를 `UPDATE member SET email_verified = true WHERE created_at < '<배포 시각>'` 같은 방식으로 백필해야 기존 사용자가 갑자기 로그인이 막히는 걸 피할 수 있다(정직하게 남기는 메모 — 지금은 필요 없어서 안 함).
 
+## 10. 반복되는 OOM 크래시 대응 — JVM 메모리 옵션 (2026-08-12)
+
+프로덕션이 재시작 후 6~7분 간격으로 반복해서 메모리 부족(OOM)으로 크래시나는 걸 실제로 겪었다(Railway가 "Deploy Ran Out of Memory" 메일을 3회 연속 보냄, Metrics 탭에서 메모리가 플랜 한도 1GB를 넘어 1.5GB까지 튀는 것도 실제 그래프로 확인) — 상세 경위·실측 증거는 `docs/logs/cd/deploy/003-oom-crash.md` 참고.
+
+**원인**: `Dockerfile`에 JVM 메모리 옵션이 전혀 없어서, 컨테이너 메모리 한도(1GB)를 JVM이 명시적으로 모르는 채로 돌고 있었다. **조치**: `ENTRYPOINT`에 `-XX:MaxRAMPercentage=70.0 -XX:MaxMetaspaceSize=192m -XX:+ExitOnOutOfMemoryError` 추가 — 로컬에서 `docker run --memory=1g`로 동일한 한도를 걸어 재현 검증함(부팅 445MB, 90초 후 461MB로 안정).
+
+**Railway 요금제 메모리 한도는 이미 최대치**(Settings → Resources, 1GB가 현재 플랜 상한, 슬라이더로 더 못 늘림 — "Upgrade for higher limits"만 있음)라는 것도 이번에 확인함. 이 JVM 옵션 조치로도 재발하면, 남은 선택지는 (a) 유료 플랜 전환으로 메모리 한도 자체를 올리거나 (b) heap dump 등으로 정확한 leak 소스를 특정해서 코드를 고치는 것뿐이다.
+
 ## 참고 — 확인 안 된 것
 
 - Railway 무료/저가 플랜의 실제 정책(월 크레딧 한도, 미사용 시 슬립 여부 등)은 가입 후 요금제 화면에서 직접 확인할 것 — 여기서 추측해서 적지 않음.
