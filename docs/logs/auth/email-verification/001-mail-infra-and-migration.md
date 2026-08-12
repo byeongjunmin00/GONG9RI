@@ -40,4 +40,12 @@
 
 - `./gradlew test`(전체 스위트, `clean` 없이) — 158/158 전부 통과, 회귀 없음.
 - 로컬 dev DB/Redis에 테스트가 남긴 커밋된 데이터 없음 확인(`AuthControllerTest`가 `@Transactional`이라 전부 롤백됨) — Redis는 반복 디버깅 중 쌓인 잔여 키를 `FLUSHALL`로 정리함(이것도 `002-login-rate-limit.md`와 동일한 로컬 반복 실행 특유의 상황, CI는 매번 새 Redis 서비스 컨테이너로 시작해서 재현 안 됨).
-- 실제 Gmail SMTP 발송 검증은 아직 안 함 — 발신용 Gmail 앱 비밀번호 준비 후 별도로 진행 예정.
+
+## Attempt 3 — 실제 Gmail SMTP 발송 검증 — 2026-08-12 ✅ PASS
+
+발신용 Gmail 계정(`byeongjunmin00@gmail.com`)에 2단계 인증 + 앱 비밀번호를 발급받아, `MAIL_USERNAME`/`MAIL_PASSWORD`/`APP_BASE_URL` 환경변수를 실제 값으로 채워서 로컬 서버를 띄우고 실제 SMTP 발송까지 검증함.
+
+- **이메일 인증**: 실제 이메일로 회원가입(`POST /api/auth/signup`) → 인증 전 로그인 시도 시 실제로 `EMAIL_NOT_VERIFIED`(403) → 받은편지함에서 실제 메일 수신 확인 → 메일 안의 실제 링크 클릭(`GET /api/auth/verify-email`) → 같은 계정 로그인 성공(200) 확인.
+- **비밀번호 재설정**: 실제 이메일로 재설정 요청(`POST /api/auth/password/reset-request`) → 받은편지함에서 실제 메일 수신 확인 → Redis에서 실제 발급된 토큰으로 재설정 실행(`POST /api/auth/password/reset`) → 이전 비밀번호 로그인 시도 시 `LOGIN_FAILED`(401), 새 비밀번호로는 로그인 성공(200) 확인.
+- 두 흐름 다 예외 없이 첫 시도에 정상 동작함 — 이번 항목에서 나온 버그 4개는 전부 인프라/테스트 설정 문제였고, 실제 메일 발송 자체는 설계대로 문제없이 붙었음.
+- 검증 후 정리: 실제 로컬 dev DB에 남은 테스트 계정(`gong9ri-smtp-test1`) 삭제, Redis `FLUSHALL`로 테스트 토큰 정리, 로컬 서버 프로세스 종료, 앱 비밀번호가 찍힌 임시 로그 파일 삭제(내용엔 안 찍혔지만 안전 차원에서 확인 후 삭제).

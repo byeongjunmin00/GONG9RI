@@ -47,7 +47,7 @@
 
 - 로컬 dev DB에 `member.email_verified` 컬럼 + `email` UNIQUE 인덱스를 실제로 마이그레이션 적용해서 기존 row 있는 상태에서 안전한지 실측 확인함. 상세 트러블슈팅: `docs/logs/auth/email-verification/001-migration-and-mail-health.md`.
 - `AuthControllerTest`에 회귀 포함 전체 158개 테스트가 실제로 로컬 MySQL/Redis에 붙어서 통과하는 것까지 확인함(`JavaMailSender`는 `@MockitoBean`으로 대체해서 실제 SMTP 연결 없이 검증).
-- 실제 Gmail SMTP로 진짜 이메일을 발송해서 받은편지함에서 링크를 눌러보는 검증은 아직 안 함(발신용 Gmail 앱 비밀번호 준비 후 진행 예정).
+- **실제 Gmail SMTP로 발송 검증 완료(2026-08-12)**: 실제 발신 계정(Gmail 앱 비밀번호)으로 로컬 서버를 띄워 실제 회원가입 → 실제 이메일 수신(받은편지함에서 직접 확인) → 인증 전 로그인 시도가 `EMAIL_NOT_VERIFIED`(403)로 실제로 막히는 것 → 메일의 실제 링크 클릭 → 인증 완료 → 같은 계정으로 로그인 성공(200)까지 전체 플로우를 실제로 완주함. 검증 후 실제 DB의 테스트 계정과 Redis 키 전부 정리함.
 
 ## 관련 코드 위치
 
