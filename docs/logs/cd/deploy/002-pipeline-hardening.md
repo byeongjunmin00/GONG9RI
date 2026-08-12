@@ -37,6 +37,35 @@ Railway 공식 문서(`docs.railway.com/guides/github-autodeploys`)로 "Wait for
 
 `./gradlew clean build` 141/141 전부 통과, 회귀 없음.
 
-## Attempt 2 — 실제 배포 중 무중단 실측 + Wait for CI 확인
+## Attempt 2 — 실제 배포 중 무중단 실측 + Wait for CI 확인 — 2026-08-12 ✅ PASS
 
-(진행 예정 — 이 작업 커밋을 push한 뒤 실제 Railway 재배포 동안 프로덕션 URL 폴링, 사용자가 Wait for CI 켠 뒤 실제 게이팅 동작 확인)
+사용자가 Railway 대시보드에서 "Wait for CI" 토글을 켠 뒤, 이번 배포 고도화 커밋(`1964dc6`)을 실제로 push해서 검증했다.
+
+### 타임라인 (전부 실제 로그/폴링 기록, KST)
+
+| 시각 | 이벤트 |
+|---|---|
+| 18:25:43 | push, GitHub Actions CI(`ci.yml`) 시작 |
+| 18:27:29 | CI 성공 완료(`gh run view`로 확인, `conclusion: success`) |
+| **18:27:32** | **Railway 빌드 시작**(Build Logs: `unpacking archive`) — CI 완료로부터 정확히 **3초 뒤** |
+| 18:27:34~18:28:28 | `./gradlew bootJar --no-daemon` 실행(~54초) |
+| 18:28:28~18:28:38 | 이미지 export + push(216.3MB) |
+| 18:28:46 | 새 컨테이너 기동(`Starting Container`), 헬스체크 시작 — `Path: /actuator/health`, `Retry window: 5m0s`(우리가 설정한 `healthcheckTimeout: 300`과 정확히 일치) |
+| 18:28:57 | 헬스체크 1차 시도 실패(`service unavailable` — 앱이 아직 완전히 안 뜬 상태, 정상적인 재시도 유발) |
+| **18:29:03** | **헬스체크 성공** → 새 버전이 그제서야 트래픽을 받기 시작(대시보드 `ACTIVE`로 전환) |
+
+### Wait for CI — 실제로 작동함(실측 확정)
+
+Railway 빌드 시작(18:27:32)이 CI 완료(18:27:29)로부터 3초 뒤라는 걸 두 시스템의 독립적인 로그(GitHub Actions API `updatedAt`, Railway Build Logs 타임스탬프)로 교차 확인했다 — CI가 끝나기 전엔 빌드가 시작되지 않았다는 뜻으로, "Wait for CI"가 실제로 게이팅하고 있음이 확정됐다. (처음엔 배포 상세 화면의 반올림된 스테이지 소요시간으로 역산했더니 오히려 CI보다 먼저 시작한 것처럼 보여서 혼란이 있었는데, Build Logs의 초 단위 실제 타임스탬프로 확인하니 반올림 오차였음이 밝혀짐 — "정확한 로그로 재확인"의 가치를 다시 확인한 사례.)
+
+### 무중단 배포 실측 — 다운타임 0
+
+이 작업 커밋을 push하기 직전부터 `https://gong9ri-production.up.railway.app/api/products`를 1초 간격으로 6분간 폴링(`nohup` 백그라운드 루프, 총 360개 요청).
+
+- **360/360 전부 200**, 비-200 응답 0건.
+- 특히 새 컨테이너가 헬스체크에서 아직 떨어지고 있던 구간(18:28:46~18:29:03, 1차 시도 실패 포함 17초)에도 폴링은 계속 200만 기록함 — 이 구간엔 **이전 버전 컨테이너가 계속 트래픽을 받고 있었다**는 뜻으로, 헬스체크 게이팅이 설계한 그대로 무중단 컷오버를 만들어주고 있음을 초 단위로 실측 확인.
+- 배포 완료 후 `curl https://gong9ri-production.up.railway.app/actuator/health` → `200 {"status":"UP"}` 실제 확인(새 코드가 실제로 서빙 중임을 재확인).
+
+### 참고 — 첫 번째 폴링 시도는 실패해서 재시도함
+
+처음에 `( for ... ) &` 형태로 서브셸을 직접 백그라운드시켰더니 15초 만에 조용히 죽어서(11줄만 기록) 다운타임 실측을 놓칠 뻔했다 — `nohup bash -c '...' &`로 바꿔서 재시도해 정상적으로 6분 완주시켰다(이 프로젝트에서 `bootRun`을 백그라운드로 띄울 때 썼던 것과 동일한 `nohup` 패턴).

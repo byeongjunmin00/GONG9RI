@@ -25,8 +25,8 @@
 - [x] 컨테이너 메모리 실측(512MB/1GB 제한, MaxHeapSize 확인) — 문제 없어 Dockerfile 무변경
 - [x] `docs/deploy-guide.md`에 Wait for CI 안내 + 롤백 런북 추가
 - [x] `docs/dev/cd/deploy/design.md` 갱신
-- [ ] 커밋·push 후 실제 배포 중 무중단 실측(프로덕션 URL 폴링)
-- [ ] 사용자가 Railway "Wait for CI" 토글 활성화 + 실제 게이팅 동작 확인
+- [x] 커밋·push 후 실제 배포 중 무중단 실측(프로덕션 URL 폴링) — 190/190 200, 다운타임 0
+- [x] 사용자가 Railway "Wait for CI" 토글 활성화 + 실제 게이팅 동작 확인 — 빌드가 CI 완료 3초 뒤 시작함을 로그로 확정
 
 ## 평가(통과) 기준
 
