@@ -91,6 +91,9 @@
   <script src="/js/include.js"></script>
   <script src="/js/api.js"></script>
   <script src="/js/header-auth.js"></script>
+  <!-- 실시간 메시징(공구팀 정원 변동 브로드캐스트)용 STOMP 클라이언트. 로드 실패 시 product.js가
+       조용히 실시간 갱신 없이 기존 수동 새로고침 흐름으로 폴백한다. -->
+  <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.0.0/bundles/stomp.umd.min.js"></script>
   <script src="/js/product.js"></script>
 </body>
 </html>

@@ -11,6 +11,7 @@ import com.gong9ri.gong9ri.entity.Product;
 import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.entity.TeamParticipation;
 import com.gong9ri.gong9ri.entity.TeamStatus;
+import com.gong9ri.gong9ri.event.TeamCapacityChangedEvent;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
 import com.gong9ri.gong9ri.repository.TeamParticipationRepository;
@@ -19,6 +20,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +37,7 @@ public class TeamService {
     private final GroupBuyTeamRepository groupBuyTeamRepository;
     private final TeamParticipationRepository teamParticipationRepository;
     private final ProductRepository productRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     // team/join 동시성 전략 토글(lock|atomic) — docs/logs/team/crud/003-atomic-comparison.md
     // 필드 주입: @RequiredArgsConstructor(final 필드)로는 Lombok이 @Value를 생성자 파라미터로
@@ -94,9 +97,11 @@ public class TeamService {
         team.increaseParticipant();
         teamParticipationRepository.save(new TeamParticipation(team, member));
 
+        TeamJoinResponse response = TeamJoinResponse.from(team);
+        eventPublisher.publishEvent(new TeamCapacityChangedEvent(team.getProduct().getId(), response));
         log.info("공구팀 참가 완료(lock): teamId={}, memberId={}, currentCount={}",
                 teamId, member.getId(), team.getCurrentCount());
-        return TeamJoinResponse.from(team);
+        return response;
     }
 
     // 비관적 락 없이, 조건부 UPDATE(incrementIfCapacity)의 원자성에만 의존하는 대안 경로 — 성능 비교용.
@@ -123,9 +128,11 @@ public class TeamService {
         }
 
         GroupBuyTeam team = groupBuyTeamRepository.findById(teamId).orElseThrow();
+        TeamJoinResponse response = TeamJoinResponse.from(team);
+        eventPublisher.publishEvent(new TeamCapacityChangedEvent(team.getProduct().getId(), response));
         log.info("공구팀 참가 완료(atomic): teamId={}, memberId={}, currentCount={}",
                 teamId, member.getId(), team.getCurrentCount());
-        return TeamJoinResponse.from(team);
+        return response;
     }
 
     private void requireBuyer(MemberUserDetails principal) {

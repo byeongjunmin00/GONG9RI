@@ -47,6 +47,9 @@ public class SecurityConfig {
                         .requestMatchers("/", "/*.html", "/**/*.html", "/css/**", "/js/**", "/partials/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
+                        // 공구팀 정원 브로드캐스트용 STOMP 핸드셰이크 — 이미 GET /api/products/**로
+                        // 공개된 정보를 실시간으로 밀어주는 것뿐이라 인증 불필요.
+                        .requestMatchers("/ws-team/**").permitAll()
                         .anyRequest().authenticated());
         return http.build();
     }

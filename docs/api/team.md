@@ -93,3 +93,17 @@
   | `FORBIDDEN` | 403 | 판매자 계정으로 시도 |
   | `UNAUTHORIZED` | 401 | 미인증 |
   | `TOO_MANY_REQUESTS` | 429 | 같은 클라이언트(IP)가 10초 안에 20회를 초과해서 요청(트래픽 제어, `docs/dev/team/crud/design.md` 참고) |
+
+---
+
+## 실시간 이벤트 — WebSocket/STOMP (REST 아님)
+
+이 참가가 성공(커밋)하면, 그 팀이 속한 상품 페이지를 보고 있는 클라이언트 전원에게 갱신된 팀 상태를 실시간으로 밀어준다. 인증 불필요(이미 위 `GET /api/products/**`로 공개된 정보를 실시간으로 전달하는 것뿐).
+
+- **핸드셰이크 엔드포인트**: `/ws-team` (SockJS 폴백 없음, 네이티브 WebSocket)
+- **구독 토픽**: `/topic/products/{productId}/teams`
+- **페이로드**: 위 `POST /api/teams/{teamId}/join` 응답과 동일한 형식
+  ```json
+  { "teamId": 3, "currentCount": 5, "maxParticipants": 10, "status": "RECRUITING" }
+  ```
+- **발행 시점**: `team/join` 성공(커밋) 시점뿐. 팀 신설(`POST /api/products/{productId}/teams`)은 브로드캐스트 대상이 아니다(스코프 밖, `docs/dev/team/crud/design.md` 참고).

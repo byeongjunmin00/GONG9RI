@@ -13,6 +13,8 @@
  *   (자동 리다이렉트는 하지 않는다). 401/403/409/404는 에러 코드별로 처리한다.
  * - "혼자 구매하기"는 checkout.html?productId={id}로 이동한다(API 호출 없음).
  * - 상품명/설명/판매자명/서버 에러 message 등 신뢰할 수 없는 문자열은 textContent로만 대입해 XSS를 방지한다.
+ * - 다른 사용자의 참가로 팀 정원이 바뀌면 "/topic/products/{id}/teams" STOMP 브로드캐스트를 받아
+ *   자동으로 팀 목록을 다시 그린다(connectRealtime, 실패해도 조용히 폴백 — 기존 흐름은 그대로 동작).
  */
 (function () {
   var pageAlertEl = document.getElementById('page-alert');
@@ -329,6 +331,33 @@
     window.location.href = 'checkout.html?productId=' + currentProductId;
   }
 
+  /**
+   * 실시간 메시징(발제 도전과제) — 이 상품의 공구팀 정원이 바뀌면(다른 사용자의 참가) 서버가
+   * "/topic/products/{productId}/teams"로 브로드캐스트한다. 세밀한 DOM 패치 대신 이미 있는
+   * loadTeams()를 그대로 재사용해서 통째로 다시 그린다(기존 코드 스타일과 동일).
+   * StompJs가 없거나(CDN 로드 실패) 연결이 실패해도 예외를 던지지 않고 조용히 넘어간다 —
+   * 실시간 갱신이 안 될 뿐 기존 수동 새로고침 흐름은 그대로 동작한다.
+   */
+  function connectRealtime(productId) {
+    if (typeof StompJs === 'undefined') {
+      return;
+    }
+
+    var protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+    var client = new StompJs.Client({
+      brokerURL: protocol + window.location.host + '/ws-team',
+      reconnectDelay: 5000,
+    });
+
+    client.onConnect = function () {
+      client.subscribe('/topic/products/' + productId + '/teams', function () {
+        loadTeams(productId);
+      });
+    };
+
+    client.activate();
+  }
+
   function loadProduct(productId) {
     showStatus('상품 정보를 불러오는 중입니다...', 'loading');
     detailEl.hidden = true;
@@ -365,6 +394,7 @@
     createTeamBtn.addEventListener('click', handleCreateTeam);
 
     loadProduct(productId);
+    connectRealtime(productId);
   }
 
   init();
