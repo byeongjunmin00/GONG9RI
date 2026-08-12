@@ -37,6 +37,9 @@
   |------|------|------|
   | `VALIDATION_FAILED` | 400 | 필드 유효성 실패 |
   | `DUPLICATE_USERNAME` | 409 | 이미 존재하는 아이디 |
+  | `DUPLICATE_EMAIL` | 409 | 이미 사용 중인 이메일(로그인 고도화 2단계 — 비밀번호 재설정이 이메일로 계정을 유일하게 찾아야 해서 추가된 제약, `docs/dev/auth/email-verification/design.md` 참고) |
+
+> 가입 성공 시 세션은 발급되지 않는다(즉시 로그인되지 않음) — 이메일 인증 링크를 클릭해야 로그인 가능(아래 `EMAIL_NOT_VERIFIED` 참고). 인증 메일은 가입 트랜잭션 커밋 후 비동기로 발송된다.
 
 ---
 
@@ -67,6 +70,78 @@
   | `LOGIN_FAILED` | 401 | 아이디/비밀번호 불일치 |
   | `TOO_MANY_REQUESTS` | 429 | 같은 클라이언트(IP)가 60초 안에 10회를 초과해서 요청(로그인 시도 제한 — IP 레이어, `docs/dev/auth/login/design.md` 참고) |
   | `LOGIN_ATTEMPTS_EXCEEDED` | 429 | 같은 계정이 10분 안에 5회 연속 로그인에 실패해서 잠김(로그인 시도 제한 — 계정 레이어). 맞는 비밀번호를 넣어도 잠금 기간 동안은 거절됨 |
+  | `EMAIL_NOT_VERIFIED` | 403 | 비밀번호는 맞지만 이메일 인증을 안 한 계정(로그인 고도화 2단계, `docs/dev/auth/email-verification/design.md` 참고) — 세션이 발급되지 않는다 |
+
+---
+
+## GET /api/auth/verify-email — 이메일 인증 확인
+
+> 이메일 안의 링크를 브라우저로 직접 클릭해서 들어오는 요청 — JSON이 아니라 안내 HTML(`text/html`)을 응답한다.
+
+- 쿼리 파라미터: `token`(String, Y) — 가입 시 발송된 인증 메일 안의 링크에 포함됨(24시간 유효, 1회성)
+
+- 응답: `200 OK` — 인증 완료 안내 HTML(로그인 페이지 링크 포함)
+
+- 에러:
+  | 상황 | HTTP | 설명 |
+  |------|------|------|
+  | 토큰이 유효하지 않거나 만료됨/이미 사용됨 | 400 | 안내 HTML로 재발송 요청 유도 |
+
+---
+
+## POST /api/auth/verify-email/resend — 인증 메일 재발송
+
+> 계정 존재 여부·인증 상태와 무관하게 항상 동일한 성공 응답을 반환한다(계정 존재 여부 비노출).
+
+- 요청 body:
+  | 필드 | 타입 | 필수 | 설명 |
+  |------|------|------|------|
+  | username | String | Y | 로그인 아이디 |
+
+- 응답: `200 OK`, `data: null`
+
+- 에러:
+  | 코드 | HTTP | 설명 |
+  |------|------|------|
+  | `VALIDATION_FAILED` | 400 | 필드 누락 |
+  | `TOO_MANY_REQUESTS` | 429 | 같은 클라이언트(IP)가 5분 안에 3회를 초과해서 요청 |
+
+---
+
+## POST /api/auth/password/reset-request — 비밀번호 재설정 요청
+
+> 이메일 존재 여부와 무관하게 항상 동일한 성공 응답을 반환한다(계정 존재 여부 비노출).
+
+- 요청 body:
+  | 필드 | 타입 | 필수 | 설명 |
+  |------|------|------|------|
+  | email | String | Y | 가입 시 등록한 이메일 |
+
+- 응답: `200 OK`, `data: null` — 등록된 이메일이면 재설정 링크가 담긴 메일 발송(30분 유효, 1회성)
+
+- 에러:
+  | 코드 | HTTP | 설명 |
+  |------|------|------|
+  | `VALIDATION_FAILED` | 400 | 필드 누락/이메일 형식 오류 |
+  | `TOO_MANY_REQUESTS` | 429 | 같은 클라이언트(IP)가 5분 안에 3회를 초과해서 요청 |
+
+---
+
+## POST /api/auth/password/reset — 비밀번호 재설정 확정
+
+- 요청 body:
+  | 필드 | 타입 | 필수 | 설명 |
+  |------|------|------|------|
+  | token | String | Y | 재설정 메일 링크의 토큰 |
+  | newPassword | String | Y | 새 비밀번호 |
+
+- 응답: `200 OK`, `data: null` — 변경 후 이전 비밀번호는 더 이상 사용할 수 없음. (기존 로그인 세션은 강제 무효화되지 않음 — 알려진 한계, `docs/dev/auth/password-reset/design.md` 참고)
+
+- 에러:
+  | 코드 | HTTP | 설명 |
+  |------|------|------|
+  | `VALIDATION_FAILED` | 400 | 필드 누락 |
+  | `INVALID_OR_EXPIRED_TOKEN` | 400 | 토큰이 유효하지 않거나 만료됨/이미 사용됨 |
 
 ---
 

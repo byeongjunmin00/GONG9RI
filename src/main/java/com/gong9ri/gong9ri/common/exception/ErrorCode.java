@@ -18,7 +18,10 @@ public enum ErrorCode {
     AI_SUGGESTION_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "AI 제안을 생성하지 못했습니다. 잠시 후 다시 시도해주세요."),
     CHAT_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 채팅 세션입니다."),
     TOO_MANY_REQUESTS(HttpStatus.TOO_MANY_REQUESTS, "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."),
-    LOGIN_ATTEMPTS_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.");
+    LOGIN_ATTEMPTS_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요."),
+    DUPLICATE_EMAIL(HttpStatus.CONFLICT, "이미 사용 중인 이메일입니다."),
+    EMAIL_NOT_VERIFIED(HttpStatus.FORBIDDEN, "이메일 인증이 필요합니다. 가입 시 받은 메일의 링크를 확인해주세요."),
+    INVALID_OR_EXPIRED_TOKEN(HttpStatus.BAD_REQUEST, "유효하지 않거나 만료된 링크입니다.");
 
     private final HttpStatus httpStatus;
     private final String message;

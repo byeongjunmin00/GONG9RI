@@ -90,6 +90,45 @@ REDIS_PASSWORD=${{Redis.REDISPASSWORD}}
 3. **롤백 방법**: Railway 대시보드 → **Deployments** 탭 → 마지막으로 정상(`Active`/`Success`)이었던 배포를 찾아 그 배포의 메뉴에서 **Redeploy**(또는 비슷한 이름) 클릭 — 그 커밋 시점 이미지로 즉시 되돌아감. `main`에 새 커밋을 만들 필요 없음(급할 때는 대시보드 롤백이 먼저, 코드 수정은 그 다음에 여유 갖고).
 4. **복구 확인**: 롤백(또는 원인 수정 후 재배포) 뒤 반드시 `GET /api/products`(200 확인) + `GET /actuator/health`(200 확인)로 실제 응답을 눈으로 확인하고 끝낸다 — 대시보드 상태가 `Active`인 것만 믿지 말 것(오늘 사고 이전엔 "Active면 정상"이라고 가정했던 게 문제였음).
 
+## 9. 로그인 고도화 2단계 — 이메일 인증/비밀번호 재설정 배포 준비 (2026-08-12)
+
+`docs/dev/auth/email-verification/design.md`, `docs/dev/auth/password-reset/design.md` 기능을 실제로 쓰려면 아래 두 가지를 **직접** 해야 함 — 코드만 배포해서는 메일이 안 나가고, DB 마이그레이션도 자동으로 안 걸림.
+
+### 9-1. 환경변수 3개 추가
+
+앱 서비스 → **Variables** 탭에서 아래 3개 추가:
+
+```
+MAIL_USERNAME=<발신용 Gmail 주소>
+MAIL_PASSWORD=<Gmail 앱 비밀번호(2단계 인증 켠 뒤 발급, 일반 로그인 비밀번호 아님)>
+APP_BASE_URL=https://gong9ri-production.up.railway.app
+```
+
+> `APP_BASE_URL`은 이메일 안의 인증/재설정 링크를 만드는 데 쓰임(`app.base-url` 설정, 없으면 로컬 기본값 `http://localhost:8080`으로 링크가 만들어져서 실제로는 안 열림). `MAIL_USERNAME`/`MAIL_PASSWORD`를 안 넣어도 앱 자체는 뜨지만(`management.health.mail.enabled: false`로 헬스체크는 메일 상태를 안 봄), 실제 메일 발송은 전부 실패해서 로그에 `이메일 발송 실패` 경고만 쌓이고 사용자는 인증 메일을 못 받는다.
+
+### 9-2. `member.email` UNIQUE 인덱스 수동 적용
+
+`ddl-auto: update`가 기존 컬럼에 새 UNIQUE 제약을 자동으로 안 걸어준다는 걸 로컬에서 실측 확인했음(`docs/db/member.md`의 "마이그레이션 메모" 참고) — 프로덕션 DB에도 똑같이 수동으로 걸어야 함. Railway MySQL 플러그인 → **Data**(또는 접속 정보로 로컬 `mysql` 클라이언트 연결) 순서로 진행:
+
+1. **중복 이메일 먼저 확인** (있으면 아래 `ALTER TABLE`이 바로 실패함):
+   ```sql
+   SELECT email, COUNT(*) FROM member GROUP BY email HAVING COUNT(*) > 1;
+   ```
+   결과가 없어야(빈 결과) 다음 단계로 진행 가능. 만약 중복이 있으면 어느 계정을 남길지부터 판단해야 함(이 프로젝트는 현재 실사용자가 없어서 발생 가능성은 낮지만, 스킵하지 말고 반드시 먼저 확인).
+2. **인덱스 적용**:
+   ```sql
+   ALTER TABLE member ADD UNIQUE INDEX uk_member_email (email);
+   ```
+3. **확인**:
+   ```sql
+   SHOW INDEX FROM member WHERE Key_name = 'uk_member_email';
+   ```
+   결과가 1행 나오면 정상 적용된 것.
+
+### 9-3. 기존 가입 계정의 `email_verified` 상태
+
+이 배포 이전에 가입한 계정은 전부 `email_verified = false`(컬럼 기본값)로 시작한다 — 즉 이 기능 배포 이후엔 **기존 계정도 로그인이 막힌다**(인증 메일을 다시 받아야 함). 실사용자가 없는 개발용 프로젝트라 별도 백필 조치는 하지 않음 — 실사용자가 생긴 뒤에 이 기능을 배포하는 상황이라면, 배포 직전에 기존 row를 `UPDATE member SET email_verified = true WHERE created_at < '<배포 시각>'` 같은 방식으로 백필해야 기존 사용자가 갑자기 로그인이 막히는 걸 피할 수 있다(정직하게 남기는 메모 — 지금은 필요 없어서 안 함).
+
 ## 참고 — 확인 안 된 것
 
 - Railway 무료/저가 플랜의 실제 정책(월 크레딧 한도, 미사용 시 슬립 여부 등)은 가입 후 요금제 화면에서 직접 확인할 것 — 여기서 추측해서 적지 않음.

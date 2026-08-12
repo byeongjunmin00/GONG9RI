@@ -11,6 +11,7 @@
   var form = document.getElementById('signup-form');
   var alertEl = document.getElementById('form-alert');
   var usernameErrorEl = document.getElementById('username-error');
+  var emailErrorEl = document.getElementById('email-error');
   var submitBtn = document.getElementById('signup-submit');
 
   var usernameInput = document.getElementById('username');
@@ -24,6 +25,7 @@
     !form ||
     !alertEl ||
     !usernameErrorEl ||
+    !emailErrorEl ||
     !submitBtn ||
     !usernameInput ||
     !passwordInput ||
@@ -57,6 +59,16 @@
     usernameErrorEl.textContent = '';
   }
 
+  function showEmailError(text) {
+    emailErrorEl.hidden = false;
+    emailErrorEl.textContent = text;
+  }
+
+  function hideEmailError() {
+    emailErrorEl.hidden = true;
+    emailErrorEl.textContent = '';
+  }
+
   function showPasswordConfirmError(text) {
     passwordConfirmErrorEl.hidden = false;
     passwordConfirmErrorEl.textContent = text;
@@ -76,6 +88,7 @@
     event.preventDefault();
     hideAlert();
     hideUsernameError();
+    hideEmailError();
     hidePasswordConfirmError();
 
     var username = usernameInput.value.trim();
@@ -117,6 +130,11 @@
 
         if (err && err.code === 'DUPLICATE_USERNAME') {
           showUsernameError(message);
+          return;
+        }
+
+        if (err && err.code === 'DUPLICATE_EMAIL') {
+          showEmailError(message);
           return;
         }
 

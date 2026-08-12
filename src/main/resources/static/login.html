@@ -36,7 +36,11 @@
         </div>
 
         <!-- 로그인 실패 안내 / 회원가입 완료 안내. js/login.js가 텍스트와 표시 여부를 제어한다. -->
-        <div id="form-alert" class="form-alert" role="alert" hidden></div>
+        <div id="form-alert" class="form-alert" role="alert" hidden>
+          <span id="form-alert-text"></span>
+          <!-- EMAIL_NOT_VERIFIED일 때만 노출 — js/login.js가 제어한다. -->
+          <button type="button" id="resend-verification-btn" class="btn btn-secondary btn-sm" style="margin-top: var(--space-2);" hidden>인증 메일 다시 보내기</button>
+        </div>
 
         <form id="login-form" novalidate>
           <div class="form-group">
@@ -66,7 +70,11 @@
           <button type="submit" id="login-submit" class="btn btn-primary btn-block">로그인</button>
         </form>
 
-        <p class="text-muted" style="margin-top: var(--space-5); text-align: center; font-size: var(--fs-sm);">
+        <p class="text-muted" style="margin-top: var(--space-3); text-align: center; font-size: var(--fs-sm);">
+          <a href="/forgot-password.html">비밀번호를 잊으셨나요?</a>
+        </p>
+
+        <p class="text-muted" style="margin-top: var(--space-2); text-align: center; font-size: var(--fs-sm);">
           아직 계정이 없으신가요? <a href="/signup.html">회원가입</a>
         </p>
       </div>
