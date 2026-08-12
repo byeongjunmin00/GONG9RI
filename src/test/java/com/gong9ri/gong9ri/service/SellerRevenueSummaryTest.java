@@ -3,9 +3,16 @@ package com.gong9ri.gong9ri.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
+import com.gong9ri.gong9ri.client.PortOneCancelResult;
+import com.gong9ri.gong9ri.client.PortOneClient;
+import com.gong9ri.gong9ri.client.PortOnePaymentDetail;
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.dto.PaymentCreateRequest;
+import com.gong9ri.gong9ri.dto.PaymentResponse;
 import com.gong9ri.gong9ri.dto.RevenueResponse;
 import com.gong9ri.gong9ri.entity.GroupBuyTeam;
 import com.gong9ri.gong9ri.entity.Member;
@@ -16,17 +23,23 @@ import com.gong9ri.gong9ri.entity.SellerRevenueSummary;
 import com.gong9ri.gong9ri.entity.TeamParticipation;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.MemberRepository;
+import com.gong9ri.gong9ri.repository.NotificationRepository;
 import com.gong9ri.gong9ri.repository.PaymentRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
 import com.gong9ri.gong9ri.repository.RevenueSummaryProjection;
 import com.gong9ri.gong9ri.repository.SellerRevenueSummaryRepository;
 import com.gong9ri.gong9ri.repository.TeamParticipationRepository;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.BooleanSupplier;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 /**
  * mypage/seller-revenue 컬럼 집계 방식(docs/db/seller_revenue_summary.md, 2026-08-06 upsert 전환) 검증.
@@ -35,12 +48,22 @@ import org.springframework.transaction.annotation.Transactional;
  * (docs/dev/mypage/view/changes/004-upsert-fix.md) — revenue()는 이제 순수 읽기라 조회만으로는
  * 어떤 행도 만들지 않는다.
  *
- * 동시 다발 결제 정합성(멀티스레드) 검증은 별도 클래스 SellerRevenueSummaryConcurrencyTest에서 한다
- * (TeamConcurrencyTest와 동일한 이유로 이 클래스는 @Transactional을 쓰지만, 그 클래스는 안 쓴다).
+ * <p><b>PortOne 연동 이후(docs/dev/payment/portone/design.md)</b>: {@code incrementPaid}는 이제
+ * {@code PaymentService.create()}가 아니라 {@code confirm()}(서버가 PortOne 재조회로 확정한 시점)에서
+ * 호출된다 — 그래서 아래 테스트들은 create() 뒤에 반드시 confirm()을 호출한다(PortOneClient는
+ * {@code @MockitoBean}으로 대체해 항상 요청 금액 그대로 PAID를 반환하도록 스텁한다). 마찬가지로
+ * {@code TeamDeadlineService.processDeadline()}은 더 이상 즉시 환불을 반영하지 않고, 커밋 이후
+ * 비동기로 PortOne 취소 API(이 테스트는 목으로 SUCCEEDED 고정)를 거쳐야 반영되므로, 환불이 걸린
+ * 테스트는 클래스 레벨 {@code @Transactional}을 쓰지 않고(AFTER_COMMIT 리스너가 실제로 실행돼야 하므로)
+ * waitUntil로 완료를 기다린 뒤 직접 정리한다(TeamDeadlineEventFlowTest와 같은 패턴).
+ *
+ * 동시 다발 결제 정합성(멀티스레드) 검증은 별도 클래스 SellerRevenueSummaryConcurrencyTest에서 한다.
  */
 @SpringBootTest
-@Transactional
 class SellerRevenueSummaryTest {
+
+    private static final long ASYNC_WAIT_TIMEOUT_MS = 5_000L;
+    private static final long ASYNC_WAIT_INTERVAL_MS = 100L;
 
     @Autowired
     private SellerMypageService sellerMypageService;
@@ -72,16 +95,89 @@ class SellerRevenueSummaryTest {
     @Autowired
     private SellerRevenueSummaryRepository sellerRevenueSummaryRepository;
 
+    @Autowired
+    private NotificationRepository notificationRepository;
+
+    @MockitoBean
+    private PortOneClient portOneClient;
+
+    private final List<Long> paymentIdsToClean = new ArrayList<>();
+    private final List<Long> teamParticipationIdsToClean = new ArrayList<>();
+    private final List<Long> teamIdsToClean = new ArrayList<>();
+    private final List<Long> productIdsToClean = new ArrayList<>();
+    private final List<Long> memberIdsToClean = new ArrayList<>();
+    private final List<Long> summaryIdsToClean = new ArrayList<>();
+
+    @BeforeEach
+    void stubPortOne() {
+        // 기본 동작: 조회한 pgPaymentId에 해당하는 결제를 그 결제의 실제 금액 그대로 PAID 승인한다.
+        when(portOneClient.getPayment(anyString())).thenAnswer(invocation -> {
+            String pgPaymentId = invocation.getArgument(0);
+            Payment payment = paymentRepository.findByPgPaymentId(pgPaymentId).orElseThrow();
+            return new PortOnePaymentDetail("PAID", payment.getAmount());
+        });
+        when(portOneClient.cancelPayment(anyString(), anyString()))
+                .thenReturn(new PortOneCancelResult(PortOneCancelResult.SUCCEEDED));
+    }
+
+    @AfterEach
+    void cleanUp() {
+        for (Long memberId : memberIdsToClean) {
+            notificationRepository.findAllByMemberIdOrderByCreatedAtDesc(memberId)
+                    .forEach(notification -> notificationRepository.deleteById(notification.getId()));
+        }
+        paymentIdsToClean.forEach(paymentRepository::deleteById);
+        paymentIdsToClean.clear();
+        teamParticipationIdsToClean.forEach(teamParticipationRepository::deleteById);
+        teamParticipationIdsToClean.clear();
+        teamIdsToClean.forEach(groupBuyTeamRepository::deleteById);
+        teamIdsToClean.clear();
+        summaryIdsToClean.forEach(sellerRevenueSummaryRepository::deleteById);
+        summaryIdsToClean.clear();
+        productIdsToClean.forEach(productRepository::deleteById);
+        productIdsToClean.clear();
+        memberIdsToClean.forEach(memberRepository::deleteById);
+        memberIdsToClean.clear();
+    }
+
     private Member saveMember(String username, Role role) {
-        return memberRepository.save(new Member(username, "pw", "테스트유저", username + "@test.com", role));
+        Member member = memberRepository.save(new Member(username, "pw", "테스트유저", username + "@test.com", role));
+        memberIdsToClean.add(member.getId());
+        return member;
     }
 
     private Product saveProduct(Member seller) {
-        return productRepository.save(new Product(seller, "요약테스트상품", "설명", 10000, 10, null));
+        Product product = productRepository.save(new Product(seller, "요약테스트상품", "설명", 10000, 10, null));
+        productIdsToClean.add(product.getId());
+        return product;
     }
 
     private MemberUserDetails asPrincipal(Member member) {
         return new MemberUserDetails(member);
+    }
+
+    // 결제 요청 접수(create) 후 서버 확정(confirm)까지 한 번에 수행한다 — PortOne 연동 이후 결제
+    // 완료는 이 두 단계를 거쳐야 한다(위 클래스 Javadoc 참고).
+    private PaymentResponse createAndConfirm(Member buyer, Long productId, Long teamId) {
+        PaymentResponse created = paymentService.create(asPrincipal(buyer), new PaymentCreateRequest(productId, teamId));
+        paymentIdsToClean.add(created.paymentId());
+        return paymentService.confirm(asPrincipal(buyer), created.paymentId());
+    }
+
+    private void waitUntil(BooleanSupplier condition, String failureMessage) {
+        long deadline = System.currentTimeMillis() + ASYNC_WAIT_TIMEOUT_MS;
+        while (System.currentTimeMillis() < deadline) {
+            if (condition.getAsBoolean()) {
+                return;
+            }
+            try {
+                Thread.sleep(ASYNC_WAIT_INTERVAL_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                fail("대기 중 인터럽트됨");
+            }
+        }
+        fail(failureMessage);
     }
 
     @Test
@@ -100,8 +196,8 @@ class SellerRevenueSummaryTest {
     }
 
     @Test
-    @DisplayName("결제가 생성되는 순간(첫 결제) seller_revenue_summary 행이 upsert로 즉시 만들어지고, 이후 결제는 정확히 증가한다")
-    void paymentCreate_incrementsSummaryExactly() {
+    @DisplayName("결제가 확정되는 순간(첫 확정) seller_revenue_summary 행이 upsert로 즉시 만들어지고, 이후 확정은 정확히 증가한다")
+    void paymentConfirm_incrementsSummaryExactly() {
         Member seller = saveMember("summarySeller1", Role.SELLER);
         Product product = saveProduct(seller);
         Member buyer = saveMember("summaryBuyer1", Role.BUYER);
@@ -109,15 +205,31 @@ class SellerRevenueSummaryTest {
         assertTrue(sellerRevenueSummaryRepository.findBySellerId(seller.getId()).isEmpty(),
                 "첫 결제 전에는 요약 행이 없어야 한다");
 
-        // 첫 결제 — 요약 행이 없는 상태에서 incrementPaid(upsert)가 그 결제 값으로 행을 새로 만든다.
-        paymentService.create(asPrincipal(buyer), new PaymentCreateRequest(product.getId(), null));
-        // 두 번째 결제 — 이제 있는 행을 원자적으로 증가시킨다.
-        paymentService.create(asPrincipal(buyer), new PaymentCreateRequest(product.getId(), null));
+        // 첫 결제 확정 — 요약 행이 없는 상태에서 incrementPaid(upsert)가 그 결제 값으로 행을 새로 만든다.
+        createAndConfirm(buyer, product.getId(), null);
+        // 두 번째 결제 확정 — 이제 있는 행을 원자적으로 증가시킨다.
+        createAndConfirm(buyer, product.getId(), null);
 
         SellerRevenueSummary summary = sellerRevenueSummaryRepository.findBySellerId(seller.getId()).orElseThrow();
+        summaryIdsToClean.add(summary.getId());
         assertEquals(product.getBasePrice() * 2, summary.getTotalRevenue());
         assertEquals(2L, summary.getPaidCount());
         assertEquals(0L, summary.getRefundedCount());
+    }
+
+    @Test
+    @DisplayName("결제 생성만으로는(확정 전) seller_revenue_summary가 증가하지 않는다")
+    void paymentCreate_withoutConfirm_doesNotIncrementSummary() {
+        Member seller = saveMember("summarySeller1b", Role.SELLER);
+        Product product = saveProduct(seller);
+        Member buyer = saveMember("summaryBuyer1b", Role.BUYER);
+
+        PaymentResponse created = paymentService.create(asPrincipal(buyer), new PaymentCreateRequest(product.getId(), null));
+        paymentIdsToClean.add(created.paymentId());
+
+        assertEquals("PENDING", created.status());
+        assertTrue(sellerRevenueSummaryRepository.findBySellerId(seller.getId()).isEmpty(),
+                "확정(confirm) 전에는 요약 행이 생기면 안 된다");
     }
 
     @Test
@@ -130,20 +242,25 @@ class SellerRevenueSummaryTest {
 
         GroupBuyTeam team = groupBuyTeamRepository.save(
                 new GroupBuyTeam(product, leader, 10, LocalDateTime.now().minusMinutes(1)));
-        teamParticipationRepository.save(new TeamParticipation(team, leader));
+        teamIdsToClean.add(team.getId());
+        teamParticipationIdsToClean.add(teamParticipationRepository.save(new TeamParticipation(team, leader)).getId());
 
-        paymentService.create(asPrincipal(leader), new PaymentCreateRequest(product.getId(), team.getId()));
-        paymentService.create(asPrincipal(joiner), new PaymentCreateRequest(product.getId(), team.getId()));
+        createAndConfirm(leader, product.getId(), team.getId());
+        createAndConfirm(joiner, product.getId(), team.getId());
 
         // 이 팀과 무관한 결제(마감 처리와 별개로 유지돼야 함)
         Member otherBuyer = saveMember("summaryOther2", Role.BUYER);
-        paymentService.create(asPrincipal(otherBuyer), new PaymentCreateRequest(product.getId(), null));
+        createAndConfirm(otherBuyer, product.getId(), null);
 
         SellerRevenueSummary before = sellerRevenueSummaryRepository.findBySellerId(seller.getId()).orElseThrow();
+        summaryIdsToClean.add(before.getId());
         assertEquals(product.getBasePrice() * 3, before.getTotalRevenue());
         assertEquals(3L, before.getPaidCount());
 
         teamDeadlineService.processDeadline(team.getId());
+
+        waitUntil(() -> sellerRevenueSummaryRepository.findBySellerId(seller.getId()).orElseThrow().getRefundedCount() == 2L,
+                "5초 내에 환불이 요약에 반영되지 않았다(비동기 PortOne 취소 확인 지연 가능성)");
 
         SellerRevenueSummary after = sellerRevenueSummaryRepository.findBySellerId(seller.getId()).orElseThrow();
         assertEquals(product.getBasePrice(), after.getTotalRevenue(), "무관한 결제 1건만 남아야 한다");
@@ -159,11 +276,16 @@ class SellerRevenueSummaryTest {
         Member buyer = saveMember("summaryBuyer3", Role.BUYER);
 
         // 이번 upsert 전환 이전부터 존재하던 과거 결제 데이터를 재현한다 — 요약 갱신 경로
-        // (PaymentService.create → incrementPaid)를 거치지 않고 레포지토리에 직접 꽂아 넣는다.
-        paymentRepository.save(new Payment(buyer, product, null, 20000));
-        paymentRepository.save(new Payment(buyer, product, null, 30000));
+        // (PaymentService.create/confirm → incrementPaid)를 거치지 않고 레포지토리에 직접 꽂아 넣는다.
+        paymentIdsToClean.add(paymentRepository.save(new Payment(buyer, product, null, 20000)).getId());
+        paymentIdsToClean.add(paymentRepository.save(new Payment(buyer, product, null, 30000)).getId());
         Payment refunded = paymentRepository.save(new Payment(buyer, product, null, 15000));
         refunded.refund();
+        // 이 테스트 클래스는 (환불 확정 대기 테스트들 때문에) 클래스 레벨 @Transactional을 쓰지 않는다
+        // — save() 각각이 독립된 트랜잭션이라 위 refund() 호출은 저장된 뒤 detach된 엔티티를 메모리에서만
+        // 바꾼 것이라 명시적으로 다시 save()해야 DB에 반영된다(더티 체킹 자동 flush를 기대할 수 없음).
+        paymentRepository.save(refunded);
+        paymentIdsToClean.add(refunded.getId());
 
         assertTrue(sellerRevenueSummaryRepository.findBySellerId(seller.getId()).isEmpty(),
                 "백필 전에는 요약 행이 없어야 한다");
@@ -177,6 +299,7 @@ class SellerRevenueSummaryTest {
         // 배포 시점에 한 번 실행되는 백필(SellerRevenueSummaryBackfillRunner가 호출하는 것과 동일한 서비스).
         boolean created = sellerRevenueSummaryBackfillService.backfillOneIfMissing(seller.getId());
         assertTrue(created, "백필이 실제로 새 행을 만들었어야 한다");
+        sellerRevenueSummaryRepository.findBySellerId(seller.getId()).ifPresent(s -> summaryIdsToClean.add(s.getId()));
 
         RevenueResponse afterBackfill = sellerMypageService.revenue(asPrincipal(seller));
         assertEquals(50000, afterBackfill.totalRevenue());
@@ -198,19 +321,25 @@ class SellerRevenueSummaryTest {
         int paidCount = 40;
         int refundedCount = 7;
         for (int i = 1; i <= paidCount; i++) {
-            paymentService.create(asPrincipal(buyer), new PaymentCreateRequest(product.getId(), null));
+            createAndConfirm(buyer, product.getId(), null);
         }
 
         GroupBuyTeam team = groupBuyTeamRepository.save(
                 new GroupBuyTeam(product, buyer, refundedCount + 1, LocalDateTime.now().minusMinutes(1)));
-        teamParticipationRepository.save(new TeamParticipation(team, buyer));
+        teamIdsToClean.add(team.getId());
+        teamParticipationIdsToClean.add(teamParticipationRepository.save(new TeamParticipation(team, buyer)).getId());
         for (int i = 1; i <= refundedCount; i++) {
             Member joiner = saveMember("summaryDrift4Joiner" + i, Role.BUYER);
-            paymentService.create(asPrincipal(joiner), new PaymentCreateRequest(product.getId(), team.getId()));
+            createAndConfirm(joiner, product.getId(), team.getId());
         }
         teamDeadlineService.processDeadline(team.getId());
 
+        waitUntil(() -> sellerRevenueSummaryRepository.findBySellerId(seller.getId()).orElseThrow().getRefundedCount()
+                        == (long) refundedCount,
+                "5초 내에 대량 환불이 요약에 전부 반영되지 않았다");
+
         SellerRevenueSummary summary = sellerRevenueSummaryRepository.findBySellerId(seller.getId()).orElseThrow();
+        summaryIdsToClean.add(summary.getId());
         RevenueSummaryProjection recomputed = paymentRepository.findRevenueSummaryBySellerId(seller.getId());
 
         assertEquals(recomputed.getTotalRevenue(), summary.getTotalRevenue());

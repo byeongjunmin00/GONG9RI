@@ -2,12 +2,17 @@ package com.gong9ri.gong9ri.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
+import com.gong9ri.gong9ri.client.PortOneClient;
+import com.gong9ri.gong9ri.client.PortOnePaymentDetail;
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.dto.PaymentCreateRequest;
 import com.gong9ri.gong9ri.dto.PaymentResponse;
 import com.gong9ri.gong9ri.dto.RevenueResponse;
 import com.gong9ri.gong9ri.entity.Member;
+import com.gong9ri.gong9ri.entity.Payment;
 import com.gong9ri.gong9ri.entity.Product;
 import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.entity.SellerRevenueSummary;
@@ -24,15 +29,23 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 /**
  * 여러 요청이 동시에 같은 판매자에게 결제를 넣어도 seller_revenue_summary의 원자적 upsert
  * (incrementPaid, MySQL INSERT ... ON DUPLICATE KEY UPDATE, 비관적 락 미사용)가 최종 합계를
  * 정확히 유지하는지 검증한다.
+ *
+ * <p><b>PortOne 연동 이후</b>: {@code incrementPaid}는 이제 {@code confirm()} 시점에 호출된다
+ * (docs/dev/payment/portone/design.md) — 그래서 각 워커 스레드는 {@code create()} 직후 곧바로
+ * {@code confirm()}까지 호출한다(PortOneClient는 목으로 대체해 항상 요청 금액 그대로 PAID를 반환).
+ * 동시성 경쟁 지점 자체(요약 행이 없는 상태에서 여러 upsert가 동시에 도는 것)는 그대로 confirm()
+ * 호출 시점으로 옮겨졌을 뿐 동일하다.
  *
  * 특히 이 테스트는 **요약 행이 아직 전혀 없는 상태**(그 판매자의 "첫 결제"들)에서 여러 결제가
  * 동시에 몰리는 경쟁 상황을 정면으로 검증한다(docs/dev/mypage/view/changes/004-upsert-fix.md) —
@@ -65,6 +78,18 @@ class SellerRevenueSummaryConcurrencyTest {
 
     @Autowired
     private SellerRevenueSummaryRepository sellerRevenueSummaryRepository;
+
+    @MockitoBean
+    private PortOneClient portOneClient;
+
+    @BeforeEach
+    void stubPortOnePaid() {
+        when(portOneClient.getPayment(anyString())).thenAnswer(invocation -> {
+            String pgPaymentId = invocation.getArgument(0);
+            Payment payment = paymentRepository.findByPgPaymentId(pgPaymentId).orElseThrow();
+            return new PortOnePaymentDetail("PAID", payment.getAmount());
+        });
+    }
 
     private final List<Long> memberIdsToClean = new ArrayList<>();
     private final List<Long> paymentIdsToClean = new ArrayList<>();
@@ -125,9 +150,10 @@ class SellerRevenueSummaryConcurrencyTest {
                 readyLatch.countDown();
                 try {
                     startLatch.await();
-                    PaymentResponse response = paymentService.create(
+                    PaymentResponse created = paymentService.create(
                             new MemberUserDetails(buyer), new PaymentCreateRequest(product.getId(), null));
-                    createdPaymentIds.add(response.paymentId());
+                    paymentService.confirm(new MemberUserDetails(buyer), created.paymentId());
+                    createdPaymentIds.add(created.paymentId());
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 } finally {

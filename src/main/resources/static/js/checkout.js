@@ -15,8 +15,13 @@
  *   참고 정보로만 표시한다 — 실제 확정 금액은 결제 응답(amount)이 유일한 소스다.
  * - teamId의 존재 여부/정원 상태는 이 페이지에서 사전 검증하지 않는다
  *   (POST /api/payments 응답의 TEAM_NOT_FOUND/TEAM_FULL로만 사후에 판정).
- * - "결제하기"(POST /api/payments) 성공 시 결제 완료 요약을 보여주고 결제 영역을 숨긴다.
- *   실패는 코드별(400/401/403/404/409)로 안내를 분기한다.
+ * - "결제하기"는 이제 3단계다(docs/dev/payment/portone/design.md):
+ *   1) POST /api/payments → "요청 접수"(PENDING) 응답으로 pgPaymentId/portoneStoreId/portoneChannelKey를 받는다.
+ *   2) 전역 PortOne.requestPayment({...})(포트원 V2 브라우저 SDK, CDN 로드, checkout.html 참고)로
+ *      결제창을 열어 사용자가 카카오페이 테스트 결제를 진행한다(간편결제만 지원, payMethod: EASY_PAY).
+ *   3) POST /api/payments/{paymentId}/confirm → 서버가 포트원 API로 재조회해 확정한 결과를 받아
+ *      결제 완료 요약을 보여준다. 클라이언트의 "성공" 신호만으로는 완료 화면을 보여주지 않는다.
+ *   실패는 코드별(400/401/403/404/409/503)로 안내를 분기한다.
  * - "삭제(취소)"는 API 호출 없이 상품 상세 페이지(product.html?id=)로 돌아간다.
  * - 상품명/판매자명/서버 에러 message 등 신뢰할 수 없는 문자열은 textContent로만 대입해 XSS를 방지한다.
  */
@@ -230,6 +235,34 @@
     showPageAlert(message, 'error');
   }
 
+  /**
+   * 전역 PortOne.requestPayment(...)로 결제창을 연다(카카오페이 간편결제만, checkout.html의 CDN 스크립트가
+   * 만드는 window.PortOne). 포트원 V2 SDK는 결제 실패/취소 시에도 보통 reject가 아니라 code 필드가
+   * 있는 객체로 resolve하므로, 그 경우도 명시적으로 실패 처리한다.
+   */
+  function openPortOneCheckout(pendingPayment) {
+    if (!window.PortOne || typeof window.PortOne.requestPayment !== 'function') {
+      return Promise.reject({ message: '결제 모듈을 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.' });
+    }
+
+    return window.PortOne.requestPayment({
+      storeId: pendingPayment.portoneStoreId,
+      channelKey: pendingPayment.portoneChannelKey,
+      paymentId: pendingPayment.pgPaymentId,
+      orderName: pendingPayment.productName,
+      totalAmount: pendingPayment.amount,
+      currency: 'CURRENCY_KRW',
+      // 콘솔에 연결된 테스트 채널이 카카오페이(PG Provider: kakaopay)라 EASY_PAY로 고정한다 —
+      // 카카오페이는 payMethod를 CARD로 보내면 결제창이 열리지 않는다(포트원 공식 문서 확인).
+      payMethod: 'EASY_PAY',
+    }).then(function (response) {
+      if (response && response.code) {
+        return Promise.reject({ message: response.message || '결제가 취소되었거나 실패했습니다.' });
+      }
+      return pendingPayment.paymentId;
+    });
+  }
+
   function handlePay() {
     hidePageAlert();
     payBtn.disabled = true;
@@ -240,8 +273,14 @@
     }
 
     window.Api.post('/payments', body)
-      .then(function (payment) {
-        showSummary(payment);
+      .then(function (pendingPayment) {
+        return openPortOneCheckout(pendingPayment);
+      })
+      .then(function (paymentId) {
+        return window.Api.post('/payments/' + paymentId + '/confirm');
+      })
+      .then(function (confirmedPayment) {
+        showSummary(confirmedPayment);
       })
       .catch(function (err) {
         payBtn.disabled = false;

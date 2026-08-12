@@ -23,6 +23,15 @@ spring:
       # 빈 생성 자체가 막히지 않도록 형식만 맞는 더미 키를 둔다(비용·네트워크 의존 없음).
       api-key: dummy-test-key-not-real
 
+portone:
+  # 테스트는 PortOneClient를 @MockitoBean으로 대체해 실제 네트워크 호출을 하지 않는다
+  # (docs/dev/payment/portone/design.md) — 컨텍스트 로딩 시 빈 생성 자체는 막히지 않도록 더미 값만 둔다.
+  store-id: dummy-test-store-id
+  channel-key: dummy-test-channel-key
+  api-secret: dummy-test-api-secret
+  webhook-secret: whsec_ZHVtbXktdGVzdC13ZWJob29rLXNlY3JldA==
+  api-base-url: https://api.portone.io
+
 policy-rag:
   indexing:
     # PolicyDocumentIndexer(ApplicationRunner)를 꺼서 @SpringBootTest 컨텍스트 로딩마다 실제 OpenAI

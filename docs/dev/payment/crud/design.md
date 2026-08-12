@@ -11,7 +11,10 @@
 ## 데이터 모델
 
 - `payment` — 상세: `docs/db/payment.md`
-- `status`는 생성 시 `PAID` 고정. `REFUNDED` 전이는 이번 스코프 밖(`payment/refund` + `team/deadline-check` 스케줄러에서 처리 예정, `docs/policy/refund-trigger.md` 참고)
+- **PortOne 연동 이후(`docs/dev/payment/portone/design.md`가 이 기능의 확정/웹훅/환불 흐름에 대한
+  SSOT)**: `status`는 생성 시 `PENDING`(승인 대기)로 시작한다 — 이 문서(payment/crud)가 다루는 범위는
+  "요청 접수 시점의 금액 계산·검증"까지이고, `PENDING → PAID/FAILED` 확정, `PAID → REFUND_PENDING/REFUNDED`
+  환불 전이는 `payment/portone`이 담당한다.
 
 ## 규칙 / 검증
 
@@ -32,4 +35,4 @@
 - `service/PaymentService.java`
 - `controller/PaymentController.java`
 - `common/exception/ErrorCode.java` — `PAYMENT_NOT_FOUND` 추가
-- 테스트: `controller/PaymentControllerTest.java` (혼자구매/팀구매 tier 가격, 정원 방어 체크, 각종 에러 케이스 13개)
+- 테스트: `controller/PaymentControllerTest.java` — 혼자구매/팀구매 tier 가격, 정원 방어 체크, 각종 에러 케이스(이 기능 범위). 같은 파일에 `confirm` 관련 시나리오도 있는데 그건 `payment/portone` 범위 — `docs/dev/payment/portone/design.md` 참고

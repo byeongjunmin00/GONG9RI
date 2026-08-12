@@ -37,6 +37,15 @@ team:
   # docs/logs/team/crud/003-atomic-comparison.md 참고
   join-strategy: lock
 
+portone:
+  # PortOne(구 아임포트) V2 API 연동(샌드박스/테스트 모드) — docs/dev/payment/portone/design.md.
+  # 실제 값은 전부 환경변수로 주입한다(레포에 실제 키 값을 두지 않는다, OPENAI_API_KEY와 같은 패턴).
+  store-id: ${PORTONE_STORE_ID:}
+  channel-key: ${PORTONE_CHANNEL_KEY:}
+  api-secret: ${PORTONE_API_SECRET:}
+  webhook-secret: ${PORTONE_WEBHOOK_SECRET:}
+  api-base-url: https://api.portone.io
+
 policy-rag:
   indexing:
     # 정책 문서 RAG 색인(PolicyDocumentIndexer) on/off. 기동 시 1회 실제 OpenAI 임베딩 API를 호출한다

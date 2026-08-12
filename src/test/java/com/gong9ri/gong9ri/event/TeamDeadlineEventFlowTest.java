@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import com.gong9ri.gong9ri.client.PortOneCancelResult;
+import com.gong9ri.gong9ri.client.PortOneClient;
 import com.gong9ri.gong9ri.entity.GroupBuyTeam;
 import com.gong9ri.gong9ri.entity.Member;
 import com.gong9ri.gong9ri.entity.Notification;
@@ -26,16 +28,27 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
 /**
  * 이벤트 경유 마감 처리 + 환불 완료 알림 생성의 실제 end-to-end 흐름을 검증한다
  * (docs/dev/ongoing/refund-event-messaging.md 신규 테스트 (a), (c) — (b)는 @Transactional 롤백으로
  * 검증 가능해 TeamDeadlineServiceTest에 있다).
+ *
+ * <p><b>PortOne 연동 이후(docs/dev/payment/portone/design.md)</b>: 결제 REFUNDED 확정은 이제
+ * {@code processDeadline}의 커밋 이후 {@code TeamPaymentsRefundRequestedEventListener}(@Async)가
+ * {@code PortOneClient.cancelPayment}(이 테스트에서는 목으로 SUCCEEDED 고정)를 호출하고 그 결과를
+ * {@code PaymentRefundService}가 반영해야 비로소 일어난다 — 한 단계 더 비동기 홉이 늘었으므로, (c)
+ * 테스트도 더 이상 "같은 스레드에서 즉시" 알림이 생기는 게 아니라 waitUntil로 기다려야 한다.
  *
  * 클래스 레벨 @Transactional을 의도적으로 쓰지 않는다 — (a)는 TeamDeadlineEventListener가 @Async라
  * 별도 스레드에서 findByIdForUpdate(비관적 락)로 팀을 다시 읽는데, 이 테스트 스레드의 트랜잭션이
@@ -46,6 +59,15 @@ import org.springframework.context.ApplicationEventPublisher;
  */
 @SpringBootTest
 class TeamDeadlineEventFlowTest {
+
+    @MockitoBean
+    private PortOneClient portOneClient;
+
+    @BeforeEach
+    void stubPortOneCancelSucceeds() {
+        when(portOneClient.cancelPayment(anyString(), anyString()))
+                .thenReturn(new PortOneCancelResult(PortOneCancelResult.SUCCEEDED));
+    }
 
     private static final long ASYNC_WAIT_TIMEOUT_MS = 5_000L;
     private static final long ASYNC_WAIT_INTERVAL_MS = 100L;
@@ -121,8 +143,13 @@ class TeamDeadlineEventFlowTest {
         return team;
     }
 
+    // pgPaymentId가 있는(=실제 PortOne 취소 대상이 될 수 있는) PAID 결제를 만든다 — 5-arg 생성자로
+    // PENDING을 만든 뒤 즉시 confirm()해 PAID로 전환한다(레거시 4-arg 생성자는 pgPaymentId가 null이라
+    // PortOneClient.cancelPayment(pgPaymentId, ...) 목 스텁의 anyString() 매처와 맞지 않는다).
     private Payment savePayment(Member buyer, Product product, GroupBuyTeam team) {
-        Payment payment = paymentRepository.save(new Payment(buyer, product, team, 10000));
+        Payment payment = new Payment(buyer, product, team, 10000, "pay_test_" + java.util.UUID.randomUUID());
+        payment.confirm();
+        payment = paymentRepository.save(payment);
         paymentIdsToClean.add(payment.getId());
         return payment;
     }
@@ -181,12 +208,23 @@ class TeamDeadlineEventFlowTest {
         savePayment(otherBuyer, product, team);
 
         // 이벤트를 거치지 않고 processDeadline을 직접 호출한다(리스너 자체는 event 패키지 클래스라
-        // 별도 재검증 불필요) — 이 호출은 테스트 메서드가 트랜잭션 밖이라 자체 트랜잭션으로 실제 커밋되고,
-        // TeamRefundedEventListener(AFTER_COMMIT, 동기)가 커밋 직후 같은 스레드에서 즉시 알림을 만든다.
+        // 별도 재검증 불필요) — 이 호출은 테스트 메서드가 트랜잭션 밖이라 자체 트랜잭션으로 실제 커밋된다.
+        // PortOne 연동 이후에는 커밋 직후 곧바로 알림이 생기지 않는다 — @Async인
+        // TeamPaymentsRefundRequestedEventListener가 커밋 이후 별도 스레드에서 PortOneClient.cancelPayment
+        // (이 테스트는 목으로 SUCCEEDED 고정)를 호출하고, 그 결과를 PaymentRefundService가 반영해야 비로소
+        // TeamRefundedEvent가 발행되어 알림이 만들어진다 — 그래서 waitUntil로 기다린다.
         teamDeadlineService.processDeadline(team.getId());
 
+        waitUntil(() -> !notificationRepository.findAllByMemberIdOrderByCreatedAtDesc(seller.getId()).isEmpty(),
+                "5초 내에 판매자 환불 알림이 생성되지 않았다");
+        waitUntil(() -> !notificationRepository.findAllByMemberIdOrderByCreatedAtDesc(otherBuyer.getId()).isEmpty(),
+                "5초 내에 다른 구매자 환불 알림이 생성되지 않았다");
+
+        // PortOne 연동 이후 알려진 동작 변화: team/deadline-check가 팀 단위로 한 번에 알림을 배치
+        // 발행하던 것과 달리, 이제는 결제 건이 실제로 확정될 때마다 개별 발행한다(PaymentRefundService
+        // 참고) — 이 팀은 결제가 2건이므로 판매자는 결제 건수만큼(2건) 알림을 받는다.
         List<Notification> sellerNotifications = notificationRepository.findAllByMemberIdOrderByCreatedAtDesc(seller.getId());
-        assertEquals(1, sellerNotifications.size(), "판매자에게 알림이 정확히 1건 생성돼야 한다");
+        assertEquals(2, sellerNotifications.size(), "판매자에게 결제 건수(2건)만큼 알림이 생성돼야 한다");
         assertEquals(NotificationType.TEAM_REFUNDED, sellerNotifications.get(0).getType());
         assertEquals(team.getId(), sellerNotifications.get(0).getRelatedTeam().getId());
 
@@ -199,5 +237,32 @@ class TeamDeadlineEventFlowTest {
 
         assertTrue(sellerNotifications.get(0).getIsRead() != null && !sellerNotifications.get(0).getIsRead(),
                 "새로 생성된 알림은 읽지 않은 상태여야 한다");
+
+        Payment refreshedLeaderPayment = paymentRepository.findByTeamIdAndStatus(team.getId(), PaymentStatus.REFUNDED)
+                .stream().findFirst().orElseThrow();
+        assertEquals(PaymentStatus.REFUNDED, refreshedLeaderPayment.getStatus());
+    }
+
+    @Test
+    @DisplayName("PortOne 취소가 비동기(REQUESTED)로 응답하면 결제는 REFUND_PENDING로 대기하고, "
+            + "웹훅(Transaction.Cancelled)에 해당하는 재검증 호출이 와야 최종 REFUNDED로 확정된다")
+    void processDeadline_cancelRequested_staysRefundPendingUntilWebhookConfirms() {
+        when(portOneClient.cancelPayment(anyString(), anyString()))
+                .thenReturn(new PortOneCancelResult(PortOneCancelResult.REQUESTED));
+
+        Member seller = saveMember("evtSeller3", Role.SELLER);
+        Product product = saveProduct(seller);
+        Member leader = saveMember("evtLeader3", Role.BUYER);
+        GroupBuyTeam team = saveExpiredTeam(product, leader);
+        Payment payment = savePayment(leader, product, team);
+
+        teamDeadlineService.processDeadline(team.getId());
+
+        waitUntil(() -> paymentRepository.findById(payment.getId()).orElseThrow().getStatus()
+                        == PaymentStatus.REFUND_PENDING,
+                "5초 내에 결제가 REFUND_PENDING으로 전환되지 않았다");
+
+        assertTrue(notificationRepository.findAllByMemberIdOrderByCreatedAtDesc(seller.getId()).isEmpty(),
+                "아직 최종 확정 전이라 환불 완료 알림이 생성되면 안 된다");
     }
 }

@@ -4,7 +4,9 @@
 
 공구팀이 마감(미성사)돼 환불이 발생하면, 그 팀의 환불된 결제 구매자 전원 + 상품 판매자 각각에게 `Notification` 레코드를 생성하는 기능이다. 실제 이메일/SMS 발송 채널은 없다 — DB 저장 + 마이페이지 조회까지만 지원한다.
 
-`team/deadline-check`가 발행하는 "환불 완료" 이벤트(`TeamRefundedEvent`)를 구독해서 동작한다(상세 이벤트 흐름: `docs/dev/team/deadline-check/design.md`). 이 기능 자체는 알림 생성·조회만 책임지고, 언제/어떤 조건에서 환불이 발생하는지는 `team/deadline-check` 쪽 책임이다.
+"환불 완료" 이벤트(`TeamRefundedEvent`)를 구독해서 동작한다 — **PortOne 연동 이후**(`docs/dev/payment/portone/design.md`) 이 이벤트는 `team/deadline-check`가 아니라 `PaymentRefundService`(payment/portone)가 PortOne 결제취소 API 응답을 확인한 뒤 결제 건별로 발행한다. 이 기능 자체는 알림 생성·조회만 책임지고, 언제/어떤 조건에서 환불이 발생·확정되는지는 `team/deadline-check`·`payment/portone` 쪽 책임이다.
+
+> **알려진 동작 변화**: 예전에는 팀 하나의 마감 처리마다 `TeamRefundedEvent`가 정확히 1번 발행돼(그 팀의 환불된 결제 구매자 전원을 한 번에 묶어서) 판매자도 알림을 1건만 받았다. 지금은 결제 건이 실제로 확정될 때마다(비동기 PortOne 취소 확인 시점이 결제 건마다 다를 수 있어) 개별 발행되므로, 같은 팀에 결제가 여러 건이면 판매자가 그 건수만큼 여러 번 알림을 받을 수 있다.
 
 ## API / 인터페이스
 
@@ -20,7 +22,7 @@
 
 ## 이벤트 소비
 
-- `event/TeamRefundedEventListener`가 `TeamRefundedEvent`를 `@TransactionalEventListener(phase = AFTER_COMMIT)`로 구독해 `NotificationService.createTeamRefundedNotifications(event)`를 호출한다(이벤트 발행·발행 시점 보장은 `team/deadline-check` 책임).
+- `event/TeamRefundedEventListener`가 `TeamRefundedEvent`를 `@TransactionalEventListener(phase = AFTER_COMMIT)`로 구독해 `NotificationService.createTeamRefundedNotifications(event)`를 호출한다(이벤트 발행·발행 시점 보장은 `payment/portone`의 `PaymentRefundService` 책임 — 상세: `docs/dev/payment/portone/design.md`).
 - `NotificationService.createTeamRefundedNotifications`는 그 팀의 환불된 결제 구매자 전원(중복 제거, `LinkedHashSet`) + 상품 판매자 각각에게 `Notification` 1건씩 생성한다. member/team은 FK로만 쓰이므로 `getReferenceById`로 불필요한 SELECT를 피한다.
 - **`@Transactional(propagation = Propagation.REQUIRES_NEW)`**가 필수다 — 이 메서드는 원본 트랜잭션(`TeamDeadlineService.processDeadline`)의 커밋 직후 `AFTER_COMMIT` 콜백으로 호출되는데, 기본 propagation(REQUIRED)으로 두면 아직 스레드에 남아있는 원본 트랜잭션 리소스에 조인해버려 이 메서드의 INSERT가 실제로 커밋되지 않고 사라진다(스프링 공식 문서가 명시하는 캐비앗, 실제로 겪은 버그 — `docs/logs/notification/refund-alert/001-refund-alert.md` 참고). REQUIRES_NEW로 물리적으로 독립된 새 트랜잭션임을 보장해 해결.
 - 메시지 문구(상수화): 구매자용 "참여하신 공구팀이 미성사되어 환불 처리되었습니다.", 판매자용 "등록하신 상품의 공구팀이 미성사되어 환불 처리되었습니다."
@@ -40,7 +42,7 @@
 - `service/NotificationService.java` — `createTeamRefundedNotifications(TeamRefundedEvent)`
 - `service/BuyerMypageService.java`, `service/SellerMypageService.java` — `notifications(principal)`
 - `controller/BuyerMypageController.java`, `controller/SellerMypageController.java` — `GET .../notifications`
-- 소비하는 이벤트: `event/TeamRefundedEvent.java`, `event/TeamRefundedEventListener.java` (발행 쪽은 `docs/dev/team/deadline-check/design.md` 참고)
+- 소비하는 이벤트: `event/TeamRefundedEvent.java`, `event/TeamRefundedEventListener.java` (발행 쪽은 `docs/dev/payment/portone/design.md`의 `PaymentRefundService` 참고)
 - 테스트:
   - `controller/BuyerMypageControllerTest.java`, `controller/SellerMypageControllerTest.java` — 조회 성공, 본인만 조회(스코핑), 반대 역할 403, 비로그인 401 (각 4케이스)
-  - `NotificationService` 자체의 별도 단위 테스트는 없음 — 이벤트 발행 없이는 단독 호출되지 않는 메서드라(오케스트레이션이 전부 이벤트 경유) `event/TeamDeadlineEventFlowTest.java`, `service/TeamDeadlineServiceTest.java`에서 end-to-end로 검증한다.
+  - `NotificationService` 자체의 별도 단위 테스트는 없음 — 이벤트 발행 없이는 단독 호출되지 않는 메서드라(오케스트레이션이 전부 이벤트 경유) `event/TeamDeadlineEventFlowTest.java`에서 end-to-end로 검증한다.

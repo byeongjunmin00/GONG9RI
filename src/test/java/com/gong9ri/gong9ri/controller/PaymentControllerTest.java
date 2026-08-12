@@ -6,7 +6,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
+
 import tools.jackson.databind.ObjectMapper;
+import com.gong9ri.gong9ri.client.PortOneCancelResult;
+import com.gong9ri.gong9ri.client.PortOneClient;
+import com.gong9ri.gong9ri.client.PortOnePaymentDetail;
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.entity.GroupBuyTeam;
 import com.gong9ri.gong9ri.entity.Member;
@@ -23,16 +29,24 @@ import com.gong9ri.gong9ri.repository.ProductRepository;
 import com.gong9ri.gong9ri.repository.TeamParticipationRepository;
 import java.time.LocalDateTime;
 import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * {@code PortOneClient}를 {@code @MockitoBean}으로 대체해 실제 PortOne 호출 없이 검증한다
+ * (docs/dev/payment/portone/design.md) — {@code AiProductSuggestionServiceTest}가 {@code
+ * ChatClient.Builder}를 목으로 대체하는 것과 같은 패턴. 기본 스텁은 "요청받은 pgPaymentId에 해당하는
+ * 결제를 그대로 PAID로 승인"하도록 동작해, 개별 테스트가 금액을 하드코딩하지 않아도 되게 한다.
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
@@ -61,6 +75,21 @@ class PaymentControllerTest {
 
     @Autowired
     private PaymentRepository paymentRepository;
+
+    @MockitoBean
+    private PortOneClient portOneClient;
+
+    @BeforeEach
+    void stubPortOnePaidByDefault() {
+        // 기본 동작: 조회한 pgPaymentId에 해당하는 결제를 그 결제의 실제 금액 그대로 PAID 승인한다.
+        when(portOneClient.getPayment(anyString())).thenAnswer(invocation -> {
+            String pgPaymentId = invocation.getArgument(0);
+            Payment payment = paymentRepository.findByPgPaymentId(pgPaymentId).orElseThrow();
+            return new PortOnePaymentDetail("PAID", payment.getAmount());
+        });
+        when(portOneClient.cancelPayment(anyString(), anyString()))
+                .thenReturn(new PortOneCancelResult(PortOneCancelResult.SUCCEEDED));
+    }
 
     private Member saveMember(String username, Role role) {
         Member member = new Member(username, "encoded-password", "테스트유저", username + "@test.com", role);
@@ -93,7 +122,7 @@ class PaymentControllerTest {
     }
 
     @Test
-    @DisplayName("혼자구매 결제 생성 시 201이고 금액은 basePrice다")
+    @DisplayName("혼자구매 결제 생성 시 201이고 금액은 basePrice, 상태는 PENDING(승인 대기)이다")
     void create_solo_success() throws Exception {
         Member seller = saveMember("paySeller1", Role.SELLER);
         Product product = saveProduct(seller, 25000, 10);
@@ -106,11 +135,13 @@ class PaymentControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.amount").value(25000))
                 .andExpect(jsonPath("$.data.teamId").doesNotExist())
-                .andExpect(jsonPath("$.data.status").value("PAID"));
+                .andExpect(jsonPath("$.data.status").value("PENDING"))
+                .andExpect(jsonPath("$.data.pgPaymentId").exists())
+                .andExpect(jsonPath("$.data.portoneStoreId").exists());
     }
 
     @Test
-    @DisplayName("공구팀 결제 생성 시 currentCount 구간의 tier 가격이 적용된다")
+    @DisplayName("공구팀 결제 생성 시 currentCount 구간의 tier 가격이 적용되고, 상태는 PENDING이다")
     void create_team_success_appliesTierPrice() throws Exception {
         Member seller = saveMember("paySeller2", Role.SELLER);
         Product product = saveProduct(seller, 25000, 10);
@@ -125,7 +156,8 @@ class PaymentControllerTest {
                         .content(toJson(Map.of("productId", product.getId(), "teamId", team.getId()))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.amount").value(20000))
-                .andExpect(jsonPath("$.data.teamId").value(team.getId()));
+                .andExpect(jsonPath("$.data.teamId").value(team.getId()))
+                .andExpect(jsonPath("$.data.status").value("PENDING"));
     }
 
     @Test
@@ -228,6 +260,122 @@ class PaymentControllerTest {
                         .content(toJson(Map.of("productId", product.getId()))))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    @DisplayName("결제 확정: PortOne 재조회 결과가 PAID+금액일치면 확정되고, 상태가 PAID로 바뀐다")
+    void confirm_success() throws Exception {
+        Member seller = saveMember("paySeller11", Role.SELLER);
+        Product product = saveProduct(seller, 25000, 10);
+        Member buyer = saveMember("payBuyer9", Role.BUYER);
+
+        String createBody = mockMvc.perform(post("/api/payments")
+                        .with(asUser(buyer))
+                        .contentType("application/json")
+                        .content(toJson(Map.of("productId", product.getId()))))
+                .andReturn().getResponse().getContentAsString();
+        Long paymentId = objectMapper.readTree(createBody).get("data").get("paymentId").asLong();
+
+        mockMvc.perform(post("/api/payments/" + paymentId + "/confirm").with(asUser(buyer)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("PAID"))
+                .andExpect(jsonPath("$.data.amount").value(25000));
+    }
+
+    @Test
+    @DisplayName("결제 확정: PortOne 재조회 금액이 요청 금액과 다르면 확정하지 않고 409를 반환한다")
+    void confirm_amountMismatch_verificationFailed() throws Exception {
+        Member seller = saveMember("paySeller12", Role.SELLER);
+        Product product = saveProduct(seller, 25000, 10);
+        Member buyer = saveMember("payBuyer10", Role.BUYER);
+
+        String createBody = mockMvc.perform(post("/api/payments")
+                        .with(asUser(buyer))
+                        .contentType("application/json")
+                        .content(toJson(Map.of("productId", product.getId()))))
+                .andReturn().getResponse().getContentAsString();
+        Long paymentId = objectMapper.readTree(createBody).get("data").get("paymentId").asLong();
+        String pgPaymentId = objectMapper.readTree(createBody).get("data").get("pgPaymentId").asText();
+
+        // 위변조 시나리오 재현 — 실제 PG 응답 금액이 우리가 기록한 요청 금액(25000)과 다르다.
+        when(portOneClient.getPayment(pgPaymentId)).thenReturn(new PortOnePaymentDetail("PAID", 1));
+
+        mockMvc.perform(post("/api/payments/" + paymentId + "/confirm").with(asUser(buyer)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PAYMENT_VERIFICATION_FAILED"));
+
+        mockMvc.perform(get("/api/payments/" + paymentId).with(asUser(buyer)))
+                .andExpect(jsonPath("$.data.status").value("PENDING"));
+    }
+
+    @Test
+    @DisplayName("결제 확정: PortOne 재조회 상태가 PAID가 아니면 확정하지 않고 409를 반환한다")
+    void confirm_pgStatusNotPaid_verificationFailed() throws Exception {
+        Member seller = saveMember("paySeller13", Role.SELLER);
+        Product product = saveProduct(seller, 25000, 10);
+        Member buyer = saveMember("payBuyer11", Role.BUYER);
+
+        String createBody = mockMvc.perform(post("/api/payments")
+                        .with(asUser(buyer))
+                        .contentType("application/json")
+                        .content(toJson(Map.of("productId", product.getId()))))
+                .andReturn().getResponse().getContentAsString();
+        Long paymentId = objectMapper.readTree(createBody).get("data").get("paymentId").asLong();
+        String pgPaymentId = objectMapper.readTree(createBody).get("data").get("pgPaymentId").asText();
+
+        when(portOneClient.getPayment(pgPaymentId)).thenReturn(new PortOnePaymentDetail("FAILED", 25000));
+
+        mockMvc.perform(post("/api/payments/" + paymentId + "/confirm").with(asUser(buyer)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PAYMENT_VERIFICATION_FAILED"));
+
+        mockMvc.perform(get("/api/payments/" + paymentId).with(asUser(buyer)))
+                .andExpect(jsonPath("$.data.status").value("FAILED"));
+    }
+
+    @Test
+    @DisplayName("결제 확정: PortOne 통신 실패 시 503 PAYMENT_GATEWAY_ERROR를 반환하고 상태는 그대로 PENDING이다")
+    void confirm_portOneCallFails_gatewayError() throws Exception {
+        Member seller = saveMember("paySeller14", Role.SELLER);
+        Product product = saveProduct(seller, 25000, 10);
+        Member buyer = saveMember("payBuyer12", Role.BUYER);
+
+        String createBody = mockMvc.perform(post("/api/payments")
+                        .with(asUser(buyer))
+                        .contentType("application/json")
+                        .content(toJson(Map.of("productId", product.getId()))))
+                .andReturn().getResponse().getContentAsString();
+        Long paymentId = objectMapper.readTree(createBody).get("data").get("paymentId").asLong();
+        String pgPaymentId = objectMapper.readTree(createBody).get("data").get("pgPaymentId").asText();
+
+        when(portOneClient.getPayment(pgPaymentId)).thenThrow(new RuntimeException("network error"));
+
+        mockMvc.perform(post("/api/payments/" + paymentId + "/confirm").with(asUser(buyer)))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("PAYMENT_GATEWAY_ERROR"));
+
+        mockMvc.perform(get("/api/payments/" + paymentId).with(asUser(buyer)))
+                .andExpect(jsonPath("$.data.status").value("PENDING"));
+    }
+
+    @Test
+    @DisplayName("결제 확정: 타인의 결제는 확정할 수 없다(403)")
+    void confirm_notOwner_forbidden() throws Exception {
+        Member seller = saveMember("paySeller15", Role.SELLER);
+        Product product = saveProduct(seller, 25000, 10);
+        Member buyer = saveMember("payBuyer13", Role.BUYER);
+        Member stranger = saveMember("payStranger2", Role.BUYER);
+
+        String createBody = mockMvc.perform(post("/api/payments")
+                        .with(asUser(buyer))
+                        .contentType("application/json")
+                        .content(toJson(Map.of("productId", product.getId()))))
+                .andReturn().getResponse().getContentAsString();
+        Long paymentId = objectMapper.readTree(createBody).get("data").get("paymentId").asLong();
+
+        mockMvc.perform(post("/api/payments/" + paymentId + "/confirm").with(asUser(stranger)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
 
     @Test

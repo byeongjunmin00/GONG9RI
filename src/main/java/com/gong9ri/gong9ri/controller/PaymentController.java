@@ -38,4 +38,12 @@ public class PaymentController {
             @PathVariable Long paymentId) {
         return ResponseEntity.ok(ApiResponse.success(paymentService.detail(principal, paymentId)));
     }
+
+    // 클라이언트가 PortOne 결제창 완료 후 호출 — 서버가 PortOne API 재조회로 확정한다(docs/api/payment.md).
+    @PostMapping("/{paymentId}/confirm")
+    public ResponseEntity<ApiResponse<PaymentResponse>> confirm(
+            @AuthenticationPrincipal MemberUserDetails principal,
+            @PathVariable Long paymentId) {
+        return ResponseEntity.ok(ApiResponse.success(paymentService.confirm(principal, paymentId)));
+    }
 }

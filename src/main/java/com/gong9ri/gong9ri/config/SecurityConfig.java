@@ -54,6 +54,9 @@ public class SecurityConfig {
                         // 인증을 요구하면 Railway의 헬스체크 프로버가 401을 받아 배포가 영원히
                         // 대기하게 되므로 반드시 permitAll이어야 한다.
                         .requestMatchers("/actuator/health").permitAll()
+                        // PortOne 웹훅 콜백 — PG가 직접 호출하므로 세션 인증 불가. 서명 검증
+                        // (PortOneWebhookVerifier)이 곧 인증 역할을 한다(docs/dev/payment/portone/design.md).
+                        .requestMatchers(HttpMethod.POST, "/api/webhooks/portone").permitAll()
                         .anyRequest().authenticated());
         return http.build();
     }
