@@ -44,7 +44,9 @@
 
 - `KakaoLoginTest`(신규, `KakaoClient`를 `@MockitoBean`으로 대체한 통합 시나리오 4개): 신규 가입 성공, 기존 연동 계정 재로그인(중복 생성 안 됨), 이메일 충돌 거부, state 불일치 거부(카카오 API 자체를 호출 안 하는 것까지 `Mockito.verify(never())`로 확인). 전체 회귀 194개 포함 전부 통과.
 - **로컬 dev DB에 `kakao_id` 컬럼이 UNIQUE 인덱스까지 실제로 자동 생성되는지 실측 확인**(`SHOW INDEX FROM member`) — `email` UNIQUE를 기존 컬럼에 리트로핏했을 때(`docs/db/member.md` 마이그레이션 메모)와 달리, **브랜드 뉴 컬럼은 `ddl-auto: update`가 UNIQUE 제약까지 한 번에 만들어준다**는 걸 이번에 실측으로 확인함(추측 아님) — `kakao_id varchar(100) YES UNI` 확인.
-- **실제 카카오 로그인 전체 브라우저 흐름 실측은 아직 안 함** — 카카오 개발자 콘솔 앱 등록(REST API 키 발급, Redirect URI 등록, "카카오 로그인" 활성화)이 선행 조건이라 별도로 진행 예정.
+- **실제 카카오 로그인 전체 브라우저 흐름 실측 완료(2026-08-13)**: 카카오 개발자 콘솔에 실제 앱 등록(REST API 키 발급, Redirect URI 2개 등록, "카카오 로그인" 활성화) 후 로컬(`localhost:8080`)에서 실제 브라우저로 "카카오로 로그인" 버튼 클릭 → 카카오 로그인/동의 → 콜백 → 로그인 완료까지 전체 완주. DB에서 실제 생성된 회원(`kakao_id=5036215176`) 확인 — `username=kakao_5036215176`, `email=kakao_5036215176@kakao.local`(이메일 동의 안 받은 계정이라 placeholder 경로가 실제로 탐), `role=BUYER`, `email_verified=true`(BIT 컬럼이라 `HEX()`로 재확인). 검증 후 실제 DB 회원과 Redis 키 정리함.
+  - **실측 중 발견한 이슈**: Kakao REST API 키는 **발급 시점부터 Client Secret이 기본 활성화**돼 있어서(`client_id`만 보내면 `KOE010: Bad client credentials`로 거부됨), `KAKAO_CLIENT_SECRET`을 반드시 같이 보내야 했다 — 계획 당시엔 "선택"으로 예상했으나 실제로는 이 앱 기준 필수였음(콘솔에서 직접 비활성화하지 않는 한). `docs/deploy-guide.md` 11-1절에 반영.
+  - **Redirect URI 등록 위치가 예상과 달랐음**: "카카오 로그인 > 일반" 메뉴가 아니라 **"앱 > 플랫폼 키 > REST API 키 상세" 안에 있는 "카카오 로그인 리다이렉트 URI"** 섹션에서 등록해야 했다(콘솔 UI 개편으로 위치가 옮겨진 것으로 보임) — 카카오 공식 FAQ 검색으로 정확한 위치를 확인함.
 
 ## 알려진 한계 / 리스크
 

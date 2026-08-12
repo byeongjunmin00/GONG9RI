@@ -2,11 +2,13 @@ package com.gong9ri.gong9ri.common.exception;
 
 import com.gong9ri.gong9ri.common.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
 @RestControllerAdvice
@@ -40,6 +42,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(ErrorCode.VALIDATION_FAILED.getHttpStatus())
                 .body(ApiResponse.failure(ErrorCode.VALIDATION_FAILED.name(), ErrorCode.VALIDATION_FAILED.getMessage()));
+    }
+
+    // 존재하지 않는 정적 리소스(favicon.ico 등) 요청은 클라이언트가 흔히 자동으로 보내는 것이지 서버
+    // 오류가 아니다 — Exception.class catch-all이 이걸 500으로 바꿔버리는 걸 실제로 Railway 프로덕션
+    // 로그에서 발견했다(2026-08-12, GET /favicon.ico -> 500). 원래 스프링이 의도한 404로 되돌린다.
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNoResourceFound(NoResourceFoundException e) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.failure("NOT_FOUND", "요청한 리소스를 찾을 수 없습니다."));
     }
 
     @ExceptionHandler(Exception.class)
