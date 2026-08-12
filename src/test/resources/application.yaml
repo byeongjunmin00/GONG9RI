@@ -22,6 +22,29 @@ spring:
       # 테스트는 실제 OpenAI를 호출하지 않고 ChatClient를 목(mock)으로 대체한다 — 컨텍스트 로딩 시
       # 빈 생성 자체가 막히지 않도록 형식만 맞는 더미 키를 둔다(비용·네트워크 의존 없음).
       api-key: dummy-test-key-not-real
+  mail:
+    # spring.mail.host가 있어야 Spring Boot 메일 자동 구성이 JavaMailSender 빈을 만든다(EmailService가
+    # 이걸 생성자 주입으로 필요로 함) — 없으면 이 값이 없는 컨텍스트를 로딩하는 테스트 전부가
+    # UnsatisfiedDependencyException으로 깨진다(실제로 전체 스위트를 돌려서 발견). 실제 연결은
+    # AuthControllerTest에서만 @MockitoBean으로 JavaMailSender 자체를 대체해서 막고, 그 외 테스트는
+    # send()를 호출하는 경로 자체를 안 타서 이 값으로 실제 SMTP 연결을 시도하지 않는다.
+    host: smtp.gmail.com
+    port: 587
+    username: ""
+    password: ""
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+app:
+  # src/test/resources/application.yaml는 메인 application.yaml을 완전히 대체한다(같은 이름의
+  # 리소스라 merge 안 되고 테스트 클래스패스에서 이거 하나만 적용됨) — 그래서 메인 쪽에만 있던
+  # app.base-url이 테스트에선 안 잡혀서 EmailService의 @Value 주입이 컨텍스트 로딩 자체를 깨뜨렸다
+  # (실제로 전체 테스트를 돌려서 발견, compileJava만으로는 안 잡히던 문제).
+  base-url: http://localhost:8080
 
 portone:
   # 테스트는 PortOneClient를 @MockitoBean으로 대체해 실제 네트워크 호출을 하지 않는다
@@ -38,3 +61,12 @@ policy-rag:
     # 임베딩 API를 호출하는 걸 막는다(더미 키라 401 → 기존 테스트 전부 깨짐). 검색 로직 자체는
     # PolicyRagServiceImplTest에서 VectorStore를 목으로 대체해 검증한다.
     enabled: false
+
+management:
+  health:
+    # 메인 application.yaml과 동일한 이유(MailHealthIndicator가 실제 SMTP 연결을 시도) + 테스트
+    # 전용 사정 하나 더: AuthControllerTest가 JavaMailSender를 @MockitoBean으로 대체하는데, 이 상태에서
+    # mailHealthContributor가 빈을 구성하려다 "'beans' must not be empty"로 컨텍스트 로딩 자체가 깨지는
+    # 걸 실제로 겪었다 — 헬스체크는 프로덕션과 동일하게 꺼서 테스트에서도 메일 상태에 의존하지 않게 한다.
+    mail:
+      enabled: false

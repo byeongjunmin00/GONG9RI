@@ -31,6 +31,24 @@ spring:
           model: gpt-4o-mini
           temperature: 0.3
           max-tokens: 500
+  mail:
+    # 로그인 고도화 2단계 — 이메일 인증/비밀번호 재설정 메일 발송용 Gmail SMTP.
+    # 일반 로그인 비밀번호가 아니라 앱 비밀번호(2단계 인증 필요)를 MAIL_PASSWORD로 넣어야 함.
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+app:
+  # 이메일 안의 인증/재설정 링크를 만들 때 쓰는 서버 공개 URL. Railway엔
+  # APP_BASE_URL=https://gong9ri-production.up.railway.app 환경변수 추가 필요(docs/deploy-guide.md).
+  base-url: ${APP_BASE_URL:http://localhost:8080}
 
 team:
   # team/join 동시성 전략 비교용 토글: lock(비관적 락, 기본값) | atomic(조건부 UPDATE)
@@ -61,6 +79,13 @@ management:
     web:
       exposure:
         include: health
+  health:
+    # spring-boot-starter-mail을 추가하면 Actuator가 자동으로 SMTP 연결 확인용 MailHealthIndicator를
+    # 등록해서, 메일 서버가 잠깐이라도 불안정하면 전체 헬스체크가 DOWN이 되어 배포 게이팅까지 막아버리는
+    # 걸 실제로 겪고 발견했다(2026-08-12). 메일 발송은 이미 실패해도 앱 전체엔 영향 없게 만들어둔
+    # 부가 기능이라, 헬스체크도 같은 원칙으로 꺼서 DB/Redis만 배포를 실제로 막게 한다.
+    mail:
+      enabled: false
 
 logging:
   pattern:

@@ -53,7 +53,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private static final List<RateLimitRule> RULES = List.of(
             new RateLimitRule("POST", Pattern.compile("^/api/teams/\\d+/join$"), "team-join", Duration.ofSeconds(10), 20),
-            new RateLimitRule("POST", Pattern.compile("^/api/auth/login$"), "login", Duration.ofSeconds(60), 10));
+            new RateLimitRule("POST", Pattern.compile("^/api/auth/login$"), "login", Duration.ofSeconds(60), 10),
+            // 로그인 고도화 2단계 — 이메일 폭탄(무차별 재발송/재설정 요청) 방지.
+            new RateLimitRule("POST", Pattern.compile("^/api/auth/verify-email/resend$"), "verify-email-resend", Duration.ofMinutes(5), 3),
+            new RateLimitRule("POST", Pattern.compile("^/api/auth/password/reset-request$"), "password-reset-request", Duration.ofMinutes(5), 3));
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;

@@ -41,6 +41,10 @@ IP 레이어만으로는 "여러 IP를 돌려가며 특정 계정 하나만 노�
 - 신규 `ErrorCode.LOGIN_ATTEMPTS_EXCEEDED`(429) — 기존 `TOO_MANY_REQUESTS`(범용 트래픽 제어용)와 의미가 달라서 재사용하지 않고 새로 만들었다.
 - **정직하게 남기는 트레이드오프**: 계정 단위 잠금은 "공격자가 피해자 계정 이름만 알면, 다른 IP로 일부러 틀린 비밀번호를 반복 입력해서 그 계정의 정상 로그인을 막아버릴 수 있다"는 역효과(계정 잠금 DoS)가 있다. CAPTCHA·점진적 백오프 같은 정교한 방어는 이번 스코프 밖 — 이 트레이드오프를 인지하고 있다는 것만 문서에 남긴다.
 
+## 이메일 인증 확인 (로그인 고도화 2단계, 2026-08-12)
+
+`POST /api/auth/login`에 이메일 인증 여부 확인이 추가됐다 — 상세 설계는 `docs/dev/auth/email-verification/design.md` 참고. 요약: 비밀번호 인증까지 성공한 뒤(`loginAttemptGuard.recordSuccess()` 호출 이후) `member.isEmailVerified()`가 false면 세션을 만들지 않고 `EMAIL_NOT_VERIFIED`(403)로 거절한다. `recordSuccess()`를 먼저 호출하는 이유: 비밀번호는 실제로 맞았으므로 로그인 시도 제한 카운터 관점에서는 "성공"으로 취급해야 하고, 그 뒤에 별도 조건(이메일 인증)으로 세션 발급만 막는 구조다.
+
 ## 관련 코드 위치
 
 - `dto/MemberLoginRequest.java`
