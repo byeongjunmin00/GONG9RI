@@ -25,7 +25,7 @@ class PolicyDocumentIndexerTest {
         VectorStore vectorStore = mock(VectorStore.class);
         PolicyDocumentIndexer indexer = new PolicyDocumentIndexer(vectorStore);
 
-        indexer.run(null);
+        indexer.indexOnStartup();
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<Document>> captor = ArgumentCaptor.forClass(List.class);

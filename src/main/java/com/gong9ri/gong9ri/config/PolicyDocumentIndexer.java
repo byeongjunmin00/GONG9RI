@@ -11,10 +11,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.VectorStore;
-import org.springframework.boot.ApplicationArguments;
-import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StreamUtils;
 
@@ -54,12 +55,34 @@ import org.springframework.util.StreamUtils;
  * 두고({@code docs/policy/*.md} 원본도 안 바꿈), 별도로 {@code DISPLAY_SOURCE_NAME_BY_PATH}에 고객
  * 응대에 어울리는 이름("환불 정책" 등)을 매핑해 청크 텍스트에 "표시용 출처명: {이름}" 줄로 함께 임베딩한다.
  * {@code BuyerChatService}의 출처표시 지시는 이 줄만 인용하도록 바뀌었다.
+ *
+ * <p><b>부팅 필수 관문에서 분리(2026-08-12, 프로덕션 502 장애 후속조치, {@code
+ * docs/dev/ongoing/policy-rag-boot-decoupling.md})</b>: 원래 이 클래스는 {@code ApplicationRunner}였다.
+ * 스프링 부트는 {@code ApplicationRunner} 실행을 {@code ApplicationContext} 초기화 시퀀스 안(컨텍스트
+ * refresh 이후, {@code ApplicationReadyEvent} 발행 이전)에서 처리하고, 그 안에서 예외가 나면 부팅 전체를
+ * 실패로 간주해 이미 띄운 컨텍스트까지 닫아버린다({@code SpringApplication.handleRunFailure()} →
+ * {@code context.close()}). Railway에 {@code OPENAI_API_KEY}가 없어 색인 중 임베딩 API 호출이 401로
+ * 실패했을 때 정확히 이 경로를 타서, 이 기능과 무관한 로그인·상품·결제 등 나머지 서비스 전체가 502로
+ * 함께 죽었다. 지금은 그 대신 {@code ApplicationReadyEvent}(컨텍스트가 완전히 뜨고 부팅이 끝난 뒤 발행)를
+ * {@code @Async}로 비동기 수신해서 색인하고, 메서드 본문 전체를 try-catch로 감싸 실패를 여기서 완전히
+ * 삼킨다 — 어떤 예외가 나도 부팅 완료 이후이므로 컨텍스트를 되돌릴 방법이 없고(이미 완전히 뜬 뒤라
+ * "부팅 실패"라는 개념 자체가 적용되지 않음), {@code @Async}라 이벤트 발행 스레드도 막지 않는다. 실패는
+ * 조용히 묻히지 않도록 ERROR 로그로 남긴다(운영자가 로그로 인지 가능해야 한다는 요구사항).
+ *
+ * <p><b>경합(색인 완료 전 검색 호출) 처리</b>: 색인이 비동기로 늦게 끝나므로, 색인이 끝나기 전에
+ * {@code PolicyRagServiceImpl.findRelevantSnippets()}가 호출될 수 있다(구매자 챗봇이 매 턴 호출하므로
+ * 이론상이 아니라 실제로 존재하는 경합). {@code SimpleVectorStore.similaritySearch()}는 내부 저장소가
+ * 비어 있어도 예외 없이 빈 리스트를 반환하도록 구현돼 있고(스트림 파이프라인이 빈 컬렉션에 대해서도 그냥
+ * 빈 결과를 냄 — 라이브러리 바이트코드로 확인), 혹시 그 과정에서 다른 예외(예: 질의 임베딩 자체가
+ * API 키 문제로 실패)가 나도 {@code BuyerChatService.retrieveRagContext()}가 이미 모든 예외를 삼키고
+ * 빈 컨텍스트로 진행하도록 돼 있어({@code BuyerChatService.java}), 색인 미완료/실패 상태에서도 챗봇
+ * 응답 자체는 막히지 않는다(RAG 문맥 없이 답하는 정도로 완화됨).
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "policy-rag.indexing", name = "enabled", havingValue = "true", matchIfMissing = true)
-public class PolicyDocumentIndexer implements ApplicationRunner {
+public class PolicyDocumentIndexer {
 
     private static final List<String> POLICY_RESOURCE_PATHS = List.of(
             "policy/refund-trigger.md",
@@ -92,14 +115,27 @@ public class PolicyDocumentIndexer implements ApplicationRunner {
 
     private final VectorStore vectorStore;
 
-    @Override
-    public void run(ApplicationArguments args) {
-        List<Document> documents = new ArrayList<>();
-        for (String path : POLICY_RESOURCE_PATHS) {
-            documents.addAll(splitIntoSections(path));
+    /**
+     * 부팅이 끝난 뒤({@code ApplicationReadyEvent}) 비동기로 색인한다. 실패(임베딩 API 키 부재·장애 등)를
+     * 여기서 완전히 삼켜 ERROR 로그만 남기고, 절대 밖으로 전파하지 않는다 — 부팅 시퀀스가 이미 끝난 뒤라
+     * 예외를 전파해도 부팅을 막을 수는 없지만, 이벤트 리스너에서 던진 예외는 {@code AsyncUncaughtExceptionHandler}
+     * 로만 가고 호출자에게 전달되지 않아 삼키는 게 맞다({@code AsyncConfig}와 같은 이유, 명시적으로 여기서도
+     * 잡아서 색인 실패라는 것을 알 수 있는 로그 형식을 직접 통제한다).
+     */
+    @Async
+    @EventListener(ApplicationReadyEvent.class)
+    public void indexOnStartup() {
+        try {
+            List<Document> documents = new ArrayList<>();
+            for (String path : POLICY_RESOURCE_PATHS) {
+                documents.addAll(splitIntoSections(path));
+            }
+            vectorStore.add(documents);
+            log.info("정책 문서 RAG 색인 완료: fileCount={}, chunkCount={}", POLICY_RESOURCE_PATHS.size(), documents.size());
+        } catch (Exception e) {
+            log.error("정책 문서 RAG 색인 실패 — 색인 없이 서비스는 정상 운영되며, 색인 완료 전/실패 상태에서는 "
+                    + "구매자 챗봇이 RAG 문맥 없이 답변합니다: {}", e.getMessage(), e);
         }
-        vectorStore.add(documents);
-        log.info("정책 문서 RAG 색인 완료: fileCount={}, chunkCount={}", POLICY_RESOURCE_PATHS.size(), documents.size());
     }
 
     private List<Document> splitIntoSections(String classpathPath) {

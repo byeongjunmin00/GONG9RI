@@ -36,7 +36,8 @@ public interface PolicyRagService {
 
 - 관련 정책: `docs/policy/refund-trigger.md`, `docs/policy/team-success-criteria.md`.
 - 임베딩: `spring-ai-starter-model-openai`가 자동구성하는 기본 `EmbeddingModel`(`text-embedding-ada-002`, 명시 설정 없음)을 그대로 사용. 벡터스토어: `spring-ai-vector-store`의 `SimpleVectorStore`(BOM 2.0.0이 버전 관리, `spring-ai-starter-model-openai`엔 포함 안 돼 있어 별도 추가 필요했음).
-- **색인은 기동 시 1회**, `PolicyDocumentIndexer`(`ApplicationRunner`)가 담당. **`policy-rag.indexing.enabled` 토글**(운영 기본 `true`, 테스트 프로파일에서는 `false`)로 실행 여부를 제어한다 — 이게 없으면 `@SpringBootTest` 컨텍스트 로딩마다 실제 OpenAI 임베딩 API를 더미 키로 호출해 401로 기존 테스트 전체(130여 개)가 깨진다. `cache: type: simple`(테스트 프로파일에서 Redis 대신 인메모리 캐시 쓰는 것)과 같은 성격의 패턴이다.
+- **색인은 기동 시 1회**, `PolicyDocumentIndexer`가 담당. **`policy-rag.indexing.enabled` 토글**(운영 기본 `true`, 테스트 프로파일에서는 `false`)로 빈 등록 자체를 제어한다(`@ConditionalOnProperty`) — 이게 없으면 `@SpringBootTest` 컨텍스트 로딩마다 실제 OpenAI 임베딩 API를 더미 키로 호출해 401로 기존 테스트 전체(130여 개)가 깨진다. `cache: type: simple`(테스트 프로파일에서 Redis 대신 인메모리 캐시 쓰는 것)과 같은 성격의 패턴이다.
+- **부팅 필수 관문에서 분리(2026-08-12, 프로덕션 502 장애 후속조치)**: 원래 `PolicyDocumentIndexer`는 `ApplicationRunner`였다. 배포(Railway) 직후 `OPENAI_API_KEY`가 없어 색인 중 임베딩 API 호출이 401로 실패했고, 스프링 부트가 `ApplicationRunner` 실행 중 예외를 부팅 실패로 간주해 이미 띄운 `ApplicationContext`까지 닫아버려(`SpringApplication.handleRunFailure()`), 이 기능과 무관한 로그인·상품·결제 등 나머지 서비스 전체가 502로 함께 다운됐다. 후속조치로 `PolicyDocumentIndexer.indexOnStartup()`을 `@Async` + `@EventListener(ApplicationReadyEvent.class)`로 바꿔, 부팅이 완전히 끝난 뒤 비동기로 색인하고 메서드 전체를 try-catch로 감싸 실패를 여기서 완전히 삼킨다(성공/실패 모두 로그로 남김 — 실패는 ERROR 레벨 + 스택트레이스). `policy-rag.indexing.enabled=false`면 빈 자체가 안 만들어져 이벤트 리스너도 등록되지 않으므로, 테스트 프로파일의 "실제 호출 0번" 보장은 그대로 유지된다. 색인이 비동기로 늦게 끝나 구매자 챗봇 요청이 색인 완료 전에 들어오는 경합이 있을 수 있으나, `SimpleVectorStore.similaritySearch()`는 저장소가 비어 있어도 예외 없이 빈 리스트를 반환하고 혹시 다른 예외가 나도 `BuyerChatService.retrieveRagContext()`가 모든 예외를 삼켜 빈 컨텍스트로 진행하므로 챗봇 응답 자체는 막히지 않는다(실측 확인: `docs/logs/ai/policy-rag/002-boot-decoupling.md`).
 - **threshold 필터링을 포기한 경위**(가장 중요한 설계 결정): 유사도 threshold로 관련/무관을 가르는 접근을 2차례 실측했으나(기본 임베딩 모델, `text-embedding-3-small`로 교체 둘 다) 이 코퍼스 규모에서 안정적으로 작동하지 않았다 — 정책 문서 어휘를 안 쓴 자연스러운 패러프레이즈("제 돈은 언제 돌려받을 수 있나요?")의 점수가 완전 무관한 질문보다 낮게 나오는 경우가 실제로 있었다. 상세 실측 근거는 `docs/logs/ai/policy-rag/001-policy-rag.md` Attempt 1~2 참고.
 - **`TOP_K=3`**은 실측 근거 없는 초기값이다(정책 문서가 6개 청크뿐이라 크게 잡을 필요 없음 — `BuyerChatService`의 `LLM_TIMEOUT=15초`와 같은 성격, 실사용 데이터로 재검토 여지 있음).
 
@@ -47,7 +48,7 @@ public interface PolicyRagService {
 - `src/main/resources/policy/{refund-trigger,team-success-criteria}.md` — 정책 문서 반입 사본
 - `build.gradle` — `spring-ai-vector-store` 의존성 추가(BOM이 버전 관리)
 - `src/main/resources/application.yaml`, `src/test/resources/application.yaml` — `policy-rag.indexing.enabled` 토글
-- 테스트: `service/PolicyRagServiceImplTest.java` — `@MockitoBean VectorStore`로 실제 임베딩 호출 없이 검색 결과 매핑·`SearchRequest` 구성(query/topK/`SIMILARITY_THRESHOLD_ACCEPT_ALL`)을 검증(3케이스). `config/PolicyDocumentIndexerTest.java` — 스프링 컨텍스트 없는 순수 단위 테스트로 청크 텍스트에 내부 제목과 표시용 출처명이 함께 포함되는지 검증. 실제 임베딩 API로 색인·검색·패러프레이즈 개선·출처표시 여부를 확인한 기록은 `docs/logs/ai/policy-rag/001-policy-rag.md`(자동 테스트에는 실제 호출을 넣지 않음).
+- 테스트: `service/PolicyRagServiceImplTest.java` — `@MockitoBean VectorStore`로 실제 임베딩 호출 없이 검색 결과 매핑·`SearchRequest` 구성(query/topK/`SIMILARITY_THRESHOLD_ACCEPT_ALL`)을 검증(3케이스). `config/PolicyDocumentIndexerTest.java` — 스프링 컨텍스트 없는 순수 단위 테스트로 `indexOnStartup()`을 직접 호출해 청크 텍스트에 내부 제목과 표시용 출처명이 함께 포함되는지 검증. 실제 임베딩 API로 색인·검색·패러프레이즈 개선·출처표시 여부를 확인한 기록은 `docs/logs/ai/policy-rag/001-policy-rag.md`, 부팅 분리·실패 격리를 실제 `bootRun`(정상 키/강제 무효 키 둘 다)으로 확인한 기록은 `docs/logs/ai/policy-rag/002-boot-decoupling.md`(자동 테스트에는 실제 호출을 넣지 않음).
 
 ## 후속 작업 — 완료됨
 
@@ -56,4 +57,4 @@ public interface PolicyRagService {
 - `BuyerChatService`에 이 인터페이스가 실제로 주입돼 RAG+Tool Calling이 결합됐다(`BuyerChatService.java:76,155,257`).
 - 챗봇 시스템 프롬프트에 "제공된 정책 문맥이 질문과 무관하면 무시하라"는 지시가 추가됐다(`BuyerChatService.java:269`, `buildSystemPrompt()`).
 
-프로덕션 502 장애(2026-08-12) 후속조치로 색인 시점을 부팅 필수 관문에서 분리하는 별도 작업이 `docs/dev/ongoing/policy-rag-boot-decoupling.md`에서 진행 중이다 — 색인 실패가 이제는 이 이미 연결된 실사용 경로(구매자 챗봇)까지 포함해 전체 서비스를 막지 않게 하는 것이 목표다.
+프로덕션 502 장애(2026-08-12) 후속조치로 색인 시점을 부팅 필수 관문에서 분리하는 작업도 완료됐다(`docs/dev/ongoing/policy-rag-boot-decoupling.md`, 상세는 위 "규칙 / 검증"의 "부팅 필수 관문에서 분리" 항목과 `docs/logs/ai/policy-rag/002-boot-decoupling.md` 참고) — 색인 실패가 이제는 이미 연결된 실사용 경로(구매자 챗봇)까지 포함해 전체 서비스를 막지 않는다.
