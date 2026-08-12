@@ -1,0 +1,46 @@
+<!--
+  chat-widget.html — 구매자 챗봇 플로팅 위젯 partial
+  js/include.js가 fetch로 이 파일을 가져와 data-include="chat-widget" 컨테이너에 삽입한다.
+
+  * 최상위 요소(#chat-widget)는 기본 hidden이다 — js/chat-widget.js가
+    'gong9ri:auth-resolved' 이벤트(js/header-auth.js가 발행)를 구독해
+    로그인 상태·역할이 BUYER로 확인될 때만 hidden을 해제한다. 비로그인/SELLER는
+    계속 숨김 상태로 유지된다(이 기능은 구매자 전용이라 헤더 nav처럼 "항상 노출,
+    서버가 사후 판정"이 아니라 아예 노출 자체를 하지 않는다).
+  * #chat-widget-panel(대화창)은 별도로 hidden 처리되며, 토글 버튼 클릭으로 열고 닫는다.
+    두 요소 모두 components.css에 `[hidden] { display: none; }` 보정 규칙이 있다
+    (author 스타일시트에서 display: flex 등을 선언하면 네이티브 [hidden]이 무시될 수 있다는
+    이 세션의 반복 버그 패턴을 피하기 위함).
+  * 메시지 목록/입력값은 전부 js/chat-widget.js가 textContent로만 채운다(innerHTML 미사용).
+-->
+<div id="chat-widget" class="chat-widget" hidden>
+  <button
+    type="button"
+    id="chat-widget-toggle"
+    class="chat-widget__button"
+    aria-haspopup="true"
+    aria-controls="chat-widget-panel"
+    aria-label="AI 상담 챗봇 열기"
+  >AI 상담</button>
+
+  <div id="chat-widget-panel" class="chat-widget__panel" role="dialog" aria-label="AI 상담 챗봇" hidden>
+    <div class="chat-widget__header">
+      <span class="chat-widget__title">GONG9RI 도우미</span>
+      <button type="button" id="chat-widget-close" class="chat-widget__close" aria-label="닫기">&times;</button>
+    </div>
+
+    <div id="chat-widget-messages" class="chat-widget__messages" role="log" aria-live="polite"></div>
+
+    <form id="chat-widget-form" class="chat-widget__form">
+      <input
+        type="text"
+        id="chat-widget-input"
+        class="chat-widget__input"
+        placeholder="메시지를 입력하세요"
+        autocomplete="off"
+        aria-label="메시지 입력"
+      />
+      <button type="submit" id="chat-widget-send" class="chat-widget__send">전송</button>
+    </form>
+  </div>
+</div>

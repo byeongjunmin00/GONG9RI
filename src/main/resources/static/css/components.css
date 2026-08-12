@@ -491,6 +491,174 @@
   font-weight: 800;
 }
 
+/* ---------- Chat widget (구매자 챗봇 플로팅 위젯) ---------- */
+/* #chat-widget 자체는 display를 선언하지 않지만(자식이 전부 position: fixed라
+   레이아웃에 영향이 없음), 하위 두 요소는 display: flex를 선언하고 있어
+   네이티브 [hidden]이 무시될 수 있으므로 세 요소 모두 명시적으로 보정한다. */
+.chat-widget[hidden] {
+  display: none;
+}
+
+.chat-widget__button[hidden] {
+  display: none;
+}
+
+.chat-widget__button {
+  position: fixed;
+  right: var(--space-5);
+  bottom: var(--space-5);
+  z-index: 1000;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  height: 56px;
+  padding: 0 var(--space-4);
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--gradient-brand);
+  color: var(--color-text-on-brand);
+  font-family: var(--font-heading);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  box-shadow: var(--shadow-lg);
+}
+
+.chat-widget__button:hover {
+  transform: translateY(-2px);
+}
+
+.chat-widget__panel[hidden] {
+  display: none;
+}
+
+.chat-widget__panel {
+  position: fixed;
+  right: var(--space-5);
+  bottom: calc(56px + var(--space-5) + var(--space-3));
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  width: 340px;
+  max-width: calc(100vw - (var(--space-5) * 2));
+  height: 480px;
+  max-height: calc(100vh - 160px);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.chat-widget__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.chat-widget__title {
+  font-family: var(--font-heading);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+.chat-widget__close {
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--fs-xl);
+  line-height: 1;
+}
+
+.chat-widget__close:hover {
+  color: var(--color-pink);
+}
+
+.chat-widget__messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.chat-widget__message {
+  max-width: 80%;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chat-widget__message--user {
+  align-self: flex-end;
+  background: var(--gradient-brand);
+  color: var(--color-text-on-brand);
+}
+
+.chat-widget__message--assistant {
+  align-self: flex-start;
+  background-color: var(--color-surface-alt);
+  color: var(--color-text);
+}
+
+.chat-widget__message--system {
+  align-self: center;
+  background-color: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--fs-xs);
+  text-align: center;
+}
+
+.chat-widget__form {
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.chat-widget__input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  background-color: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  color: var(--color-text);
+}
+
+.chat-widget__input:focus {
+  outline: none;
+  border-color: var(--color-purple);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+}
+
+.chat-widget__input:disabled,
+.chat-widget__send:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.chat-widget__send {
+  flex-shrink: 0;
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--gradient-brand);
+  color: var(--color-text-on-brand);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
 /* ---------- Revenue cards (판매자 마이페이지 — 수익 현황) ---------- */
 .revenue-cards {
   display: grid;

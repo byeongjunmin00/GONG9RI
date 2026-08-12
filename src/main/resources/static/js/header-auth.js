@@ -12,6 +12,9 @@
  *      역할이 다른 링크는 그대로 숨겨진 채 유지된다).
  *    - 실패(401 등): 비로그인 상태 → 아무것도 하지 않아 nav 링크가 기본값(hidden)인 채로 유지된다.
  * 2. #header-auth-logout 클릭 시 POST /api/auth/logout 호출 후 성공하면 현재 페이지를 새로고침한다.
+ * 3. /auth/me 호출이 끝나면(성공/실패 모두) document에 'gong9ri:auth-resolved' 커스텀 이벤트를
+ *    { detail: { loggedIn, member } } 형태로 발행한다. 다른 스크립트(js/chat-widget.js 등)가
+ *    로그인 상태·역할을 재사용하려고 다시 /auth/me를 호출하지 않도록 이 이벤트를 구독한다.
  *
  * 이 파일은 window.Api(js/api.js)에 의존한다 — HTML에서 api.js보다 뒤에 로드해야 한다.
  */
@@ -66,9 +69,15 @@
     window.Api.get('/auth/me')
       .then(function (member) {
         applyLoggedInState(member);
+        document.dispatchEvent(
+          new CustomEvent('gong9ri:auth-resolved', { detail: { loggedIn: true, member: member } })
+        );
       })
       .catch(function () {
         // 미인증(401 등) — 비로그인 상태로 간주하고 기존 마크업을 그대로 유지한다.
+        document.dispatchEvent(
+          new CustomEvent('gong9ri:auth-resolved', { detail: { loggedIn: false, member: null } })
+        );
       });
   }
 

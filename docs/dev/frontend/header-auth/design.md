@@ -25,6 +25,7 @@ src/main/resources/static/
 - **헤더 토글**: 로그인 시 `#header-auth-guest`에 `hidden = true`, `#header-auth-user`에 `hidden = false`를 대입. 두 영역 모두 동일한 `.site-header__auth` 클래스를 쓰는 마크업이며 `innerHTML` 조작은 없다. 사용자 이름은 `#header-auth-user-name.textContent = member.name + '님'`로만 대입(XSS 방지).
 - **역할별 nav 표시**: `.site-header__nav a[data-role]`(3개: 판매 물품 등록/판매자 마이페이지=`SELLER`, 구매자 마이페이지=`BUYER`)는 마크업 기본값이 `hidden`이다(비로그인 상태를 기본으로 간주). 로그인한 `member.role`과 일치하는 링크만 `hidden = false`로 노출하고 `nav-link--role-active` 클래스도 함께 추가한다. 역할이 다른 링크는 손대지 않아 기본 `hidden`이 유지된다. 별도 "메인" nav 링크는 없다 — 로고 자체가 이미 `/`로 가는 링크라 중복이고, 역할 링크가 전부 숨겨진 상태(비로그인 등)에서 "메인" 하나만 덩그러니 남는 게 어색해 애초에 만들지 않았다(`partials/header.html` 상단 주석 참고).
 - **로그아웃**: `#header-auth-logout` 클릭 시 `Api.post('/auth/logout')` 성공 후 `window.location.reload()`(현재 페이지 새로고침). 실패는 콘솔 로그만 남기고 별도 UI 처리 없음.
+- **로그인 상태 재사용 이벤트(이후 추가됨)**: `GET /api/auth/me` 호출이 끝나면(성공/실패 모두) `document`에 `gong9ri:auth-resolved` 커스텀 이벤트를 `{ detail: { loggedIn, member } }` 형태로 발행한다(성공: `loggedIn:true, member`, 실패: `loggedIn:false, member:null`). 다른 스크립트가 로그인 상태·역할을 재사용하려고 `/auth/me`를 중복 호출하지 않도록 하기 위한 확장이며, 기존 헤더 토글/nav 표시/로그아웃 로직은 그대로다. 현재 이 이벤트의 유일한 구독자는 `js/chat-widget.js`(`docs/dev/frontend/buyer-chatbot/design.md`)다.
 
 ## 규칙 / 검증
 
@@ -40,3 +41,4 @@ src/main/resources/static/
 - `src/main/resources/static/css/components.css` — 헤더 로그인 상태 스타일 3개 규칙
 - 위 10개 정적 HTML 페이지 — `<script>` 태그 추가
 - 경위: `docs/dev/frontend/header-auth/changes/001-header-auth.md`(초기 "강조만" 구현), `changes/002-nav-visibility.md`(숨김으로 전환), 실행 로그: `docs/logs/frontend/header-auth/001-header-auth.md`, `002-nav-visibility.md`
+- `gong9ri:auth-resolved` 이벤트 발행 확장의 경위/실행 로그는 이 파일을 소유한 `frontend/buyer-chatbot` 쪽에 있다: `docs/dev/frontend/buyer-chatbot/changes/001-buyer-chatbot-frontend.md`, `docs/logs/frontend/buyer-chatbot/001-buyer-chatbot-frontend.md`.
