@@ -17,7 +17,9 @@
 
 ### EmailService (`common/mail/EmailService.java`, 신규)
 
-`JavaMailSender`(Gmail SMTP, `spring-boot-starter-mail`)를 감싸는 얇은 컴포넌트. 이메일이 인증/재설정 2종뿐이라 Thymeleaf 같은 템플릿 엔진 없이 인라인 문자열로 처리한다. `sendVerificationEmail`/`sendPasswordResetEmail` 둘 다 `@Async`(기존 `AsyncConfig`의 기본 executor 재사용) — 메일 발송이 느리거나 실패해도 회원가입 트랜잭션·재설정 요청 응답을 막으면 안 된다는 원칙(AI 기능들의 장애격리 원칙과 동일). 발송 실패는 `warn` 로그만 남기고 삼킨다.
+실제 발송 트랜스포트를 감싸는 얇은 컴포넌트. 이메일이 인증/재설정 2종뿐이라 Thymeleaf 같은 템플릿 엔진 없이 인라인 문자열로 처리한다. `sendVerificationEmail`/`sendPasswordResetEmail` 둘 다 `@Async`(기존 `AsyncConfig`의 기본 executor 재사용) — 메일 발송이 느리거나 실패해도 회원가입 트랜잭션·재설정 요청 응답을 막으면 안 된다는 원칙(AI 기능들의 장애격리 원칙과 동일). 발송 실패는 `warn` 로그만 남기고 삼킨다.
+
+**발송 트랜스포트 교체(2026-08-12)**: 처음엔 `JavaMailSender`(Gmail SMTP)로 구현했으나, Railway가 아웃바운드 SMTP(587번 포트)를 막고 있어 프로덕션에서 발송이 전혀 안 되는 걸 실측으로 확인(`docs/logs/cd/deploy/004-smtp-blocked.md`) — HTTP(443) 기반 SendGrid REST API로 교체했다. `EmailSender` 인터페이스(신규) + `SendGridEmailSender`(신규, `RestClient`로 직접 호출, SDK 의존성 추가 없음 — `PortOneApiClient`와 같은 판단)로 분리했고, `EmailService`는 이제 `EmailSender`에 의존한다. `spring-boot-starter-mail` 의존성과 `spring.mail.*`/`management.health.mail.enabled` 설정은 전부 제거됨(아래 서술 중 `JavaMailSender`/Gmail SMTP를 언급하는 부분은 이 교체 이전 시점의 기록).
 
 ### TokenService (`common/security/TokenService.java`, 신규)
 
@@ -41,7 +43,7 @@
 
 ## 필요한 운영 환경변수
 
-- `MAIL_USERNAME`/`MAIL_PASSWORD`(Gmail SMTP, 앱 비밀번호), `APP_BASE_URL`(이메일 링크용 서버 공개 URL) — Railway 설정 방법은 `docs/deploy-guide.md` 참고.
+- `SENDGRID_API_KEY`/`SENDGRID_FROM_EMAIL`(SendGrid, 2026-08-12부터 — 이전엔 `MAIL_USERNAME`/`MAIL_PASSWORD`로 Gmail SMTP를 썼으나 Railway가 SMTP를 막아 교체함), `APP_BASE_URL`(이메일 링크용 서버 공개 URL) — Railway 설정 방법은 `docs/deploy-guide.md` 참고.
 
 ## 실측 검증 (2026-08-12)
 

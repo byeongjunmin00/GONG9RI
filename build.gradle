@@ -44,8 +44,6 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     // 실시간 메시징(발제 도전과제) — 공구팀 정원 변동 브로드캐스트용 WebSocket/STOMP.
     implementation 'org.springframework.boot:spring-boot-starter-websocket'
-    // 로그인 고도화 2단계 — 이메일 인증/비밀번호 재설정 메일 발송용.
-    implementation 'org.springframework.boot:spring-boot-starter-mail'
     implementation 'com.querydsl:querydsl-jpa:5.1.0:jakarta'
     annotationProcessor 'com.querydsl:querydsl-apt:5.1.0:jakarta'
     annotationProcessor 'jakarta.persistence:jakarta.persistence-api'

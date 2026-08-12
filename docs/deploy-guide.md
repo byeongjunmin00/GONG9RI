@@ -94,17 +94,22 @@ REDIS_PASSWORD=${{Redis.REDISPASSWORD}}
 
 `docs/dev/auth/email-verification/design.md`, `docs/dev/auth/password-reset/design.md` 기능을 실제로 쓰려면 아래 두 가지를 **직접** 해야 함 — 코드만 배포해서는 메일이 안 나가고, DB 마이그레이션도 자동으로 안 걸림.
 
-### 9-1. 환경변수 3개 추가
+### 9-1. 환경변수 2개 추가 (SendGrid, 2026-08-12부터)
 
-앱 서비스 → **Variables** 탭에서 아래 3개 추가:
+**처음엔 Gmail SMTP(`MAIL_USERNAME`/`MAIL_PASSWORD`)로 시도했으나, Railway가 아웃바운드 SMTP(587번 포트)를 막고 있어 프로덕션에서 발송이 전혀 안 되는 걸 실측으로 확인**하고 HTTP 기반 SendGrid로 교체했다(`docs/logs/cd/deploy/004-smtp-blocked.md`). 아래 절차로 진행:
+
+1. [sendgrid.com](https://sendgrid.com)에서 무료 가입(카드 불필요)
+2. **Settings → Sender Authentication → Single Sender Verification**에서 발신용으로 쓸 이메일 주소(예: 프로젝트 관리자 Gmail) 등록 → 그 주소로 온 인증 메일의 링크 클릭(도메인 전체 인증 아님, 이메일 주소 하나만 인증 — 커스텀 도메인이 없어도 됨)
+3. **Settings → API Keys**에서 API 키 발급(Full Access 또는 최소 Mail Send 권한)
+4. 앱 서비스 → **Variables** 탭에서 아래 3개 추가:
 
 ```
-MAIL_USERNAME=<발신용 Gmail 주소>
-MAIL_PASSWORD=<Gmail 앱 비밀번호(2단계 인증 켠 뒤 발급, 일반 로그인 비밀번호 아님)>
+SENDGRID_API_KEY=<발급받은 API 키>
+SENDGRID_FROM_EMAIL=<2번에서 인증한 발신 주소>
 APP_BASE_URL=https://gong9ri-production.up.railway.app
 ```
 
-> `APP_BASE_URL`은 이메일 안의 인증/재설정 링크를 만드는 데 쓰임(`app.base-url` 설정, 없으면 로컬 기본값 `http://localhost:8080`으로 링크가 만들어져서 실제로는 안 열림). `MAIL_USERNAME`/`MAIL_PASSWORD`를 안 넣어도 앱 자체는 뜨지만(`management.health.mail.enabled: false`로 헬스체크는 메일 상태를 안 봄), 실제 메일 발송은 전부 실패해서 로그에 `이메일 발송 실패` 경고만 쌓이고 사용자는 인증 메일을 못 받는다.
+> `APP_BASE_URL`은 이메일 안의 인증/재설정 링크를 만드는 데 쓰임(`app.base-url` 설정, 없으면 로컬 기본값 `http://localhost:8080`으로 링크가 만들어져서 실제로는 안 열림). `SENDGRID_API_KEY`/`SENDGRID_FROM_EMAIL`을 안 넣어도 앱 자체는 뜨지만, 실제 메일 발송은 전부 실패해서 로그에 `이메일 발송 실패` 경고만 쌓이고 사용자는 인증 메일을 못 받는다.
 
 ### 9-2. `member.email` UNIQUE 인덱스 수동 적용
 

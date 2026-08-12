@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.gong9ri.gong9ri.common.mail.EmailSender;
 import com.gong9ri.gong9ri.common.security.TokenService;
 import com.gong9ri.gong9ri.repository.MemberRepository;
 import java.time.Duration;
@@ -22,7 +23,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -50,10 +50,10 @@ class AuthControllerTest {
     @Autowired
     private TokenService tokenService;
 
-    // 이메일 인증/비밀번호 재설정 테스트가 실제 Gmail SMTP로 나가지 않도록 목으로 대체한다
-    // (CI가 실제 메일 서버 연결 가능 여부에 의존하면 안 되므로).
+    // 이메일 인증/비밀번호 재설정 테스트가 실제 SendGrid API로 나가지 않도록 목으로 대체한다
+    // (CI가 실제 외부 서비스 연결 가능 여부에 의존하면 안 되므로).
     @MockitoBean
-    private JavaMailSender javaMailSender;
+    private EmailSender emailSender;
 
     // 로그인 시도 제한(계정 잠금 + IP) + 이메일 인증/재발송 + 비밀번호 재설정 요청 관련 Redis 카운터는
     // JPA 트랜잭션 롤백 범위 밖이라 직접 정리한다. 이 클래스의 테스트들은 전부 MockMvc 기본 클라이언트

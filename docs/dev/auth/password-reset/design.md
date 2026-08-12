@@ -28,7 +28,7 @@
 
 ## 필요한 운영 환경변수
 
-- `MAIL_USERNAME`/`MAIL_PASSWORD`(Gmail SMTP), `APP_BASE_URL` — 이메일 인증과 공유, `docs/deploy-guide.md` 참고.
+- `SENDGRID_API_KEY`/`SENDGRID_FROM_EMAIL`(SendGrid, 2026-08-12부터 — Railway가 SMTP를 막아 Gmail SMTP에서 교체함, `docs/logs/cd/deploy/004-smtp-blocked.md`), `APP_BASE_URL` — 이메일 인증과 공유, `docs/deploy-guide.md` 참고.
 
 ## 실측 검증 (2026-08-12)
 
