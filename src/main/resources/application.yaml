@@ -44,6 +44,15 @@ policy-rag:
     # 반드시 false로 꺼서 @SpringBootTest 컨텍스트 로딩마다 실호출이 나가지 않게 한다.
     enabled: true
 
+management:
+  # 배포 고도화(도전과제) — Railway의 railway.json(deploy.healthcheckPath)이 이 경로를 불러서
+  # 200이 나올 때까지 새 배포로 트래픽을 안 넘긴다(무중단 배포의 실제 메커니즘). health만 노출하고
+  # 나머지 actuator 엔드포인트(env/beans 등)는 그대로 막아둔다.
+  endpoints:
+    web:
+      exposure:
+        include: health
+
 logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %5p [%X{traceId}] %-40.40logger{39} : %m%n"

@@ -50,6 +50,10 @@ public class SecurityConfig {
                         // 공구팀 정원 브로드캐스트용 STOMP 핸드셰이크 — 이미 GET /api/products/**로
                         // 공개된 정보를 실시간으로 밀어주는 것뿐이라 인증 불필요.
                         .requestMatchers("/ws-team/**").permitAll()
+                        // 배포 고도화(도전과제) — Railway가 배포 게이팅에 쓰는 헬스체크 경로.
+                        // 인증을 요구하면 Railway의 헬스체크 프로버가 401을 받아 배포가 영원히
+                        // 대기하게 되므로 반드시 permitAll이어야 한다.
+                        .requestMatchers("/actuator/health").permitAll()
                         .anyRequest().authenticated());
         return http.build();
     }
