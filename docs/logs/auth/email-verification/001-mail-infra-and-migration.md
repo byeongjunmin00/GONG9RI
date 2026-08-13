@@ -49,3 +49,22 @@
 - **비밀번호 재설정**: 실제 이메일로 재설정 요청(`POST /api/auth/password/reset-request`) → 받은편지함에서 실제 메일 수신 확인 → Redis에서 실제 발급된 토큰으로 재설정 실행(`POST /api/auth/password/reset`) → 이전 비밀번호 로그인 시도 시 `LOGIN_FAILED`(401), 새 비밀번호로는 로그인 성공(200) 확인.
 - 두 흐름 다 예외 없이 첫 시도에 정상 동작함 — 이번 항목에서 나온 버그 4개는 전부 인프라/테스트 설정 문제였고, 실제 메일 발송 자체는 설계대로 문제없이 붙었음.
 - 검증 후 정리: 실제 로컬 dev DB에 남은 테스트 계정(`gong9ri-smtp-test1`) 삭제, Redis `FLUSHALL`로 테스트 토큰 정리, 로컬 서버 프로세스 종료, 앱 비밀번호가 찍힌 임시 로그 파일 삭제(내용엔 안 찍혔지만 안전 차원에서 확인 후 삭제).
+
+## Attempt 4 — 프로덕션에서 인증 메일이 전혀 발송되지 않음 (2026-08-13, 원인 확정·미해결)
+
+**증상**: Attempt 3에서 로컬 SMTP 발송을 검증했음에도, 실제 Railway 프로덕션 배포 후 회원가입을 하면 이메일이 전혀 도착하지 않는다(받은편지함·스팸함 모두 실측 확인, 둘 다 없음). 서버는 회원가입(`201`)·로그인 차단(`403 EMAIL_NOT_VERIFIED`)·재발송(`200`) 전부 정상 응답해서, 처음엔 원인 파악이 쉽지 않았다.
+
+**진단 과정**:
+1. Railway Variables에 `MAIL_USERNAME`/`MAIL_PASSWORD`/`APP_BASE_URL` 전부 존재 확인(값은 마스킹돼 내용은 미확인).
+2. 프로덕션에 실제 테스트 계정을 만들어 회원가입→로그인 차단→재발송까지 재현, 애플리케이션 로직 자체는 정상 동작함을 확인.
+3. Railway 대시보드의 배포 상세 패널(사이드 패널) 로그 검색창은 필터를 바꿔도 결과가 안 바뀌는 현상이 있어 신뢰할 수 없었다 — 별도의 전체 페이지 **Log Explorer**(`/project/{id}/logs`, 배포 상세의 "Open in Log Explorer" 링크)로 들어가서야 제대로 필터링된 로그를 확인할 수 있었다.
+4. Log Explorer에서 실제 원인을 확정: `WARN EmailService : 이메일 발송 실패 ... error=Mail server connection failed. org.eclipse.angus.mail.util.MailConnectException: Couldn't connect to host, port: smtp.gmail.com, 587; timeout -1;`
+5. (처음엔 "Gmail이 클라우드 IP의 로그인 시도를 의심해서 차단"이라는 가설을 세웠으나, 사용자가 발신 Gmail 계정의 보안 알림을 직접 확인해서 아무 기록도 없음을 확인 — 이 가설은 기각됨. `MailConnectException: Couldn't connect to host`는 TCP 연결 자체가 안 되는 것이라 Gmail 쪽 인증/보안 로직에 도달하기 전 단계의 실패다.)
+
+**확정 원인**: Railway 공식 문서·커뮤니티에서 확인 — **Railway는 Free/Trial/Hobby 플랜에서 아웃바운드 SMTP 포트(25/465/587/2525)를 전부 차단**하고, SMTP는 Pro 플랜 이상에서만 허용한다. 코드·설정 문제가 아니라 **플랫폼 자체의 네트워크 정책**이 원인이다. (배포 고도화 때 확인한 "Railway 리소스 한도가 이미 최대치"라는 정황도 Hobby 플랜 사용과 일치.)
+
+**해결 방안(둘 중 택1, 아직 미착수)**:
+- Railway Pro 플랜으로 업그레이드(유료) — SMTP 완전 허용
+- `EmailService`를 SMTP(`JavaMailSender`)에서 HTTPS API 기반 트랜잭셔널 이메일 서비스(SendGrid/Mailgun/Resend/Postmark 등)로 교체 — 포트 443만 쓰므로 이 차단 정책에 안 걸림, 부트캠프 프로젝트 예산상 이쪽이 현실적
+
+**현재 상태**: 원인 확정, 수정 미착수(다른 작업 우선). 이 기능(이메일 인증/비밀번호 재설정)은 **로컬에서는 정상 동작하지만 프로덕션에서는 실제 메일이 전혀 발송되지 않는 상태**로 남아있다 — 재작업 시 위 두 옵션 중 하나를 Plan으로 잡고 진행해야 한다.
