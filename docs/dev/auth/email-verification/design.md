@@ -45,6 +45,14 @@
 
 - `SENDGRID_API_KEY`/`SENDGRID_FROM_EMAIL`(SendGrid, 2026-08-12부터 — 이전엔 `MAIL_USERNAME`/`MAIL_PASSWORD`로 Gmail SMTP를 썼으나 Railway가 SMTP를 막아 교체함), `APP_BASE_URL`(이메일 링크용 서버 공개 URL) — Railway 설정 방법은 `docs/deploy-guide.md` 참고.
 
+## 알려진 문제 — 프로덕션에서 인증 메일이 발송되지 않음 (2026-08-13, 미해결)
+
+**Railway는 Free/Trial/Hobby 플랜에서 아웃바운드 SMTP 포트(25/465/587/2525)를 전부 차단**한다(Pro 플랜 이상에서만 허용, Railway 공식 문서·커뮤니티로 확인). 그래서 로컬에서는 Attempt 3(`docs/logs/auth/email-verification/001-mail-infra-and-migration.md`)에서 실제 발송까지 검증됐지만, **프로덕션에서는 회원가입은 정상 처리되고 로그인 차단도 정상 동작하지만 실제 인증 메일은 전혀 발송되지 않는다** — `EmailService`가 `MailConnectException: Couldn't connect to host, port: smtp.gmail.com, 587`을 던지고 `warn` 로그만 남긴 채 조용히 실패한다(기존 장애격리 설계상 회원가입 자체는 막지 않음).
+
+즉 지금 프로덕션에서는 이메일 인증을 통과할 방법이 없어 **사실상 회원가입 후 로그인이 막힌 상태**다. 해결 전까지는 신규 계정의 `email_verified`를 DB에서 직접 `1`로 바꿔주는 수동 우회가 필요하다(`docs/db/member.md`의 `BIT(1)` 주의사항 참고).
+
+해결 방안(택1, 아직 미착수): Railway Pro 플랜 업그레이드(SMTP 전면 허용) 또는 `EmailService`를 SMTP에서 HTTPS API 기반 이메일 서비스(SendGrid/Mailgun/Resend/Postmark 등)로 교체. 상세 진단 경위: `docs/logs/auth/email-verification/001-mail-infra-and-migration.md` Attempt 4.
+
 ## 실측 검증 (2026-08-12)
 
 - 로컬 dev DB에 `member.email_verified` 컬럼 + `email` UNIQUE 인덱스를 실제로 마이그레이션 적용해서 기존 row 있는 상태에서 안전한지 실측 확인함. 상세 트러블슈팅: `docs/logs/auth/email-verification/001-migration-and-mail-health.md`.

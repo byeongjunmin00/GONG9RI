@@ -161,6 +161,60 @@ class PaymentControllerTest {
     }
 
     @Test
+    @DisplayName("같은 팀 안에서 서로 다른 시점(currentCount=1, 중간, 정원 다 찬 시점)에 결제해도 "
+            + "항상 동일한 금액(maxParticipants 기준 tier 가격)이 적용된다")
+    void create_team_multipleTimestamps_sameAmountRegardlessOfCurrentCount() throws Exception {
+        Member seller = saveMember("paySeller8", Role.SELLER);
+        Product product = saveProduct(seller, 25000, 10);
+        priceTierRepository.save(new PriceTier(product, 3, 22000));
+        priceTierRepository.save(new PriceTier(product, 5, 20000));
+        priceTierRepository.save(new PriceTier(product, 10, 18000));
+
+        Member leader = saveMember("payLeader4", Role.BUYER);
+        GroupBuyTeam team = groupBuyTeamRepository.save(
+                new GroupBuyTeam(product, leader, 10, LocalDateTime.now().plusDays(7)));
+        teamParticipationRepository.save(new TeamParticipation(team, leader));
+
+        // 시점 1: currentCount=1 (팀장만 참가한 시점) — maxParticipants(10) 기준으로 가장 큰 구간(18000)이 적용돼야 한다.
+        mockMvc.perform(post("/api/payments")
+                        .with(asUser(leader))
+                        .contentType("application/json")
+                        .content(toJson(Map.of("productId", product.getId(), "teamId", team.getId()))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.amount").value(18000));
+
+        // 시점 2: currentCount가 중간(1 < k < 10)까지 늘어난 시점 — 여전히 18000이어야 한다.
+        Member middleMember = saveMember("payMember4a", Role.BUYER);
+        for (int i = 0; i < 4; i++) {
+            team.increaseParticipant();
+        }
+        team = groupBuyTeamRepository.save(team);
+        teamParticipationRepository.save(new TeamParticipation(team, middleMember));
+
+        mockMvc.perform(post("/api/payments")
+                        .with(asUser(middleMember))
+                        .contentType("application/json")
+                        .content(toJson(Map.of("productId", product.getId(), "teamId", team.getId()))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.amount").value(18000));
+
+        // 시점 3: 정원이 다 찬 시점(currentCount == maxParticipants) — 여전히 18000이어야 한다(동일 팀, 고정 정원).
+        Member lastMember = saveMember("payMember4b", Role.BUYER);
+        for (int i = 0; i < 5; i++) {
+            team.increaseParticipant();
+        }
+        team = groupBuyTeamRepository.save(team);
+        teamParticipationRepository.save(new TeamParticipation(team, lastMember));
+
+        mockMvc.perform(post("/api/payments")
+                        .with(asUser(lastMember))
+                        .contentType("application/json")
+                        .content(toJson(Map.of("productId", product.getId(), "teamId", team.getId()))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.amount").value(18000));
+    }
+
+    @Test
     @DisplayName("productId 없이 요청하면 400 VALIDATION_FAILED")
     void create_validationFailed() throws Exception {
         Member buyer = saveMember("payBuyer2", Role.BUYER);

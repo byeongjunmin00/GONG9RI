@@ -180,11 +180,14 @@ public class PaymentService {
         }
     }
 
+    // 팀의 목표 인원(정원, 팀 생성 시점에 고정된 스냅샷)을 기준으로 가격 구간을 조회한다.
+    // 결제 시점의 실시간 참여 인원(currentCount)을 쓰지 않는 이유: 같은 팀 안에서 먼저 결제한 사람과
+    // 나중에 결제한 사람의 단가가 달라지는 형평성 문제를 없애기 위함 — 팀 전체가 항상 동일한 금액을 낸다.
     private Integer resolveTeamPrice(Product product, GroupBuyTeam team) {
         List<PriceTier> tiers = priceTierRepository.findByProductIdOrderByMinCountAsc(product.getId());
         Integer price = product.getBasePrice();
         for (PriceTier tier : tiers) {
-            if (team.getCurrentCount() >= tier.getMinCount()) {
+            if (team.getMaxParticipants() >= tier.getMinCount()) {
                 price = tier.getPrice();
             } else {
                 break;
