@@ -2,6 +2,6 @@
   "$schema": "https://railway.com/railway.schema.json",
   "deploy": {
     "healthcheckPath": "/actuator/health",
-    "healthcheckTimeout": 300
+    "healthcheckTimeout": 600
   }
 }
