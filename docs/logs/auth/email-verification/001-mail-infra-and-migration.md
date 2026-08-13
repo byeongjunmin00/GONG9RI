@@ -68,3 +68,5 @@
 - `EmailService`를 SMTP(`JavaMailSender`)에서 HTTPS API 기반 트랜잭셔널 이메일 서비스(SendGrid/Mailgun/Resend/Postmark 등)로 교체 — 포트 443만 쓰므로 이 차단 정책에 안 걸림, 부트캠프 프로젝트 예산상 이쪽이 현실적
 
 **현재 상태**: 원인 확정, 수정 미착수(다른 작업 우선). 이 기능(이메일 인증/비밀번호 재설정)은 **로컬에서는 정상 동작하지만 프로덕션에서는 실제 메일이 전혀 발송되지 않는 상태**로 남아있다 — 재작업 시 위 두 옵션 중 하나를 Plan으로 잡고 진행해야 한다.
+
+**후속(2026-08-12~13, 별도 작업자가 병행 진행)**: 이 Attempt와 거의 같은 시간대에 SendGrid(HTTPS API 기반) 전환 작업이 별도로 진행돼서 실제로 완료·검증됐다 — 상세 경위는 `docs/logs/cd/deploy/004-smtp-blocked.md`, 최종 설계는 `docs/dev/auth/email-verification/design.md` 참고. 이 문서(Attempt 4)는 "왜 프로덕션에서 메일이 안 갔는지"를 처음 진단한 실제 기록으로서의 가치가 있어 그대로 남겨두지만, "미해결"이라는 결론 자체는 최신 상태가 아니다.
