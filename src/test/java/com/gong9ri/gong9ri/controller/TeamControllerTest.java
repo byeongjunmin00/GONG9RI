@@ -7,17 +7,21 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import tools.jackson.databind.ObjectMapper;
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.entity.GroupBuyTeam;
 import com.gong9ri.gong9ri.entity.Member;
+import com.gong9ri.gong9ri.entity.PriceTier;
 import com.gong9ri.gong9ri.entity.Product;
 import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.entity.TeamParticipation;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.MemberRepository;
+import com.gong9ri.gong9ri.repository.PriceTierRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
 import com.gong9ri.gong9ri.repository.TeamParticipationRepository;
 import java.time.LocalDateTime;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,10 +41,16 @@ class TeamControllerTest {
     private MockMvc mockMvc;
 
     @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
     private MemberRepository memberRepository;
 
     @Autowired
     private ProductRepository productRepository;
+
+    @Autowired
+    private PriceTierRepository priceTierRepository;
 
     @Autowired
     private GroupBuyTeamRepository groupBuyTeamRepository;
@@ -62,6 +72,16 @@ class TeamControllerTest {
 
     private Product saveProduct(Member seller, int maxParticipants) {
         return productRepository.save(new Product(seller, "제주 감귤 5kg", "설명", 25000, maxParticipants, null));
+    }
+
+    private void savePriceTiers(Product product, int... minCounts) {
+        for (int minCount : minCounts) {
+            priceTierRepository.save(new PriceTier(product, minCount, 25000 - minCount * 100));
+        }
+    }
+
+    private String toJson(Object body) throws Exception {
+        return objectMapper.writeValueAsString(body);
     }
 
     private GroupBuyTeam saveTeam(Product product, Member leader, int maxParticipants) {
@@ -105,23 +125,62 @@ class TeamControllerTest {
     }
 
     @Test
-    @DisplayName("구매자가 공구팀을 신설하면 201, currentCount=1, deadline은 생성+7일이다")
+    @DisplayName("구매자가 price_tier.minCount 중 하나를 선택해 공구팀을 신설하면 201, currentCount=1,"
+            + " maxParticipants는 선택값과 같고 deadline은 생성+7일이다")
     void create_success() throws Exception {
         Member seller = saveMember("teamSeller2", Role.SELLER);
         Product product = saveProduct(seller, 10);
+        savePriceTiers(product, 2, 5, 10);
         Member buyer = saveMember("teamBuyer1", Role.BUYER);
 
-        mockMvc.perform(post("/api/products/" + product.getId() + "/teams").with(asUser(buyer)))
+        mockMvc.perform(post("/api/products/" + product.getId() + "/teams")
+                        .with(asUser(buyer))
+                        .contentType("application/json")
+                        .content(toJson(Map.of("targetParticipants", 5))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.currentCount").value(1))
+                .andExpect(jsonPath("$.data.maxParticipants").value(5))
                 .andExpect(jsonPath("$.data.status").value("RECRUITING"));
 
         GroupBuyTeam saved = groupBuyTeamRepository.findAll().stream()
                 .filter(t -> t.getLeader().getId().equals(buyer.getId()))
                 .findFirst()
                 .orElseThrow();
+        assertTrue(saved.getMaxParticipants() == 5);
         assertTrue(saved.getDeadline().isAfter(LocalDateTime.now().plusDays(6)));
         assertTrue(saved.getDeadline().isBefore(LocalDateTime.now().plusDays(8)));
+    }
+
+    @Test
+    @DisplayName("targetParticipants가 price_tier.minCount 목록에 없으면 400 INVALID_TARGET_PARTICIPANTS")
+    void create_invalidTargetParticipants() throws Exception {
+        Member seller = saveMember("teamSeller11", Role.SELLER);
+        Product product = saveProduct(seller, 10);
+        savePriceTiers(product, 2, 5, 10);
+        Member buyer = saveMember("teamBuyer3", Role.BUYER);
+
+        mockMvc.perform(post("/api/products/" + product.getId() + "/teams")
+                        .with(asUser(buyer))
+                        .contentType("application/json")
+                        .content(toJson(Map.of("targetParticipants", 3))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_TARGET_PARTICIPANTS"));
+    }
+
+    @Test
+    @DisplayName("targetParticipants 필드가 없으면 400 VALIDATION_FAILED")
+    void create_missingTargetParticipants() throws Exception {
+        Member seller = saveMember("teamSeller12", Role.SELLER);
+        Product product = saveProduct(seller, 10);
+        savePriceTiers(product, 2, 5, 10);
+        Member buyer = saveMember("teamBuyer4", Role.BUYER);
+
+        mockMvc.perform(post("/api/products/" + product.getId() + "/teams")
+                        .with(asUser(buyer))
+                        .contentType("application/json")
+                        .content(toJson(Map.of())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
     }
 
     @Test
@@ -129,8 +188,12 @@ class TeamControllerTest {
     void create_forbidden_seller() throws Exception {
         Member seller = saveMember("teamSeller3", Role.SELLER);
         Product product = saveProduct(seller, 10);
+        savePriceTiers(product, 2, 5, 10);
 
-        mockMvc.perform(post("/api/products/" + product.getId() + "/teams").with(asUser(seller)))
+        mockMvc.perform(post("/api/products/" + product.getId() + "/teams")
+                        .with(asUser(seller))
+                        .contentType("application/json")
+                        .content(toJson(Map.of("targetParticipants", 5))))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
@@ -140,8 +203,11 @@ class TeamControllerTest {
     void create_unauthorized() throws Exception {
         Member seller = saveMember("teamSeller4", Role.SELLER);
         Product product = saveProduct(seller, 10);
+        savePriceTiers(product, 2, 5, 10);
 
-        mockMvc.perform(post("/api/products/" + product.getId() + "/teams"))
+        mockMvc.perform(post("/api/products/" + product.getId() + "/teams")
+                        .contentType("application/json")
+                        .content(toJson(Map.of("targetParticipants", 5))))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
     }
@@ -151,7 +217,10 @@ class TeamControllerTest {
     void create_productNotFound() throws Exception {
         Member buyer = saveMember("teamBuyer2", Role.BUYER);
 
-        mockMvc.perform(post("/api/products/999999/teams").with(asUser(buyer)))
+        mockMvc.perform(post("/api/products/999999/teams")
+                        .with(asUser(buyer))
+                        .contentType("application/json")
+                        .content(toJson(Map.of("targetParticipants", 5))))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("PRODUCT_NOT_FOUND"));
     }

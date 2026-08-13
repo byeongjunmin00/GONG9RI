@@ -16,6 +16,18 @@
 ## 규칙 / 검증
 
 - 신설/참가는 `Role.BUYER`만 가능(판매자 시도 시 `403 FORBIDDEN`) — `docs/api/team.md` 계약
+- **팀 신설 시 목표 인원 선택**: `POST /api/products/{productId}/teams`는 요청 body로 `targetParticipants`(int, 필수)를
+  받는다. 구매자가 임의의 정수를 자유 입력하는 게 아니라, 그 상품에 판매자가 등록해둔 `price_tier.minCount`
+  목록 중 정확히 하나와 일치해야 한다(범위 체크가 아니라 존재 여부 체크) — 일치하지 않으면
+  `400 INVALID_TARGET_PARTICIPANTS`, 필드 자체가 없으면 `400 VALIDATION_FAILED`. 검증을 통과한 값이 그대로
+  `GroupBuyTeam.maxParticipants`(정원 스냅샷)가 된다 — 더 이상 `product.maxParticipants`(상품에 하나뿐인
+  상한 참고값)를 그대로 복사하지 않는다. `product.maxParticipants`는 여전히 존재하지만 "각 `price_tier.minCount`가
+  넘지 않아야 할 상한 참고값"이라는 의미로만 남는다(서버가 이 상한을 강제하지는 않음, 프론트 등록 폼의
+  가드레일로만 검증) — 상세: `docs/db/product.md`.
+  - 구매자 화면(`product.js`/`product.html`)은 상품 상세 응답의 `priceTiers` 목록으로 라디오 버튼을 그려
+    구매자가 하나를 고르게 하고, 아무것도 고르지 않으면 "신규 팀 신설하기" 버튼이 비활성 상태를 유지한다.
+  - 이미 만들어진 `GroupBuyTeam`은 이후 판매자가 `price_tier`를 수정/삭제해도 영향받지 않는다(생성 시점
+    스냅샷 원칙 유지).
 - **동시성 제어**(`docs/db/group_buy_team.md`, `docs/policy/team-success-criteria.md`): `join`은 `team.join-strategy` 설정값(`application.yaml`, 기본 `lock`)에 따라 두 경로 중 하나로 처리된다 — API 계약/엔드포인트는 동일, 내부 전략만 다름.
   - **`lock`(기본값) — 비관적 락**:
     1. `GroupBuyTeamRepository.findByIdForUpdate`로 팀 row에 비관적 락(`SELECT ... FOR UPDATE`) 획득 — 없으면 `404 TEAM_NOT_FOUND`
@@ -63,11 +75,15 @@ k6 스파이크 테스트(`docs/logs/team/crud/004-spike-test.md`)로 `team/join
 ## 관련 코드 위치
 
 - `entity/{GroupBuyTeam,TeamStatus,TeamParticipation}.java` — `TeamParticipation`에 `uk_team_member`(team_id+member_id) 유니크 제약 추가
-- `dto/{TeamResponse,TeamJoinResponse}.java`
-- `repository/{GroupBuyTeamRepository,TeamParticipationRepository}.java` — `findByIdForUpdate`(락 경로), `incrementIfCapacity`(원자적 경로)
-- `service/TeamService.java` — `join()`이 `team.join-strategy`로 `joinWithLock`/`joinAtomic` 분기
+- `dto/{TeamResponse,TeamJoinResponse,TeamCreateRequest}.java` — `TeamCreateRequest`는 팀 신설 요청 body
+  (`targetParticipants`)
+- `repository/{GroupBuyTeamRepository,TeamParticipationRepository,PriceTierRepository}.java` —
+  `findByIdForUpdate`(락 경로), `incrementIfCapacity`(원자적 경로), `findByProductIdOrderByMinCountAsc`
+  (신설 시 `targetParticipants` 존재 검증)
+- `service/TeamService.java` — `create()`가 `PriceTierRepository`로 `price_tier.minCount` 존재 검증 후
+  그 값으로 팀 생성, `join()`은 `team.join-strategy`로 `joinWithLock`/`joinAtomic` 분기
 - `controller/TeamController.java`
-- `common/exception/ErrorCode.java` — `TEAM_NOT_FOUND`/`TEAM_FULL`/`ALREADY_JOINED` 추가
+- `common/exception/ErrorCode.java` — `TEAM_NOT_FOUND`/`TEAM_FULL`/`ALREADY_JOINED`/`INVALID_TARGET_PARTICIPANTS` 추가
 - `src/main/resources/application.yaml` — `team.join-strategy: lock`(기본값)
 - `k6/team-join-load-test.js` — 두 전략 공통 부하테스트 스크립트(설정값만 바꿔 재사용)
 - `common/filter/RateLimitFilter.java` — 트래픽 제어 필터

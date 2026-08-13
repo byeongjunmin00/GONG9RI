@@ -11,6 +11,8 @@ public enum ErrorCode {
     FORBIDDEN(HttpStatus.FORBIDDEN, "접근 권한이 없습니다."),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다."),
     TEAM_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 공구팀입니다."),
+    INVALID_TARGET_PARTICIPANTS(HttpStatus.BAD_REQUEST,
+            "targetParticipants가 해당 상품의 가격 구간(price_tier) 목록에 존재하지 않습니다."),
     TEAM_FULL(HttpStatus.CONFLICT, "이미 정원이 찬 공구팀입니다."),
     ALREADY_JOINED(HttpStatus.CONFLICT, "이미 참가한 공구팀입니다."),
     PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 결제 내역입니다."),

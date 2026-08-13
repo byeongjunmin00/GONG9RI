@@ -32,6 +32,8 @@
   var maxParticipantsEl = document.getElementById('product-max-participants');
   var priceTiersTableEl = document.getElementById('price-tiers-table');
   var priceTiersBodyEl = document.getElementById('price-tiers-body');
+  var targetParticipantsFieldEl = document.getElementById('target-participants-field');
+  var targetParticipantsOptionsEl = document.getElementById('target-participants-options');
 
   var buyAloneBtn = document.getElementById('buy-alone-btn');
   var createTeamBtn = document.getElementById('create-team-btn');
@@ -43,7 +45,8 @@
     !pageAlertEl || !pageAlertTextEl || !pageAlertLoginLinkEl || !pageAlertPayLinkEl || !statusEl || !detailEl ||
     !imageEl ||
     !sellerEl || !nameEl || !descriptionEl || !basePriceEl || !maxParticipantsEl ||
-    !priceTiersTableEl || !priceTiersBodyEl || !buyAloneBtn || !createTeamBtn ||
+    !priceTiersTableEl || !priceTiersBodyEl || !targetParticipantsFieldEl || !targetParticipantsOptionsEl ||
+    !buyAloneBtn || !createTeamBtn ||
     !teamStatusEl || !teamListEl
   ) {
     return;
@@ -51,6 +54,8 @@
 
   // init()에서 확정되면 이후 액션 핸들러들이 참조한다.
   var currentProductId = null;
+  // 구매자가 라디오로 고른 목표 인원(price_tier.minCount). 아무 것도 안 고르면 null.
+  var selectedTargetParticipants = null;
 
   function formatPrice(value) {
     if (typeof value !== 'number') {
@@ -170,6 +175,7 @@
 
     var tiers = Array.isArray(product.priceTiers) ? product.priceTiers : [];
     clearChildren(priceTiersBodyEl);
+    renderTargetParticipantsOptions(tiers);
 
     if (tiers.length === 0) {
       priceTiersTableEl.hidden = true;
@@ -192,6 +198,54 @@
     });
     priceTiersBodyEl.appendChild(fragment);
     priceTiersTableEl.hidden = false;
+  }
+
+  /**
+   * "신규 팀 신설하기"에 쓸 목표 인원(price_tier.minCount) 라디오 옵션을 그린다.
+   * 아무것도 선택되지 않은 상태로 초기화하고, create-team-btn은 선택 전까지 비활성 상태를 유지한다.
+   */
+  function renderTargetParticipantsOptions(tiers) {
+    selectedTargetParticipants = null;
+    createTeamBtn.disabled = true;
+    clearChildren(targetParticipantsOptionsEl);
+
+    if (!tiers || tiers.length === 0) {
+      targetParticipantsFieldEl.hidden = true;
+      return;
+    }
+
+    var fragment = document.createDocumentFragment();
+    tiers.forEach(function (tier, index) {
+      if (typeof tier.minCount !== 'number') {
+        return;
+      }
+
+      var optionId = 'target-participants-option-' + index;
+
+      var label = document.createElement('label');
+      label.className = 'target-participants-option';
+      label.setAttribute('for', optionId);
+
+      var input = document.createElement('input');
+      input.type = 'radio';
+      input.name = 'target-participants';
+      input.id = optionId;
+      input.value = String(tier.minCount);
+      input.addEventListener('change', function () {
+        selectedTargetParticipants = tier.minCount;
+        createTeamBtn.disabled = false;
+      });
+      label.appendChild(input);
+
+      var textEl = document.createElement('span');
+      textEl.textContent = tier.minCount + '명';
+      label.appendChild(textEl);
+
+      fragment.appendChild(label);
+    });
+
+    targetParticipantsOptionsEl.appendChild(fragment);
+    targetParticipantsFieldEl.hidden = false;
   }
 
   function createTeamItem(team) {
@@ -309,10 +363,15 @@
   }
 
   function handleCreateTeam() {
+    if (selectedTargetParticipants === null) {
+      showPageAlert('목표 인원을 먼저 선택해주세요.', 'error');
+      return;
+    }
+
     hidePageAlert();
     createTeamBtn.disabled = true;
 
-    window.Api.post('/products/' + currentProductId + '/teams')
+    window.Api.post('/products/' + currentProductId + '/teams', { targetParticipants: selectedTargetParticipants })
       .then(function (team) {
         var newTeamId = team && team.teamId;
         var payLink = 'checkout.html?productId=' + currentProductId + '&teamId=' + newTeamId;
@@ -323,7 +382,7 @@
         handleActionError(err, currentProductId);
       })
       .then(function () {
-        createTeamBtn.disabled = false;
+        createTeamBtn.disabled = selectedTargetParticipants === null;
       });
   }
 

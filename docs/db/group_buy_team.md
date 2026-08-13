@@ -7,7 +7,7 @@
 | product_id | BIGINT | NOT NULL, FK | 어떤 상품에 대한 팀인지 |
 | leader_id | BIGINT | NOT NULL, FK | 팀을 신설한 사람 |
 | current_count | INT | NOT NULL, default 1 | 현재 참여 인원 (캐싱 컬럼 — 동시성 제어 핵심) |
-| max_participants | INT | NOT NULL | 정원 (신설 시 `product.max_participants` 복사) |
+| max_participants | INT | NOT NULL | 정원 (신설 시 구매자가 고른 `price_tier.min_count` 값을 그대로 저장 — 팀 생애 동안 불변인 스냅샷) |
 | status | VARCHAR(20) | NOT NULL, default 'RECRUITING' | `RECRUITING` / `SUCCESS` / `FAILED` |
 | deadline | DATETIME | NOT NULL | 팀 유지 마감 시각 |
 | created_at | DATETIME | NOT NULL | 팀 생성일 |

@@ -8,7 +8,7 @@
 | name | VARCHAR(100) | NOT NULL | 상품명 |
 | description | TEXT | NULL | 상품 설명 |
 | base_price | INT | NOT NULL | 정가 (1인 구매 시 가격) |
-| max_participants | INT | NOT NULL | 팀 하나당 최대 인원(N) |
+| max_participants | INT | NOT NULL | 이 상품에 허용되는 팀 인원 상한(참고값). 각 `price_tier.min_count`는 이 값을 넘을 수 없다(현재는 프론트 가드레일로만 검증, 서버 강제는 없음). **실제 팀 정원은 이 값이 아니라 구매자가 팀 신설 시 고른 `price_tier.min_count`로 결정된다**(`group_buy_team.max_participants`, `team/create` 참고) |
 | image_url | VARCHAR(500) | NULL | 상품 이미지 URL (단순 문자열, 갤러리 없음) |
 | created_at | DATETIME | NOT NULL | 등록일 |
 | updated_at | DATETIME | NOT NULL | 마지막 수정일 |

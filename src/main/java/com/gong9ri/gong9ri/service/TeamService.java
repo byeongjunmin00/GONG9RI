@@ -3,16 +3,19 @@ package com.gong9ri.gong9ri.service;
 import com.gong9ri.gong9ri.common.exception.BusinessException;
 import com.gong9ri.gong9ri.common.exception.ErrorCode;
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
+import com.gong9ri.gong9ri.dto.TeamCreateRequest;
 import com.gong9ri.gong9ri.dto.TeamJoinResponse;
 import com.gong9ri.gong9ri.dto.TeamResponse;
 import com.gong9ri.gong9ri.entity.GroupBuyTeam;
 import com.gong9ri.gong9ri.entity.Member;
+import com.gong9ri.gong9ri.entity.PriceTier;
 import com.gong9ri.gong9ri.entity.Product;
 import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.entity.TeamParticipation;
 import com.gong9ri.gong9ri.entity.TeamStatus;
 import com.gong9ri.gong9ri.event.TeamCapacityChangedEvent;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
+import com.gong9ri.gong9ri.repository.PriceTierRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
 import com.gong9ri.gong9ri.repository.TeamParticipationRepository;
 import java.time.LocalDateTime;
@@ -37,6 +40,7 @@ public class TeamService {
     private final GroupBuyTeamRepository groupBuyTeamRepository;
     private final TeamParticipationRepository teamParticipationRepository;
     private final ProductRepository productRepository;
+    private final PriceTierRepository priceTierRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     // team/join 동시성 전략 토글(lock|atomic) — docs/logs/team/crud/003-atomic-comparison.md
@@ -55,18 +59,27 @@ public class TeamService {
     }
 
     @Transactional
-    public TeamResponse create(MemberUserDetails principal, Long productId) {
+    public TeamResponse create(MemberUserDetails principal, Long productId, TeamCreateRequest request) {
         requireBuyer(principal);
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND));
         Member leader = principal.getMember();
 
-        GroupBuyTeam team = new GroupBuyTeam(product, leader, product.getMaxParticipants(),
+        Integer targetParticipants = request.targetParticipants();
+        boolean matchesPriceTier = priceTierRepository.findByProductIdOrderByMinCountAsc(productId).stream()
+                .map(PriceTier::getMinCount)
+                .anyMatch(targetParticipants::equals);
+        if (!matchesPriceTier) {
+            throw new BusinessException(ErrorCode.INVALID_TARGET_PARTICIPANTS);
+        }
+
+        GroupBuyTeam team = new GroupBuyTeam(product, leader, targetParticipants,
                 LocalDateTime.now().plusDays(TEAM_DURATION_DAYS));
         GroupBuyTeam saved = groupBuyTeamRepository.save(team);
         teamParticipationRepository.save(new TeamParticipation(saved, leader));
 
-        log.info("공구팀 신설 완료: teamId={}, productId={}, leaderId={}", saved.getId(), productId, leader.getId());
+        log.info("공구팀 신설 완료: teamId={}, productId={}, leaderId={}, targetParticipants={}",
+                saved.getId(), productId, leader.getId(), targetParticipants);
         return TeamResponse.from(saved);
     }
 

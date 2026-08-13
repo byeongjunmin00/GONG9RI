@@ -40,7 +40,12 @@
 ## POST /api/products/{productId}/teams — 공구팀 신설
 
 - 경로 변수: `productId` (Long)
-- 요청 body: 없음 — 로그인 사용자가 자동으로 leader가 되고 `current_count = 1`로 생성
+- 요청 body:
+  | 필드 | 타입 | 필수 | 설명 |
+  |------|------|------|------|
+  | targetParticipants | int | Y | 이 팀의 목표 인원(정원). **해당 상품의 `price_tier.minCount` 목록 중 정확히 하나와 일치해야 한다**(임의의 수 자유 선택 불가) |
+
+  > 로그인 사용자가 자동으로 leader가 되고 `current_count = 1`로 생성된다.
 
 - 응답: `201 Created`
   ```json
@@ -56,6 +61,7 @@
   }
   ```
 
+  > `maxParticipants`는 요청의 `targetParticipants` 값 그대로다 — 이 값이 팀 생애 동안 불변인 정원(스냅샷)이 되고, `payment/crud`의 가격 계산(`PaymentService.resolveTeamPrice`)이 이 값을 기준으로 `price_tier`를 찾는다.
   > 팀 신설 직후 `POST /api/payments`(결제 생성)으로 이어진다 — 신설자(leader)는 결제까지 완료해야 참가가 확정된다.
 
 - 에러:
@@ -64,6 +70,8 @@
   | `PRODUCT_NOT_FOUND` | 404 | 존재하지 않는 상품 |
   | `FORBIDDEN` | 403 | 판매자 계정으로 시도 |
   | `UNAUTHORIZED` | 401 | 미인증 |
+  | `VALIDATION_FAILED` | 400 | `targetParticipants` 누락 |
+  | `INVALID_TARGET_PARTICIPANTS` | 400 | `targetParticipants`가 해당 상품의 `price_tier.minCount` 목록에 존재하지 않음(범위 체크가 아니라 존재 여부 체크) |
 
 ---
 

@@ -362,6 +362,36 @@
   font-weight: 700;
 }
 
+.target-participants-field {
+  margin-top: var(--space-4);
+  border: none;
+  padding: 0;
+}
+
+.target-participants-field legend {
+  font-size: var(--fs-sm);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-2);
+  padding: 0;
+}
+
+.target-participants-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.target-participants-option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full, 999px);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
 .product-actions {
   display: flex;
   flex-wrap: wrap;

@@ -16,7 +16,7 @@
 - product_id → product.id
 
 ## 사용하는 기능
-- product/register (구간표 같이 등록), product/detail (구간표 표시), payment/create (구간별 가격 계산)
+- product/register (구간표 같이 등록), product/detail (구간표 표시), payment/create (구간별 가격 계산), team/create (구매자가 팀 신설 시 `min_count` 중 하나를 목표 인원으로 선택)
 
 ## 삭제 정책
 - 하드 삭제. 상품 수정(`PUT /api/products/{id}`) 시 기존 구간표 전체 삭제 후 재삽입.
