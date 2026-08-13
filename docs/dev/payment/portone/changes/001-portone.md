@@ -50,7 +50,7 @@
 
 - [x] 포트원 샌드박스 카카오페이 테스트 결제로 실제 결제창을 열어 결제를 완료하면, 서버가 포트원 API로 재확인한 뒤에만 결제가 확정 상태로 바뀜을 실측(클라이언트 응답만으로 확정되지 않는지 함께 확인). — **실측 완료(2026-08-12), `docs/logs/payment/portone/001-portone.md` Attempt 3 참고**
 - [x] 웹훅이 위조되거나 서명이 틀린 경우 거부됨을 실측. — **실측 완료(2026-08-12)**, Railway 배포 후 `POST https://gong9ri-production.up.railway.app/api/webhooks/portone`에 서명 헤더 없이 요청 → `401 WEBHOOK_VERIFICATION_FAILED` 정확히 거부됨 확인. `docs/logs/payment/portone/001-portone.md` Attempt 4 참고
-- [ ] 공구팀 미성사 시나리오에서 자동환불이 실제로 포트원 취소 API를 호출하고, 그 결과(성공/실패)가 실제로 DB 상태에 반영됨을 실측. — 별도 시나리오 셋업 필요
+- [x] 공구팀 미성사 시나리오에서 자동환불이 실제로 포트원 취소 API를 호출하고, 그 결과(성공/실패)가 실제로 DB 상태에 반영됨을 실측. — **실측 완료(2026-08-13)**, `docs/logs/payment/portone/001-portone.md` Attempt 5 참고. 포트원 서버 조회로 `status: CANCELLED`, `cancellations[0].trigger: "API"` 직접 확인
 - [x] `./gradlew test` 전체 회귀 없음. — 로컬 재검증 완료(캐시 없이 재실행)
 
 ## 리스크 / 전제

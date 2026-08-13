@@ -9,8 +9,9 @@
 
 이 기능이 다루는 것: ① 결제 확정(`confirm`, 클라이언트 호출 + 웹훅 안전망), ② PortOne 웹훅 수신·서명
 검증, ③ 공구팀 미성사 자동환불의 실제 PortOne 결제취소 API 연동(`team/deadline-check`가 발행하는 요청을
-소비). **다루지 않는 것**(스코프 밖, `docs/dev/ongoing/payment-portone.md`): 카드·계좌이체·가상계좌·다른
-간편결제사(네이버페이 등), 사용자 자발적 결제취소, `team/join`과 `payment/create`의 결합 방식 재설계.
+소비). **다루지 않는 것**(스코프 밖, `docs/dev/payment/portone/changes/001-portone.md`): 카드·계좌이체·
+가상계좌·다른 간편결제사(네이버페이 등), 사용자 자발적 결제취소, `team/join`과 `payment/create`의 결합
+방식 재설계.
 **계획 수립 시점엔 "카드 결제만"으로 스코프를 잡았으나, 실제 포트원 콘솔에 연결된 테스트 채널이
 카카오페이(PG Provider: `kakaopay`)로 확인돼 카카오페이 간편결제로 스코프를 정정했다(사용자 승인,
 2026-08-12) — 카카오페이는 `payMethod`를 `EASY_PAY`로 보내야 하며 `CARD`로는 결제창이 열리지 않는다.
@@ -141,9 +142,13 @@ PAID --(PortOne 취소 SUCCEEDED, 즉시)--------------------------> REFUNDED
   `portone.*`).
 - 테스트는 `PortOneClient`를 `@MockitoBean`으로 대체해 실제 PortOne 네트워크 호출을 절대 하지 않는다
   (`AiProductSuggestionServiceTest`가 `ChatClient.Builder`를 목으로 대체하는 것과 같은 패턴).
-- **이 Generate 단계의 한계**: 실제 PortOne 샌드박스 결제창을 브라우저로 열어 결제를 완료하는 실측
-  (`docs/dev/ongoing/payment-portone.md`의 평가 기준)은 브라우저 도구가 없어 수행하지 않았다 — 코드
-  컴파일, 단위/통합 테스트(mock 기반) 통과, API 계약 문서화까지가 이 단계의 범위다.
+- **실측 완료**: 로컬 bootRun(실제 PortOne API Secret/Store ID/Channel Key)으로 브라우저에서 카카오페이
+  QR 결제를 실제로 완료해 `PENDING → PAID` 확정, 위조 웹훅(서명 없음) 거부(프로덕션에서 `401
+  WEBHOOK_VERIFICATION_FAILED` 확인), 공구팀 미성사 자동환불의 실제 PortOne 결제취소 API 호출까지
+  전부 실측 검증됨(`docs/dev/payment/portone/changes/001-portone.md`, `docs/logs/payment/portone/001-portone.md`
+  Attempt 3~5). 특히 Attempt 5에서는 PortOne 서버에 직접 결제 상세를 조회해 `status: CANCELLED`,
+  `cancellations[0].trigger: "API"`, 그리고 `Transaction.Ready`/`Transaction.Paid`/`Transaction.Cancelled`
+  웹훅 3건이 전부 우리 프로덕션 웹훅 엔드포인트로 전송되어 각각 `200`으로 정상 처리됐음을 확인했다.
 
 ## 프론트엔드 (최소 연동)
 

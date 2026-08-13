@@ -45,3 +45,13 @@
 - **결과**: 웹훅 서명 검증이 실제 프로덕션 환경에서 의도대로 작동함을 확인 — 서명이 없거나 틀린 요청은 401로 정확히 거부된다. 계획서(`docs/dev/ongoing/payment-portone.md`)의 "웹훅이 위조되거나 서명이 틀린 경우 거부됨을 실측" 기준을 충족.
 - **교훈**: 배포 진단 시 HTTP 상태 코드만 보고 원인을 단정하지 말고, 그 코드가 어느 계층(Spring Security의 인증 실패 vs 애플리케이션의 의도된 비즈니스 예외)에서 나왔는지 코드로 직접 확인해야 한다 — 둘 다 401을 낼 수 있어서 겉보기 증상만으로는 구분이 안 된다.
 - 미실측으로 남은 것: 정상 서명이 포함된 진짜 포트원 웹훅 수신(포트원 콘솔에 웹훅 URL 등록 + 실제 결제/취소 이벤트 발생 필요), 공구팀 미성사 자동환불의 실제 PortOne 취소 API 호출.
+
+## Attempt 5 — 2026-08-13 ✅ PASS (공구팀 미성사 자동환불 실측 — 계획서 마지막 평가 기준)
+
+- 시도: 로컬(포트 8081)에서 판매자·구매자 테스트 계정(`seller_r1`/`buyer_r1`, 이메일 인증 기능 때문에 `email_verified=1`로 직접 DB에서 풀어줌) + `maxParticipants=2`짜리 상품을 만들고, 구매자가 팀을 신설(`teamId=805`, `currentCount=1`)한 뒤 카카오페이 QR로 실제 결제까지 완료(`paymentId=2695`, `PAID`). 이후 `group_buy_team.deadline`을 DB에서 직접 과거로 돌려(`NOW() - 1분`) 정원 미달 상태로 마감을 강제 발생시켰다.
+- **결과**: `TeamDeadlineScheduler`(1분 주기)가 60초 안에 이 팀을 감지 → `TeamDeadlineService`가 `FAILED` 전환 + `TeamPaymentsRefundRequestedEvent` 발행 → `PaymentRefundService`가 실제 PortOne 취소 API(`POST /payments/{paymentId}/cancel`) 호출 → 응답 `SUCCEEDED` → `payment.status`가 `PAID → REFUNDED`로 전환(347ms 지연, 실제 네트워크 왕복과 일치) → `notification` 테이블에 구매자·판매자 각각 `TEAM_REFUNDED` 알림 생성까지 전부 DB로 확인.
+- **결정적 증거(포트원 서버 직접 조회)**: `GET https://api.portone.io/payments/{paymentId}`로 포트원 쪽 원장을 직접 조회 —
+  - `"status": "CANCELLED"`
+  - `"cancellations": [{"status": "SUCCEEDED", "reason": "공구팀 미성사로 인한 환불", "trigger": "API", ...}]` — 우리 코드가 넣은 사유 문구가 그대로 찍혀있어 우리 API 호출이 원인임이 확정됨(대시보드 수동 취소가 아님).
+  - `"webhooks"` 배열에 `Transaction.Ready`(결제창 오픈) → `Transaction.Paid`(결제완료) → `Transaction.Cancelled`(취소) 3건이 전부 **우리 프로덕션 URL**(`https://gong9ri-production.up.railway.app/api/webhooks/portone`)로 실제 전송되고 각각 `response.code: "200"`으로 정상 응답한 기록이 남아있음 — 로컬에서 트리거한 결제인데도 웹훅은 콘솔에 등록된 프로덕션 URL로 갔고, 프로덕션이 실제 서명 검증을 통과시켜 200을 반환했다는 뜻. Attempt 4에서 "서명 없는 요청 거부"만 확인했던 것보다 한 단계 더 강한 증거 — **진짜 유효한 서명이 붙은 웹훅도 프로덕션이 정상 수신·처리한다**는 것까지 실측됨.
+- 이걸로 계획서(`docs/dev/ongoing/payment-portone.md`)의 평가 기준 4개 전부 실측 완료.
