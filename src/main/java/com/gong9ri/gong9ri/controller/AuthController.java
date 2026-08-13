@@ -16,6 +16,7 @@ import com.gong9ri.gong9ri.dto.MemberSignupRequest;
 import com.gong9ri.gong9ri.dto.PasswordResetConfirmRequest;
 import com.gong9ri.gong9ri.dto.PasswordResetRequestDto;
 import com.gong9ri.gong9ri.entity.Member;
+import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.service.MemberService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -57,6 +58,7 @@ public class AuthController {
     private static final Duration PASSWORD_RESET_TOKEN_TTL = Duration.ofMinutes(30);
 
     private static final String KAKAO_OAUTH_STATE_SESSION_KEY = "kakao_oauth_state";
+    private static final String KAKAO_OAUTH_ROLE_SESSION_KEY = "kakao_oauth_role";
 
     private final MemberService memberService;
     private final AuthenticationManager authenticationManager;
@@ -183,9 +185,14 @@ public class AuthController {
     // (spring-boot-starter-oauth2-client의 oauth2Login() 자동 필터를 안 씀) 카카오도 같은 방식(직접
     // Authorization Code 흐름 구현)으로 일관되게 간다 — docs/dev/auth/social-login/design.md.
     @GetMapping("/kakao/login")
-    public void kakaoLogin(HttpServletRequest httpRequest, HttpServletResponse httpResponse) throws IOException {
+    public void kakaoLogin(@RequestParam(required = false) String role,
+                            HttpServletRequest httpRequest, HttpServletResponse httpResponse) throws IOException {
         String state = UUID.randomUUID().toString();
-        httpRequest.getSession(true).setAttribute(KAKAO_OAUTH_STATE_SESSION_KEY, state);
+        HttpSession session = httpRequest.getSession(true);
+        session.setAttribute(KAKAO_OAUTH_STATE_SESSION_KEY, state);
+        // 신규 가입일 때만 쓰는 의도된 role — 회원가입 페이지의 "구매자로 가입"/"판매자로 가입" 카카오
+        // 버튼이 넘겨준다. 없거나 잘못된 값이면 기존 로그인 페이지 버튼과 동일하게 BUYER로 취급한다.
+        session.setAttribute(KAKAO_OAUTH_ROLE_SESSION_KEY, parseRoleOrDefault(role));
 
         String authorizeUrl = "https://kauth.kakao.com/oauth/authorize"
                 + "?client_id=" + URLEncoder.encode(kakaoClientId, StandardCharsets.UTF_8)
@@ -209,11 +216,16 @@ public class AuthController {
             return;
         }
         session.removeAttribute(KAKAO_OAUTH_STATE_SESSION_KEY); // state는 1회성
+        Role intendedRole = (Role) session.getAttribute(KAKAO_OAUTH_ROLE_SESSION_KEY);
+        session.removeAttribute(KAKAO_OAUTH_ROLE_SESSION_KEY);
+        if (intendedRole == null) {
+            intendedRole = Role.BUYER;
+        }
 
         try {
             String accessToken = kakaoClient.exchangeCodeForAccessToken(code, kakaoRedirectUri());
             KakaoUserInfo userInfo = kakaoClient.getUserInfo(accessToken);
-            Member member = memberService.findOrCreateByKakao(userInfo);
+            Member member = memberService.findOrCreateByKakao(userInfo, intendedRole);
 
             MemberUserDetails principal = new MemberUserDetails(member);
             Authentication authentication =
@@ -235,6 +247,14 @@ public class AuthController {
     // 한다는 카카오 API 요구사항 때문에 한 곳에서만 조립한다.
     private String kakaoRedirectUri() {
         return appBaseUrl + "/api/auth/kakao/callback";
+    }
+
+    private Role parseRoleOrDefault(String role) {
+        try {
+            return role != null ? Role.valueOf(role) : Role.BUYER;
+        } catch (IllegalArgumentException e) {
+            return Role.BUYER;
+        }
     }
 
     private String htmlMessage(String title, String message) {

@@ -85,8 +85,9 @@ public class Member {
     // 카카오 신규 가입 전용 팩토리 — 일반 가입(생성자)과 달리 이메일 인증을 건너뛴다(카카오 로그인
     // 자체가 본인 확인 수단이라 우리 쪽 인증 게이트가 의미 없음, 이메일 동의를 안 받은 경우 placeholder
     // 이메일이라 애초에 인증 메일을 보낼 수도 없다 — docs/dev/auth/social-login/design.md).
-    public static Member ofKakao(String kakaoId, String username, String encodedPassword, String name, String email) {
-        Member member = new Member(username, encodedPassword, name, email, Role.BUYER);
+    // role은 호출부(카카오 로그인 진입 버튼)에서 구매자/판매자 중 어느 쪽으로 시작했는지 넘겨준다.
+    public static Member ofKakao(String kakaoId, String username, String encodedPassword, String name, String email, Role role) {
+        Member member = new Member(username, encodedPassword, name, email, role);
         member.kakaoId = kakaoId;
         member.emailVerified = true;
         return member;

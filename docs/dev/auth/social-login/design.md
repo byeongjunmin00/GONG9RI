@@ -8,22 +8,22 @@
 
 ## 흐름
 
-1. `GET /api/auth/kakao/login` — 카카오 인가 URL로 302 리다이렉트. 랜덤 nonce(`state`)를 만들어 `HttpSession`에 저장 + 요청에 실어 보낸다(CSRF 방지).
+1. `GET /api/auth/kakao/login?role=BUYER|SELLER`(선택, 기본 `BUYER`) — 카카오 인가 URL로 302 리다이렉트. 랜덤 nonce(`state`)와 함께 `role`도 `HttpSession`에 저장한다(신규 가입 시에만 사용, CSRF 방지는 `state`가 담당).
 2. 사용자가 카카오에서 로그인·동의 → 카카오가 `GET /api/auth/kakao/callback?code=...&state=...`로 리다이렉트.
 3. 콜백에서: 세션에 저장된 `state`와 일치 확인(불일치 시 즉시 거부, 카카오 API 호출 자체를 안 함) → `code`로 액세스 토큰 발급 → 사용자 정보 조회 → 카카오 `id`로 기존 연동 계정 조회, 없으면 신규 생성 → 세션 생성(기존 `SecurityContextRepository` 재사용, `AuthController.login()`과 동일한 방식) → `/`(성공) 또는 `/login.html?error=kakao`(실패)로 302 리다이렉트.
 4. 실패(state 불일치, 토큰 교환 실패, 이메일 충돌 등)는 전부 `/login.html?error=kakao`로 리다이렉트한다 — 이 흐름은 브라우저 풀 리다이렉트라 JSON 에러 응답이 의미 없다(`?signup=success`/`?reset=success` 처리하는 기존 `login.js` 패턴과 동일하게 쿼리 파라미터로 안내).
 
 ## 신규 가입 처리 (카카오 `id` 기준)
 
-`Member.kakaoId`(String, UNIQUE, nullable) — 일반 회원가입 계정은 null, 카카오 계정만 값이 있다. 신규 카카오 로그인 시 `Member.ofKakao(...)` 팩토리로 생성(`MemberService.findOrCreateByKakao`):
+`Member.kakaoId`(String, UNIQUE, nullable) — 일반 회원가입 계정은 null, 카카오 계정만 값이 있다. 신규 카카오 로그인 시 `Member.ofKakao(...)` 팩토리로 생성(`MemberService.findOrCreateByKakao(KakaoUserInfo, Role intendedRole)`):
 
 - `username`: `"kakao_" + kakaoId`(합성값 — 카카오 계정은 이 아이디로 일반 로그인 폼에 시도해도 비밀번호를 모르니 문제없음)
 - `password`: 랜덤 UUID를 BCrypt로 인코딩해서 저장(추측 불가능한 값 — 컬럼을 nullable로 바꾸는 스키마 변경 대신, 알 수 없는 값을 채워서 일반 로그인 경로로는 사실상 로그인 불가능하게 만드는 쪽을 택함)
 - `email`: 카카오 동의 항목에 이메일이 포함돼 있으면 그 값을 쓴다. **이미 다른 계정이 그 이메일을 쓰고 있으면 카카오 로그인 자체를 거부**한다(자동 연동 안 함 — 이메일 소유권을 우리가 검증한 게 아니라서, 자동 연동하면 계정 탈취 경로가 될 수 있음). 이메일 동의가 없거나 카카오 계정에 이메일이 없으면 `"kakao_" + kakaoId + "@kakao.local"`(합성 placeholder, 우리 이메일 인증 플로우 대상 아님 — 이 주소로 발송 시도 자체를 안 함)
 - `emailVerified`: **true로 시작**한다. 카카오 로그인 자체가 본인 확인 수단이라 우리 쪽 이메일 인증 게이트가 의미 없고, placeholder 이메일이면 애초에 인증 메일을 보낼 수도 없어서 false로 두면 영구적으로 로그인 못 하는 버그가 된다.
-- `role`: `BUYER` 고정 — 판매자(SELLER) 가입은 계속 기존 이메일/비밀번호 경로만 지원한다(스코프 밖으로 명시).
+- `role`: **회원가입 페이지의 진입 버튼이 넘긴 `role` 쿼리파라미터를 그대로 쓴다**(2026-08-13 추가 — 최초엔 `BUYER` 고정이었으나, "카카오 로그인이 편한데 판매자는 왜 못 쓰나"는 실사용 관점 피드백을 받아 확장함). `AuthController.kakaoLogin()`에서 `role`을 세션에 저장해뒀다가, 콜백에서 **신규 가입일 때만** 꺼내 쓴다.
 
-이미 연동된 카카오 `id`로 다시 로그인하면 기존 `Member`를 그대로 찾아서 로그인만 시킨다(재가입 안 함, `findByKakaoId` 우선 조회).
+이미 연동된 카카오 `id`로 다시 로그인하면 기존 `Member`를 그대로 찾아서 로그인만 시킨다(재가입 안 함, `findByKakaoId` 우선 조회) — 이때는 `intendedRole`을 완전히 무시한다. 로그인 페이지의 "카카오로 로그인" 버튼(role 파라미터 없음, 기본값 `BUYER`)으로 기존 판매자 계정에 재로그인해도 role이 `BUYER`로 바뀌는 일이 없어야 하기 때문 — `KakaoLoginTest.kakaoCallback_existingAccount_ignoresIntendedRole`로 검증.
 
 ## 신규 코드
 
@@ -38,7 +38,8 @@
 
 ## 프론트
 
-`login.html`에 "카카오로 로그인" 버튼(단순 `<a href="/api/auth/kakao/login">`, 전체 페이지 리다이렉트라 JS API 호출 불필요) 추가. `login.js`에 `?error=kakao` 쿼리 처리 추가(기존 `?signup=success`/`?reset=success`와 같은 패턴).
+- `login.html` — "카카오로 로그인" 버튼(단순 `<a href="/api/auth/kakao/login">`, role 파라미터 없음 → 신규 가입 시 기본 `BUYER`). `login.js`에 `?error=kakao` 쿼리 처리 추가(기존 `?signup=success`/`?reset=success`와 같은 패턴).
+- `signup.html`(2026-08-13 추가) — "카카오로 구매자 가입"(`?role=BUYER`)/"카카오로 판매자 가입"(`?role=SELLER`) 두 버튼. 둘 다 전체 페이지 리다이렉트라 별도 JS 불필요 — 일반 회원가입 폼의 "구매자로 가입/판매자로 가입" 라디오 버튼과 같은 두 갈래 구조를 그대로 반영한 것.
 
 ## 실측 검증 (2026-08-12)
 
@@ -48,10 +49,18 @@
   - **실측 중 발견한 이슈**: Kakao REST API 키는 **발급 시점부터 Client Secret이 기본 활성화**돼 있어서(`client_id`만 보내면 `KOE010: Bad client credentials`로 거부됨), `KAKAO_CLIENT_SECRET`을 반드시 같이 보내야 했다 — 계획 당시엔 "선택"으로 예상했으나 실제로는 이 앱 기준 필수였음(콘솔에서 직접 비활성화하지 않는 한). `docs/deploy-guide.md` 11-1절에 반영.
   - **Redirect URI 등록 위치가 예상과 달랐음**: "카카오 로그인 > 일반" 메뉴가 아니라 **"앱 > 플랫폼 키 > REST API 키 상세" 안에 있는 "카카오 로그인 리다이렉트 URI"** 섹션에서 등록해야 했다(콘솔 UI 개편으로 위치가 옮겨진 것으로 보임) — 카카오 공식 FAQ 검색으로 정확한 위치를 확인함.
 
+## 카카오 role 분리 (2026-08-13 추가)
+
+처음엔 카카오 가입을 `BUYER` 고정으로 스코프 밖 처리했었는데, 실사용 관점에서 "카카오 로그인이 편해서 쓰고 싶은데 판매자면 못 쓰나"라는 질문을 받고 확장했다. 별도 화면 분기(카카오 콜백 후 역할 선택 인터스티셜 등) 없이, **진입 시점에 role을 쿼리파라미터로 미리 받는** 쪽을 택함 — 일반 회원가입 폼이 이미 "구매자로 가입/판매자로 가입" 두 갈래인 것과 대칭되는 구조라 신규 상태(세션에 뭘 더 들고 있을지, 콜백 흐름을 더 쪼갤지)를 늘리지 않고 기존 `state` 세션 저장 패턴에 값 하나만 얹어서 구현 가능했다.
+
+- `AuthController.kakaoLogin()`이 `role` 쿼리파라미터를 받아 세션에 저장(`parseRoleOrDefault` — 없거나 잘못된 값이면 `BUYER`로 안전하게 폴백, 400 에러로 흐름을 끊지 않음).
+- `kakaoCallback()`은 **신규 가입일 때만** 이 값을 꺼내 `findOrCreateByKakao(userInfo, intendedRole)`에 넘긴다. 이미 연동된 계정이면 완전히 무시 — 재로그인 시 role이 바뀌는 걸 막기 위한 설계 결정(테스트: `kakaoCallback_existingAccount_ignoresIntendedRole`).
+- `signup.html`에 역할별 카카오 버튼 2개 추가, `login.html`의 기존 버튼은 role 파라미터 없이 그대로 둠(기본값 `BUYER` 유지, 하위호환).
+
 ## 알려진 한계 / 리스크
 
 - **이메일 동의항목은 카카오 심사가 필요할 수 있음** — 개인 개발자 테스트 앱은 보통 "선택 동의"로 등록한 테스트 사용자(카카오 콘솔에 등록한 본인 계정 등)에 한해 이메일을 받을 수 있고, 불특정 다수에게 이메일 동의를 받으려면 카카오 비즈 심사가 필요할 수 있다 — 실제 콘솔 설정에 따라 이메일이 아예 안 올 수 있고, 그 경우 placeholder 이메일 경로가 정상 동작한다(위 "신규 가입 처리" 참고).
-- **판매자(SELLER) 계정은 카카오 가입 대상에서 제외** — 스코프 밖으로 명시한 제약, 판매자는 계속 이메일/비밀번호로만 가입해야 한다.
+- **role은 서버가 검증하지 않고 그대로 신뢰한다** — `?role=SELLER`로 신규가입 자체는 누구나 할 수 있다(일반 회원가입 폼도 마찬가지로 라디오 버튼 값을 그대로 신뢰하는 구조라 기존 정책과 일관됨, 판매자 권한으로 뭘 할 수 있는지는 이 기능 스코프 밖).
 - **로그인 시도 제한(`LoginAttemptGuard`)이 카카오 로그인에는 적용되지 않는다** — 카카오 쪽에서 자체적으로 무차별 대입을 방어하고, 우리 서버는 이미 발급된 유효한 인가 코드만 받으므로 이 프로젝트의 계정 단위 잠금 로직이 적용될 대상 자체가 없다(정직하게 남기는 설계 결정).
 
 ## 필요한 운영 환경변수
@@ -67,4 +76,5 @@
 - `controller/AuthController.java` — `kakaoLogin()`, `kakaoCallback()`
 - `config/SecurityConfig.java` — 두 엔드포인트 permitAll
 - `static/login.html`/`js/login.js` — 카카오 로그인 버튼, `?error=kakao` 안내
-- 테스트: `src/test/.../controller/KakaoLoginTest.java`(신규)
+- `static/signup.html` — 역할별 카카오 가입 버튼 2개(2026-08-13 추가)
+- 테스트: `src/test/.../controller/KakaoLoginTest.java`(role 분리 케이스 2개 포함 총 6개)

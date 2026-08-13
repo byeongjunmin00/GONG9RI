@@ -149,8 +149,8 @@
 
 > 사람(브라우저)이 링크를 클릭해서 들어오는 요청 — JSON이 아니라 카카오 인가 페이지로 **302 리다이렉트**한다. `docs/dev/auth/social-login/design.md` 참고.
 
-- 요청: 없음(GET, 파라미터 없음)
-- 응답: `302 Found`, `Location: https://kauth.kakao.com/oauth/authorize?...` — CSRF 방지용 `state`를 세션에 저장한다.
+- 요청: 쿼리 파라미터 `role`(선택, `BUYER` | `SELLER`, 기본값 `BUYER`) — **신규 가입일 때만** 쓰인다(이미 연동된 계정으로 로그인하는 경우 무시됨). 값이 없거나 유효하지 않으면 `BUYER`로 폴백(2026-08-13 추가, `docs/dev/auth/social-login/design.md` "카카오 role 분리" 참고).
+- 응답: `302 Found`, `Location: https://kauth.kakao.com/oauth/authorize?...` — CSRF 방지용 `state`와 `role`을 세션에 저장한다.
 
 ---
 

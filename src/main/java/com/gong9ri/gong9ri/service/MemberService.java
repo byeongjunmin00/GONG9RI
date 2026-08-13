@@ -6,6 +6,7 @@ import com.gong9ri.gong9ri.common.exception.ErrorCode;
 import com.gong9ri.gong9ri.dto.MemberResponse;
 import com.gong9ri.gong9ri.dto.MemberSignupRequest;
 import com.gong9ri.gong9ri.entity.Member;
+import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.event.MemberSignedUpEvent;
 import com.gong9ri.gong9ri.repository.MemberRepository;
 import java.util.Optional;
@@ -81,9 +82,11 @@ public class MemberService {
      * docs/dev/auth/social-login/design.md). 이메일 동의를 받았는데 그 이메일이 이미 다른 계정에서
      * 쓰이고 있으면 자동 연동하지 않고 거부한다 — 이메일 소유권을 우리가 검증한 게 아니라서(카카오가
      * 검증했다는 것과 우리 DB의 그 계정이 같은 사람이라는 보장이 없음) 계정 탈취 방지 원칙.
+     * <p>이미 연동된 계정으로 다시 들어오면 {@code intendedRole}은 무시한다 — 로그인 진입 버튼(구매자용/
+     * 판매자용)을 잘못 눌러도 기존 계정 role이 바뀌면 안 된다.
      */
     @Transactional
-    public Member findOrCreateByKakao(KakaoUserInfo kakaoUserInfo) {
+    public Member findOrCreateByKakao(KakaoUserInfo kakaoUserInfo, Role intendedRole) {
         String kakaoId = String.valueOf(kakaoUserInfo.id());
         Optional<Member> existing = memberRepository.findByKakaoId(kakaoId);
         if (existing.isPresent()) {
@@ -99,9 +102,9 @@ public class MemberService {
         String name = kakaoUserInfo.nickname() != null ? kakaoUserInfo.nickname() : username;
         String randomPassword = passwordEncoder.encode(UUID.randomUUID().toString());
 
-        Member member = Member.ofKakao(kakaoId, username, randomPassword, name, resolvedEmail);
+        Member member = Member.ofKakao(kakaoId, username, randomPassword, name, resolvedEmail, intendedRole);
         Member saved = memberRepository.save(member);
-        log.info("카카오 신규 가입 완료: memberId={}, kakaoId={}", saved.getId(), kakaoId);
+        log.info("카카오 신규 가입 완료: memberId={}, kakaoId={}, role={}", saved.getId(), kakaoId, intendedRole);
         return saved;
     }
 }

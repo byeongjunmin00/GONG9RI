@@ -46,7 +46,15 @@ class KakaoLoginTest {
     private KakaoClient kakaoClient;
 
     private MockHttpSession startAuthorizeFlowAndGetSession() throws Exception {
-        MvcResult result = mockMvc.perform(get("/api/auth/kakao/login"))
+        return startAuthorizeFlowAndGetSession(null);
+    }
+
+    private MockHttpSession startAuthorizeFlowAndGetSession(String role) throws Exception {
+        var requestBuilder = get("/api/auth/kakao/login");
+        if (role != null) {
+            requestBuilder = requestBuilder.param("role", role);
+        }
+        MvcResult result = mockMvc.perform(requestBuilder)
                 .andExpect(status().is3xxRedirection())
                 .andReturn();
         return (MockHttpSession) result.getRequest().getSession(false);
@@ -80,6 +88,51 @@ class KakaoLoginTest {
         assertEquals(Role.BUYER, created.getRole());
         assertTrue(created.isEmailVerified());
         assertEquals("kakao_111111@kakao.local", created.getEmail());
+    }
+
+    @Test
+    @DisplayName("회원가입 페이지의 판매자용 카카오 버튼(role=SELLER)으로 처음 로그인하면 판매자로 가입된다")
+    void kakaoCallback_newUserWithSellerRole_createsSellerAccount() throws Exception {
+        MockHttpSession session = startAuthorizeFlowAndGetSession("SELLER");
+        String state = extractState(session);
+
+        when(kakaoClient.exchangeCodeForAccessToken(anyString(), anyString())).thenReturn("test-access-token");
+        when(kakaoClient.getUserInfo("test-access-token"))
+                .thenReturn(new KakaoUserInfo(444444L, null, "카카오판매자테스터"));
+
+        mockMvc.perform(get("/api/auth/kakao/callback")
+                        .param("code", "test-code")
+                        .param("state", state)
+                        .session(session))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/"));
+
+        Member created = memberRepository.findByKakaoId("444444").orElseThrow();
+        assertEquals(Role.SELLER, created.getRole());
+    }
+
+    @Test
+    @DisplayName("이미 연동된 카카오 계정이면 role 파라미터를 다르게 보내도 기존 role이 바뀌지 않는다")
+    void kakaoCallback_existingAccount_ignoresIntendedRole() throws Exception {
+        when(kakaoClient.exchangeCodeForAccessToken(anyString(), anyString())).thenReturn("test-access-token");
+        when(kakaoClient.getUserInfo("test-access-token"))
+                .thenReturn(new KakaoUserInfo(555555L, null, "역할고정테스터"));
+
+        MockHttpSession signupSession = startAuthorizeFlowAndGetSession("BUYER");
+        mockMvc.perform(get("/api/auth/kakao/callback")
+                        .param("code", "code-1")
+                        .param("state", extractState(signupSession))
+                        .session(signupSession))
+                .andExpect(status().is3xxRedirection());
+
+        MockHttpSession reloginSession = startAuthorizeFlowAndGetSession("SELLER");
+        mockMvc.perform(get("/api/auth/kakao/callback")
+                        .param("code", "code-2")
+                        .param("state", extractState(reloginSession))
+                        .session(reloginSession))
+                .andExpect(status().is3xxRedirection());
+
+        assertEquals(Role.BUYER, memberRepository.findByKakaoId("555555").orElseThrow().getRole());
     }
 
     @Test

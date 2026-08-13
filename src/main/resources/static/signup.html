@@ -122,6 +122,17 @@
           <button type="submit" id="signup-submit" class="btn btn-primary btn-block">회원가입</button>
         </form>
 
+        <p class="text-muted" style="margin: var(--space-3) 0; text-align: center; font-size: var(--fs-sm);">또는</p>
+
+        <!-- 카카오 회원가입 — 첫 로그인이 곧 가입이라 role을 미리 쿼리파라미터로 넘긴다(신규 가입일 때만
+             쓰이고, 이미 연동된 계정이면 무시됨). 전체 페이지 리다이렉트라 별도 JS 불필요(login.html과 동일). -->
+        <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+          <a href="/api/auth/kakao/login?role=BUYER" class="btn btn-block"
+             style="background: #FEE500; color: #191919; border: none;">카카오로 구매자 가입</a>
+          <a href="/api/auth/kakao/login?role=SELLER" class="btn btn-block"
+             style="background: #FEE500; color: #191919; border: none;">카카오로 판매자 가입</a>
+        </div>
+
         <p class="text-muted" style="margin-top: var(--space-5); text-align: center; font-size: var(--fs-sm);">
           이미 계정이 있으신가요? <a href="/login.html">로그인</a>
         </p>
