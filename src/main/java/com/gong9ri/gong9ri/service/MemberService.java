@@ -4,10 +4,12 @@ import com.gong9ri.gong9ri.client.KakaoUserInfo;
 import com.gong9ri.gong9ri.common.exception.BusinessException;
 import com.gong9ri.gong9ri.common.exception.ErrorCode;
 import com.gong9ri.gong9ri.dto.KakaoLoginResult;
+import com.gong9ri.gong9ri.dto.MemberInfoUpdateRequest;
 import com.gong9ri.gong9ri.dto.MemberResponse;
 import com.gong9ri.gong9ri.dto.MemberSignupRequest;
 import com.gong9ri.gong9ri.entity.Member;
 import com.gong9ri.gong9ri.entity.Role;
+import com.gong9ri.gong9ri.event.MemberEmailChangedEvent;
 import com.gong9ri.gong9ri.event.MemberSignedUpEvent;
 import com.gong9ri.gong9ri.repository.MemberRepository;
 import java.util.Optional;
@@ -76,6 +78,30 @@ public class MemberService {
             member.changePassword(passwordEncoder.encode(rawPassword));
             log.info("비밀번호 재설정 완료: memberId={}", memberId);
         });
+    }
+
+    /**
+     * 마이페이지 — 이름/이메일 정보수정. memberId는 인증된 세션의 principal에서만 오므로 항상
+     * 존재가 보장되지만({@code findById} 실패는 재현 불가능한 상태), 방어적으로 예외 처리한다.
+     * 이메일이 실제로 바뀐 경우에만 {@code emailVerified}를 초기화하고 재인증 메일을 발송한다 —
+     * 기존 값 그대로 제출하거나 이름만 바꾼 경우까지 매번 재인증을 강제하면 불필요하게 번거롭다.
+     */
+    @Transactional
+    public Member updateInfo(Long memberId, MemberInfoUpdateRequest request) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalStateException("인증된 회원인데 존재하지 않음: memberId=" + memberId));
+
+        boolean emailChanged = !member.getEmail().equals(request.email());
+        if (emailChanged && memberRepository.existsByEmailAndIdNot(request.email(), memberId)) {
+            throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
+        }
+
+        member.updateProfile(request.name(), request.email(), emailChanged);
+        if (emailChanged) {
+            eventPublisher.publishEvent(new MemberEmailChangedEvent(memberId, request.email()));
+        }
+        log.info("회원정보 수정 완료: memberId={}, emailChanged={}", memberId, emailChanged);
+        return member;
     }
 
     /**

@@ -82,6 +82,19 @@ public class Member {
         this.password = encodedPassword;
     }
 
+    // 정보수정(마이페이지) — 이름은 항상 갱신하고, 이메일은 바뀐 경우에만 emailVerified를 다시
+    // false로 되돌린다(가입 때와 같은 원칙 — 실제로 그 주소를 본인이 쓸 수 있는지 재확인 전에는
+    // 인증된 상태로 두면 안 됨). emailChanged 여부는 호출부(MemberService)가 변경 전/후 값을
+    // 비교해서 넘겨준다 — 엔티티 안에서 다시 비교하면 "새 이메일을 이미 대입한 뒤" 시점이라
+    // 원래 값과 비교할 수 없기 때문.
+    public void updateProfile(String name, String email, boolean emailChanged) {
+        this.name = name;
+        this.email = email;
+        if (emailChanged) {
+            this.emailVerified = false;
+        }
+    }
+
     // 카카오 신규 가입 전용 팩토리 — 일반 가입(생성자)과 달리 이메일 인증을 건너뛴다(카카오 로그인
     // 자체가 본인 확인 수단이라 우리 쪽 인증 게이트가 의미 없음, 이메일 동의를 안 받은 경우 placeholder
     // 이메일이라 애초에 인증 메일을 보낼 수도 없다 — docs/dev/auth/social-login/design.md).

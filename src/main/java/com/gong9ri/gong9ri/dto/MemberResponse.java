@@ -7,9 +7,12 @@ public record MemberResponse(
         Long memberId,
         String username,
         String name,
+        String email,
+        boolean emailVerified,
         Role role
 ) {
     public static MemberResponse from(Member member) {
-        return new MemberResponse(member.getId(), member.getUsername(), member.getName(), member.getRole());
+        return new MemberResponse(member.getId(), member.getUsername(), member.getName(),
+                member.getEmail(), member.isEmailVerified(), member.getRole());
     }
 }

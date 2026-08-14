@@ -5,6 +5,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -278,6 +279,117 @@ class AuthControllerTest {
         mockMvc.perform(get("/api/auth/me"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    private MockHttpSession loginAndGetSession(String username, String password) throws Exception {
+        Map<String, Object> loginRequest = Map.of("username", username, "password", password);
+        MvcResult result = mockMvc.perform(post("/api/auth/login")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andReturn();
+        return (MockHttpSession) result.getRequest().getSession(false);
+    }
+
+    @Test
+    @DisplayName("정보수정: 이름만 바꾸면 200이고 이메일 인증 상태는 그대로 유지된다")
+    void updateMe_success_nameOnly() throws Exception {
+        signup("gonguri8", "password123");
+        MockHttpSession session = loginAndGetSession("gonguri8", "password123");
+
+        Map<String, Object> request = Map.of("name", "새이름", "email", "gonguri8@test.com");
+
+        mockMvc.perform(patch("/api/auth/me")
+                        .session(session)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name").value("새이름"))
+                .andExpect(jsonPath("$.data.email").value("gonguri8@test.com"))
+                .andExpect(jsonPath("$.data.emailVerified").value(true));
+
+        // 세션의 SecurityContext가 실제로 갱신됐는지 — 같은 세션으로 다시 조회해도 새 값이 보여야 한다.
+        mockMvc.perform(get("/api/auth/me").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name").value("새이름"));
+    }
+
+    @Test
+    @DisplayName("정보수정: 이메일을 바꾸면 200이고 이메일 인증 상태가 false로 초기화된다")
+    void updateMe_success_emailChanged() throws Exception {
+        signup("gonguri9", "password123");
+        MockHttpSession session = loginAndGetSession("gonguri9", "password123");
+
+        Map<String, Object> request = Map.of("name", "홍길동", "email", "gonguri9-new@test.com");
+
+        mockMvc.perform(patch("/api/auth/me")
+                        .session(session)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.email").value("gonguri9-new@test.com"))
+                .andExpect(jsonPath("$.data.emailVerified").value(false));
+    }
+
+    @Test
+    @DisplayName("정보수정: 기존과 동일한 이메일로 제출하면(이름만 실질적으로 바뀜) 인증 상태가 초기화되지 않는다")
+    void updateMe_sameEmail_emailVerifiedUnchanged() throws Exception {
+        signup("gonguri10", "password123");
+        MockHttpSession session = loginAndGetSession("gonguri10", "password123");
+
+        Map<String, Object> request = Map.of("name", "새이름", "email", "gonguri10@test.com");
+
+        mockMvc.perform(patch("/api/auth/me")
+                        .session(session)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.emailVerified").value(true));
+    }
+
+    @Test
+    @DisplayName("정보수정: 다른 회원이 이미 쓰는 이메일로 바꾸려 하면 409 DUPLICATE_EMAIL")
+    void updateMe_duplicateEmail() throws Exception {
+        signup("gonguri11", "password123");
+        signup("gonguri12", "password123");
+        MockHttpSession session = loginAndGetSession("gonguri12", "password123");
+
+        Map<String, Object> request = Map.of("name", "홍길동", "email", "gonguri11@test.com");
+
+        mockMvc.perform(patch("/api/auth/me")
+                        .session(session)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DUPLICATE_EMAIL"));
+    }
+
+    @Test
+    @DisplayName("정보수정: 이름이 비어있으면 400 VALIDATION_FAILED")
+    void updateMe_validationFailed() throws Exception {
+        signup("gonguri13", "password123");
+        MockHttpSession session = loginAndGetSession("gonguri13", "password123");
+
+        Map<String, Object> request = Map.of("name", "", "email", "gonguri13@test.com");
+
+        mockMvc.perform(patch("/api/auth/me")
+                        .session(session)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    }
+
+    @Test
+    @DisplayName("정보수정: 로그인하지 않은 상태면 401 UNAUTHORIZED")
+    void updateMe_unauthorized() throws Exception {
+        Map<String, Object> request = Map.of("name", "홍길동", "email", "someone@test.com");
+
+        mockMvc.perform(patch("/api/auth/me")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
     }
 
