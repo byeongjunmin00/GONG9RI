@@ -16,16 +16,17 @@ WORKDIR /app
 COPY --from=build /workspace/build/libs/*.jar app.jar
 
 EXPOSE 8080
-# Railway 컨테이너 메모리 한도(1GB)를 JVM에 명시적으로 안 알려주고 있었다(옵션 전혀 없음) — 반복되는
-# 프로덕션 OOM 크래시(2026-08-12, docs/logs/cd/deploy/003-oom-crash.md)의 유력 원인. 힙/메타스페이스에
-# 명시적 상한을 줘서 컨테이너 한도 안에서 예측 가능하게 동작하도록 한다. 힙은 컨테이너 메모리의 60%까지만
-# (나머지는 스레드 스택·다이렉트 버퍼·네이티브 라이브러리용 여유), 메타스페이스는 192m로 상한.
+# 2026-08-14 진짜 원인 확정 — 반복되는 프로덕션 OOM 크래시(2026-08-12부터, docs/logs/cd/deploy/003-oom-crash.md)의
+# 진짜 원인은 컨테이너 메모리가 부족해서가 아니라, **JVM의 컨테이너 메모리 자동 감지(UseContainerSupport)가
+# Railway 환경에서 고장나 있었던 것**이다. `railway ssh`로 실행 중인 컨테이너에 직접 들어가 실측 확인함:
+# `/sys/fs/cgroup/memory.max`(실제 컨테이너 한도) = 999997740 bytes(≈954MB)인데, 그 상태에서 뜬 JVM이
+# `-XX:MaxRAMPercentage=60.0`으로 계산한 MaxHeapSize는 **32178700288 bytes(≈30GB)** — 실제 한도의 30배가
+# 넘는 값이었다. 즉 어제 밤 이후 `MaxRAMPercentage`를 70→60으로 조정한 것도 전혀 의미가 없었다(둘 다
+# "30GB의 몇 %"라 사실상 무제한). JVM이 스스로는 메모리가 남아돈다고 착각하니 `OutOfMemoryError`를 한 번도
+# 자체 감지하지 못했고, 실제 954MB 한도에 부딪히는 순간 리눅스가 예고 없이 컨테이너를 죽였다(그래서 크래시
+# 직전 로그에 자바 레벨 에러가 단 한 줄도 안 남았던 것 — 어젯밤 여러 차례 확인한 정황과 정확히 일치).
 #
-# 2026-08-13 재발 대응(Railway Metrics 실측: 조용할 때도 baseline이 이미 997MB/1000MB, 요청 좀 들어오면
-# 1.7~1.8GB까지 튐) — 최초 70%는 실측 근거 없는 초기값이었고, 그날 밤 JVM 옵션이 하나도 없을 때조차
-# baseline이 825MB였다는 기록(힙 기본값 25%=약 250MB뿐이던 시점)을 다시 보면 애초에 non-heap 쪽이 더
-# 컸다는 뜻이라 힙만 줄이는 건 근본 대응이 아니었다. 톰캣 기본 스레드풀(200개, 스레드당 기본 스택 ~1MB
-# → 최악의 경우 200MB)이 non-heap의 유력 용의자라 -Xss로 스레드당 스택을 줄이고
-# (application.yaml의 server.tomcat.threads.max=50과 함께 적용), MaxRAMPercentage는 60%로 소폭만
-# 낮춰 힙을 과하게 굶기지 않으면서 non-heap 여유를 늘리는 쪽으로 조정(팀원 제안).
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=60.0", "-XX:MaxMetaspaceSize=192m", "-Xss512k", "-XX:+ExitOnOutOfMemoryError", "-jar", "app.jar"]
+# 대응: 자동 감지(퍼센트 기반)를 신뢰하지 않고 **힙 크기를 고정값으로 직접 지정**한다 — 실제 한도(954MB)
+# 안에서 힙 512MB + 메타스페이스 192MB + 나머지(스레드 스택 -Xss512k·다이렉트 버퍼·네이티브)를 위한 여유
+# ~250MB로 배분(실측 근거: 위 cgroup 확인 값 기준, 안전 마진 포함).
+ENTRYPOINT ["java", "-Xmx512m", "-Xms256m", "-XX:MaxMetaspaceSize=192m", "-Xss512k", "-XX:+ExitOnOutOfMemoryError", "-jar", "app.jar"]
