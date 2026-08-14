@@ -187,7 +187,7 @@
       var row = document.createElement('tr');
 
       var countCell = document.createElement('td');
-      countCell.textContent = (typeof tier.minCount === 'number' ? tier.minCount : '') + '명 이상';
+      countCell.textContent = (typeof tier.minCount === 'number' ? tier.minCount : '') + '명';
       row.appendChild(countCell);
 
       var priceCell = document.createElement('td');
