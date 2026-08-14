@@ -141,12 +141,17 @@ class PaymentControllerTest {
     }
 
     @Test
-    @DisplayName("공구팀 결제 생성 시 currentCount 구간의 tier 가격이 적용되고, 상태는 PENDING이다")
+    @DisplayName("공구팀 결제 생성 시 maxParticipants 구간의 tier 가격이 적용되고, 상태는 PENDING이다")
     void create_team_success_appliesTierPrice() throws Exception {
         Member seller = saveMember("paySeller2", Role.SELLER);
         Product product = saveProduct(seller, 25000, 10);
         priceTierRepository.save(new PriceTier(product, 3, 22000));
         priceTierRepository.save(new PriceTier(product, 5, 20000));
+        // maxParticipants(10)와 정확히 일치하는 구간을 하나 더 둬서, currentCount(5)가 아니라
+        // maxParticipants가 기준이라는 걸 실제로 구분해 검증한다 — 구간이 3/5뿐이면 currentCount=5든
+        // maxParticipants=10이든 둘 다 "5 이상" 구간(20000)에 걸려 우연히 같은 값이 나와 이 둘을 구분
+        // 못 한다(팀원 리뷰로 발견된 문제).
+        priceTierRepository.save(new PriceTier(product, 10, 18000));
         Member leader = saveMember("payLeader1", Role.BUYER);
         GroupBuyTeam team = saveTeamWithCount(product, leader, 10, 5);
 
@@ -155,7 +160,7 @@ class PaymentControllerTest {
                         .contentType("application/json")
                         .content(toJson(Map.of("productId", product.getId(), "teamId", team.getId()))))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.amount").value(20000))
+                .andExpect(jsonPath("$.data.amount").value(18000))
                 .andExpect(jsonPath("$.data.teamId").value(team.getId()))
                 .andExpect(jsonPath("$.data.status").value("PENDING"));
     }

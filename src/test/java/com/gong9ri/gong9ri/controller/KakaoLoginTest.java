@@ -252,6 +252,24 @@ class KakaoLoginTest {
     }
 
     @Test
+    @DisplayName("카카오 토큰 응답에 access_token이 없으면 사용자 정보 조회 없이 바로 실패 페이지로 리다이렉트된다")
+    void kakaoCallback_nullAccessToken_redirectsToErrorWithoutFetchingUserInfo() throws Exception {
+        MockHttpSession session = startAuthorizeFlowAndGetSession();
+        String state = extractState(session);
+
+        when(kakaoClient.exchangeCodeForAccessToken(anyString(), anyString())).thenReturn(null);
+
+        mockMvc.perform(get("/api/auth/kakao/callback")
+                        .param("code", "test-code")
+                        .param("state", state)
+                        .session(session))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/login.html?error=kakao"));
+
+        org.mockito.Mockito.verify(kakaoClient, org.mockito.Mockito.never()).getUserInfo(any());
+    }
+
+    @Test
     @DisplayName("state가 일치하지 않으면(위조/세션 없음) 로그인 실패 페이지로 리다이렉트되고 카카오 API를 호출하지 않는다")
     void kakaoCallback_stateMismatch_redirectsToErrorWithoutCallingKakao() throws Exception {
         mockMvc.perform(get("/api/auth/kakao/callback")

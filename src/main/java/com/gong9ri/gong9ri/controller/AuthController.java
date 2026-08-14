@@ -251,6 +251,12 @@ public class AuthController {
 
         try {
             String accessToken = kakaoClient.exchangeCodeForAccessToken(code, kakaoRedirectUri());
+            if (accessToken == null || accessToken.isBlank()) {
+                // 카카오가 200을 응답했는데 access_token이 비어있는 비정상 케이스 — 이 상태로 getUserInfo를
+                // 호출하면 "Bearer null" 헤더로 불필요한 API 호출을 한 번 더 하고 나서야 실패하게 되므로,
+                // 여기서 바로 실패시켜 원인이 로그에 명확히 남게 한다.
+                throw new IllegalStateException("카카오 액세스 토큰 발급 실패(응답에 access_token 없음)");
+            }
             KakaoUserInfo userInfo = kakaoClient.getUserInfo(accessToken);
             KakaoLoginResult result = memberService.findOrCreateByKakao(userInfo, intendedRole);
             Member member = result.member();
