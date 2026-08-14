@@ -15,7 +15,10 @@ public record ProductResponse(
         Integer maxParticipants,
         List<PriceTierResponse> priceTiers,
         LocalDateTime createdAt,
-        String imageUrl
+        String imageUrl,
+        // 참여 취소로 생긴 환불 요청을 판매자 승인 없이 즉시 처리하는지(상품 단위 설정) —
+        // 판매자 등록/수정 폼 프리필에도 쓰인다.
+        Boolean autoRefundOnCancel
 ) {
     public static ProductResponse of(Product product, List<PriceTier> priceTiers) {
         return new ProductResponse(
@@ -28,7 +31,8 @@ public record ProductResponse(
                 product.getMaxParticipants(),
                 priceTiers.stream().map(PriceTierResponse::from).toList(),
                 product.getCreatedAt(),
-                product.getImageUrl()
+                product.getImageUrl(),
+                product.isAutoRefundOnCancel()
         );
     }
 }

@@ -8,10 +8,15 @@
 생성(`payment/crud`) 따로, 확정(이 기능)이 따로다.
 
 이 기능이 다루는 것: ① 결제 확정(`confirm`, 클라이언트 호출 + 웹훅 안전망), ② PortOne 웹훅 수신·서명
-검증, ③ 공구팀 미성사 자동환불의 실제 PortOne 결제취소 API 연동(`team/deadline-check`가 발행하는 요청을
-소비). **다루지 않는 것**(스코프 밖, `docs/dev/payment/portone/changes/001-portone.md`): 카드·계좌이체·
-가상계좌·다른 간편결제사(네이버페이 등), 사용자 자발적 결제취소, `team/join`과 `payment/create`의 결합
-방식 재설계.
+검증, ③ 실제 PortOne 결제취소 API 호출·결과 반영을 한 곳(`PaymentCancellationExecutor`)에 모아두고,
+공구팀 미성사 자동환불(`team/deadline-check`)과 사용자 자발적 환불 요청(`refund/request` — 참여
+취소·판매자 승인/상품별 자동환불)이 이 실행기를 공유한다. **다루지 않는 것**(스코프 밖,
+`docs/dev/payment/portone/changes/001-portone.md`): 카드·계좌이체·가상계좌·다른 간편결제사(네이버페이
+등), `team/join`과 `payment/create`의 결합 방식 재설계.
+**계획 수립 시점(001-portone)엔 "사용자 자발적 결제취소"가 스코프 밖이었으나, 이후 `refund/request`
+개념이 이 기능의 취소 실행 경로를 재사용하는 방식으로 그 스코프를 열었다(2026-08-14,
+`docs/dev/refund/request/design.md`) — PortOne 취소 API 호출 자체는 여기 한 곳에만 존재하고,
+새 트리거(판매자 승인)만 추가된 형태다.
 **계획 수립 시점엔 "카드 결제만"으로 스코프를 잡았으나, 실제 포트원 콘솔에 연결된 테스트 채널이
 카카오페이(PG Provider: `kakaopay`)로 확인돼 카카오페이 간편결제로 스코프를 정정했다(사용자 승인,
 2026-08-12) — 카카오페이는 `payMethod`를 `EASY_PAY`로 보내야 하며 `CARD`로는 결제창이 열리지 않는다.
@@ -104,11 +109,24 @@ PAID --(PortOne 취소 SUCCEEDED, 즉시)--------------------------> REFUNDED
      수익 요약을 건드리지 않는다.
   2. `TeamPaymentsRefundRequestedEventListener`(`@Async` + `@TransactionalEventListener(phase =
      AFTER_COMMIT)`)가 그 트랜잭션이 **실제로 커밋된 이후에만**(락이 이미 풀린 뒤) 이 이벤트를
-     소비한다 — 결제 건마다 `PaymentRefundService.findCancelTarget()`(짧은 읽기전용 조회)로 취소
-     대상(pgPaymentId)을 확인하고, `PortOneClient.cancelPayment(pgPaymentId, "공구팀 미성사로 인한
-     환불")`을 호출한 뒤(트랜잭션 밖), 그 결과를 `PaymentRefundService.applyCancelResult()`(별도
-     트랜잭션)로 반영한다. 한 결제의 취소 호출이 실패해도 예외를 그 건에서만 로그로 남기고, 같은
-     팀의 다른 결제 처리는 계속 진행한다.
+     소비한다 — 결제 건마다 고정 사유 문구("공구팀 미성사로 인한 환불")로 `PaymentCancellationExecutor.
+     cancelOne(paymentId, reason)`을 호출하는 라우팅만 담당한다(취소 실행 자체는 아래 공유 실행기 참고).
+  - **취소 실행 로직 추출·공유(`PaymentCancellationExecutor`, 2026-08-14, `refund/request` 작업에서
+    추출)**: "취소 대상 조회 → PortOne 호출 → 결과 반영"을 원래 이 리스너 안에만 있던 코드에서 별도
+    빈으로 뽑아냈다 — `refund/request`(판매자 승인/상품별 자동환불)도 정확히 같은 절차를 타야 해서,
+    PortOne 취소 API를 호출하는 코드를 두 곳에 중복 작성하지 않기 위함이다. `PaymentCancellationExecutor.
+    cancelOne(paymentId, reason)`이 `PaymentRefundService.findCancelTarget()`(짧은 읽기전용 조회)로
+    취소 대상(pgPaymentId)을 확인하고, `PortOneClient.cancelPayment(pgPaymentId, reason)`을 호출한
+    뒤(트랜잭션 밖), 그 결과를 `PaymentRefundService.applyCancelResult()`(별도 트랜잭션)로 반영한다.
+    한 건의 취소 호출이 실패해도 예외를 그 건에서만 로그로 남기고 삼킨다(호출자의 다른 처리를 막지
+    않음). `PaymentRefundService`가 이 오케스트레이션을 직접 하지 않는 이유는 그대로다 —
+    `findCancelTarget`/`applyCancelResult`는 서로 다른 트랜잭션 경계를 가진 별도 메서드라 같은 클래스
+    안에서 self-invocation하면 프록시(트랜잭션 경계)를 안 타기 때문에, 별도 빈(`PaymentCancellationExecutor`)
+    으로 분리했다.
+  - **호출자 두 곳(같은 실행기 공유)**: (1) `TeamPaymentsRefundRequestedEventListener` — 공구팀
+    미성사 자동환불(이 기능 고유 트리거), (2) `RefundRequestApprovedEventListener`(`refund/request`
+    개념) — 판매자 수동 승인 또는 상품별 "참여 취소 시 자동 환불" 설정에 따른 승인, 둘 다 같은
+    `AFTER_COMMIT` + `@Async` 원칙을 따른다(상세: `docs/dev/refund/request/design.md`).
 - `applyCancelResult`는 PortOne 취소 응답(`cancellation.status`)에 따라:
   - `SUCCEEDED`(즉시 완료) → `Payment.refund()`(`PAID → REFUNDED`) +
     `sellerRevenueSummaryRepository.applyRefund(...)`(판매자 수익 요약 감소) + 팀 결제라면
@@ -174,6 +192,8 @@ PAID --(PortOne 취소 SUCCEEDED, 즉시)--------------------------> REFUNDED
   `confirmByPgPaymentId`(웹훅 확정), `applyVerificationResult`(공통 검증·확정 로직)
 - `service/PaymentRefundService.java` — `findCancelTarget`, `applyCancelResult`,
   `confirmRefundedByPgPaymentId`(웹훅 최종 확정)
+- `service/PaymentCancellationExecutor.java` — 취소 실행 공유 로직(`cancelOne`, 2026-08-14 추출,
+  `refund/request`와 공유)
 - `service/PortOneWebhookService.java` — 서명검증→타임스탬프→멱등성→타입별 라우팅
 - `service/TeamDeadlineService.java` — `processDeadline`이 이제 `TeamPaymentsRefundRequestedEvent`만
   발행(상세: `docs/dev/team/deadline-check/design.md`)
@@ -190,8 +210,9 @@ PAID --(PortOne 취소 SUCCEEDED, 즉시)--------------------------> REFUNDED
     webhook-id 무시), 타입별 라우팅, 모르는 타입 무시, Redis 장애 fail-open
   - `service/PaymentRefundServiceTest.java` — 취소 응답별(SUCCEEDED/REQUESTED/FAILED) 상태 전환,
     웹훅 최종 확정, 멱등성
-  - `event/TeamPaymentsRefundRequestedEventListenerTest.java` — 순수 라우팅 로직(대상별 호출, 실패
-    격리)
+  - `event/TeamPaymentsRefundRequestedEventListenerTest.java` — 순수 라우팅 로직만 검증(실행기 위임
+    호출 확인, 2026-08-14 실행기 추출에 맞춰 축소 — 취소 실행 자체의 대상별 검증/실패 격리는
+    `service/PaymentCancellationExecutorTest.java`로 이전)
   - `controller/PaymentControllerTest.java` — create 응답이 `PENDING`으로 바뀐 것 회귀 확인 +
     confirm 성공/금액불일치/PG상태불일치/게이트웨이오류/타인결제 시나리오(`PortOneClient`
     `@MockitoBean`)

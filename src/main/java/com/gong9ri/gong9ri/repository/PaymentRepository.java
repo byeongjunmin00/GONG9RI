@@ -18,4 +18,8 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>, Payment
     // (member_id, product_id, status) 복합 인덱스는 따로 없음 — 이 프로젝트 규모에서 성능 문제로
     // 드러나면 그때 추가한다, 실측 근거 없이 미리 만들지 않음.
     boolean existsByMemberIdAndProductIdAndStatus(Long memberId, Long productId, PaymentStatus status);
+
+    // 참여 취소(team/leave) — 취소한 사람이 그 팀에 대해 PAID 결제를 갖고 있으면 환불 요청 자동 생성
+    // 대상이다(docs/dev/ongoing/team-leave-and-refund-request.md).
+    List<Payment> findByTeamIdAndMemberIdAndStatus(Long teamId, Long memberId, PaymentStatus status);
 }

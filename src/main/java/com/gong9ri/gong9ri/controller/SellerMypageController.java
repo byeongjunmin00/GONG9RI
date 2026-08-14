@@ -3,6 +3,7 @@ package com.gong9ri.gong9ri.controller;
 import com.gong9ri.gong9ri.common.response.ApiResponse;
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.dto.NotificationResponse;
+import com.gong9ri.gong9ri.dto.RefundRequestResponse;
 import com.gong9ri.gong9ri.dto.RevenueResponse;
 import com.gong9ri.gong9ri.dto.SellerProductResponse;
 import com.gong9ri.gong9ri.dto.SellerTeamResponse;
@@ -44,5 +45,11 @@ public class SellerMypageController {
     public ResponseEntity<ApiResponse<List<NotificationResponse>>> notifications(
             @AuthenticationPrincipal MemberUserDetails principal) {
         return ResponseEntity.ok(ApiResponse.success(sellerMypageService.notifications(principal)));
+    }
+
+    @GetMapping("/refund-requests")
+    public ResponseEntity<ApiResponse<List<RefundRequestResponse>>> refundRequests(
+            @AuthenticationPrincipal MemberUserDetails principal) {
+        return ResponseEntity.ok(ApiResponse.success(sellerMypageService.refundRequests(principal)));
     }
 }

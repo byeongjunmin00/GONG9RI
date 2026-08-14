@@ -58,6 +58,10 @@ public class SecurityConfig {
                         // 리뷰 목록 조회는 비로그인도 볼 수 있어야 한다(상품 상세 페이지 공개 정보의 일부).
                         // 작성/수정/삭제는 별도 명시 없이 anyRequest().authenticated()로 막힌다.
                         .requestMatchers(HttpMethod.GET, "/api/products/*/reviews").permitAll()
+                        // 공구팀 참여자 목록 — 마스킹된 이름만 노출되고, 팀 목록의 currentCount도 이미
+                        // 비로그인에 공개돼 있어 같은 정보 등급으로 취급한다(사용자 결정,
+                        // docs/dev/team/crud/changes/ "공구팀 상세 — 참여자 목록 표시" 참고).
+                        .requestMatchers(HttpMethod.GET, "/api/teams/*/participants").permitAll()
                         // 공구팀 정원 브로드캐스트용 STOMP 핸드셰이크 — 이미 GET /api/products/**로
                         // 공개된 정보를 실시간으로 밀어주는 것뿐이라 인증 불필요.
                         .requestMatchers("/ws-team/**").permitAll()

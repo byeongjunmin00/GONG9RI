@@ -12,6 +12,7 @@ import com.gong9ri.gong9ri.entity.Notification;
 import com.gong9ri.gong9ri.entity.NotificationType;
 import com.gong9ri.gong9ri.entity.Payment;
 import com.gong9ri.gong9ri.entity.Product;
+import com.gong9ri.gong9ri.entity.RefundRequest;
 import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.entity.TeamParticipation;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
@@ -19,6 +20,7 @@ import com.gong9ri.gong9ri.repository.MemberRepository;
 import com.gong9ri.gong9ri.repository.NotificationRepository;
 import com.gong9ri.gong9ri.repository.PaymentRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
+import com.gong9ri.gong9ri.repository.RefundRequestRepository;
 import com.gong9ri.gong9ri.repository.TeamParticipationRepository;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
@@ -56,6 +58,9 @@ class BuyerMypageControllerTest {
 
     @Autowired
     private NotificationRepository notificationRepository;
+
+    @Autowired
+    private RefundRequestRepository refundRequestRepository;
 
     private Member saveMember(String username, Role role) {
         Member member = new Member(username, "encoded-password", "테스트유저", username + "@test.com", role);
@@ -202,6 +207,58 @@ class BuyerMypageControllerTest {
     @DisplayName("비로그인으로 알림 목록 조회 시 401 UNAUTHORIZED")
     void notifications_unauthorized() throws Exception {
         mockMvc.perform(get("/api/buyer/mypage/notifications"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    @DisplayName("환불 요청 목록 조회 성공(대기/승인/거절 포함)")
+    void refundRequests_success() throws Exception {
+        Member seller = saveMember("mpSeller7", Role.SELLER);
+        Product product = saveProduct(seller, 10);
+        Member buyer = saveMember("mpBuyer4", Role.BUYER);
+        Payment payment = paymentRepository.save(new Payment(buyer, product, null, 25000));
+        refundRequestRepository.save(new RefundRequest(payment, buyer, "단순 변심"));
+
+        mockMvc.perform(get("/api/buyer/mypage/refund-requests").with(asUser(buyer)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].status").value("PENDING"))
+                .andExpect(jsonPath("$.data[0].reason").value("단순 변심"));
+    }
+
+    @Test
+    @DisplayName("환불 요청 목록은 본인 요청만 보이고 타인 요청은 안 보인다 (스코핑)")
+    void refundRequests_scoping_onlyOwnRequests() throws Exception {
+        Member seller = saveMember("mpSeller8", Role.SELLER);
+        Product product = saveProduct(seller, 10);
+        Member buyerA = saveMember("mpBuyerG1", Role.BUYER);
+        Member buyerB = saveMember("mpBuyerG2", Role.BUYER);
+        Payment paymentA = paymentRepository.save(new Payment(buyerA, product, null, 25000));
+        Payment paymentB = paymentRepository.save(new Payment(buyerB, product, null, 30000));
+        refundRequestRepository.save(new RefundRequest(paymentA, buyerA, "A 요청"));
+        refundRequestRepository.save(new RefundRequest(paymentB, buyerB, "B 요청"));
+
+        mockMvc.perform(get("/api/buyer/mypage/refund-requests").with(asUser(buyerA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].reason").value("A 요청"));
+    }
+
+    @Test
+    @DisplayName("판매자 계정으로 환불 요청 목록 조회 시 403 FORBIDDEN")
+    void refundRequests_forbidden_seller() throws Exception {
+        Member seller = saveMember("mpSeller9", Role.SELLER);
+
+        mockMvc.perform(get("/api/buyer/mypage/refund-requests").with(asUser(seller)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("비로그인으로 환불 요청 목록 조회 시 401 UNAUTHORIZED")
+    void refundRequests_unauthorized() throws Exception {
+        mockMvc.perform(get("/api/buyer/mypage/refund-requests"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
     }

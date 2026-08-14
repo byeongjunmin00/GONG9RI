@@ -25,4 +25,16 @@ public class TeamParticipationRepositoryImpl implements TeamParticipationReposit
                 .orderBy(teamParticipation.joinedAt.desc())
                 .fetch();
     }
+
+    @Override
+    public List<TeamParticipation> findAllByTeamIdWithMemberOrderByJoinedAtAsc(Long teamId) {
+        return queryFactory
+                .selectFrom(teamParticipation)
+                .join(teamParticipation.member).fetchJoin()
+                .join(teamParticipation.team).fetchJoin()
+                .join(teamParticipation.team.leader).fetchJoin()
+                .where(teamParticipation.team.id.eq(teamId))
+                .orderBy(teamParticipation.joinedAt.asc())
+                .fetch();
+    }
 }

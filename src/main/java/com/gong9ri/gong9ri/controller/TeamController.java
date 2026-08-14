@@ -4,6 +4,7 @@ import com.gong9ri.gong9ri.common.response.ApiResponse;
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.dto.TeamCreateRequest;
 import com.gong9ri.gong9ri.dto.TeamJoinResponse;
+import com.gong9ri.gong9ri.dto.TeamParticipantResponse;
 import com.gong9ri.gong9ri.dto.TeamResponse;
 import com.gong9ri.gong9ri.service.TeamService;
 import jakarta.validation.Valid;
@@ -44,5 +45,18 @@ public class TeamController {
             @AuthenticationPrincipal MemberUserDetails principal,
             @PathVariable Long teamId) {
         return ResponseEntity.ok(ApiResponse.success(teamService.join(principal, teamId)));
+    }
+
+    @GetMapping("/api/teams/{teamId}/participants")
+    public ResponseEntity<ApiResponse<List<TeamParticipantResponse>>> participants(@PathVariable Long teamId) {
+        return ResponseEntity.ok(ApiResponse.success(teamService.participants(teamId)));
+    }
+
+    // 공구팀 참여 취소 — RECRUITING 상태일 때만 성공한다(docs/api/team.md).
+    @PostMapping("/api/teams/{teamId}/leave")
+    public ResponseEntity<ApiResponse<TeamJoinResponse>> leave(
+            @AuthenticationPrincipal MemberUserDetails principal,
+            @PathVariable Long teamId) {
+        return ResponseEntity.ok(ApiResponse.success(teamService.leave(principal, teamId)));
     }
 }

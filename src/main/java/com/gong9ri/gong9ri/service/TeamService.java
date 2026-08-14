@@ -5,9 +5,12 @@ import com.gong9ri.gong9ri.common.exception.ErrorCode;
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.dto.TeamCreateRequest;
 import com.gong9ri.gong9ri.dto.TeamJoinResponse;
+import com.gong9ri.gong9ri.dto.TeamParticipantResponse;
 import com.gong9ri.gong9ri.dto.TeamResponse;
 import com.gong9ri.gong9ri.entity.GroupBuyTeam;
 import com.gong9ri.gong9ri.entity.Member;
+import com.gong9ri.gong9ri.entity.Payment;
+import com.gong9ri.gong9ri.entity.PaymentStatus;
 import com.gong9ri.gong9ri.entity.PriceTier;
 import com.gong9ri.gong9ri.entity.Product;
 import com.gong9ri.gong9ri.entity.Role;
@@ -15,10 +18,12 @@ import com.gong9ri.gong9ri.entity.TeamParticipation;
 import com.gong9ri.gong9ri.entity.TeamStatus;
 import com.gong9ri.gong9ri.event.TeamCapacityChangedEvent;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
+import com.gong9ri.gong9ri.repository.PaymentRepository;
 import com.gong9ri.gong9ri.repository.PriceTierRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
 import com.gong9ri.gong9ri.repository.TeamParticipationRepository;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,6 +46,8 @@ public class TeamService {
     private final TeamParticipationRepository teamParticipationRepository;
     private final ProductRepository productRepository;
     private final PriceTierRepository priceTierRepository;
+    private final PaymentRepository paymentRepository;
+    private final RefundRequestService refundRequestService;
     private final ApplicationEventPublisher eventPublisher;
 
     // team/join 동시성 전략 토글(lock|atomic) — docs/logs/team/crud/003-atomic-comparison.md
@@ -146,6 +153,81 @@ public class TeamService {
         log.info("공구팀 참가 완료(atomic): teamId={}, memberId={}, currentCount={}",
                 teamId, member.getId(), team.getCurrentCount());
         return response;
+    }
+
+    /**
+     * 공구팀 참여 취소(team/leave) — join()과 대칭적인 API다. 취소 가능 조건: 로그인한 구매자가 그
+     * 팀의 현재 참여자여야 하고, 팀 상태가 RECRUITING이어야 한다(그 외 상태는 거절 —
+     * {@code TEAM_NOT_RECRUITING}). join()의 락 경로({@code findByIdForUpdate})를 그대로 재사용해
+     * 동시성을 제어한다(취소와 동시에 다른 사람이 참가를 시도하는 경합 방지).
+     *
+     * <p>한 트랜잭션 안에서: 참여 기록 제거 → 정원(currentCount) 감소(자리 즉시 반환) → 취소한 사람이
+     * 리더였다면 그다음 최초 참가자에게 리더 승계 → 마지막 참여자였다면 팀을 FAILED로 전환 → 취소한
+     * 사람의 PAID 결제가 있으면 환불 요청 자동 생성({@code RefundRequestService.createFromTeamLeave}).
+     */
+    @Transactional
+    public TeamJoinResponse leave(MemberUserDetails principal, Long teamId) {
+        requireBuyer(principal);
+        Member member = principal.getMember();
+
+        GroupBuyTeam team = groupBuyTeamRepository.findByIdForUpdate(teamId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.TEAM_NOT_FOUND));
+
+        if (!teamParticipationRepository.existsByTeamIdAndMemberId(teamId, member.getId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+        if (team.getStatus() != TeamStatus.RECRUITING) {
+            throw new BusinessException(ErrorCode.TEAM_NOT_RECRUITING);
+        }
+
+        boolean wasLeader = team.getLeader().getId().equals(member.getId());
+
+        teamParticipationRepository.deleteByTeamIdAndMemberId(teamId, member.getId());
+        team.decreaseParticipant();
+
+        if (wasLeader && team.getStatus() != TeamStatus.FAILED) {
+            teamParticipationRepository.findFirstByTeamIdOrderByJoinedAtAsc(teamId)
+                    .ifPresent(next -> team.changeLeader(next.getMember()));
+        }
+
+        List<Payment> paidPayments =
+                paymentRepository.findByTeamIdAndMemberIdAndStatus(teamId, member.getId(), PaymentStatus.PAID);
+        if (!paidPayments.isEmpty()) {
+            boolean autoRefund = team.getProduct().isAutoRefundOnCancel();
+            for (Payment payment : paidPayments) {
+                refundRequestService.createFromTeamLeave(payment, member, autoRefund);
+            }
+        }
+
+        TeamJoinResponse response = TeamJoinResponse.from(team);
+        eventPublisher.publishEvent(new TeamCapacityChangedEvent(team.getProduct().getId(), response));
+        log.info("공구팀 참여 취소 완료: teamId={}, memberId={}, currentCount={}, wasLeader={}, refundRequestCount={}",
+                teamId, member.getId(), team.getCurrentCount(), wasLeader, paidPayments.size());
+        return response;
+    }
+
+    /**
+     * 팀 참여자 목록(마스킹된 이름/팀장 여부/참여 시각)을 리더 우선 + joinedAt 오름차순으로 반환한다.
+     * 비로그인 사용자도 호출할 수 있는 공개 조회다(SecurityConfig permitAll, docs/dev/team/crud/changes/ 참고).
+     */
+    public List<TeamParticipantResponse> participants(Long teamId) {
+        if (!groupBuyTeamRepository.existsById(teamId)) {
+            throw new BusinessException(ErrorCode.TEAM_NOT_FOUND);
+        }
+
+        List<TeamParticipation> participations =
+                teamParticipationRepository.findAllByTeamIdWithMemberOrderByJoinedAtAsc(teamId);
+
+        // joinedAt 오름차순으로 이미 조회했으므로, 리더 여부만 안정 정렬(stable sort)로 앞으로 끌어오면
+        // "리더 먼저, 이후 참여 순서" 규칙이 완성된다.
+        return participations.stream()
+                .sorted(Comparator.comparing(TeamService::isLeaderOf).reversed())
+                .map(p -> TeamParticipantResponse.from(p, isLeaderOf(p)))
+                .toList();
+    }
+
+    private static boolean isLeaderOf(TeamParticipation participation) {
+        return participation.getMember().getId().equals(participation.getTeam().getLeader().getId());
     }
 
     private void requireBuyer(MemberUserDetails principal) {

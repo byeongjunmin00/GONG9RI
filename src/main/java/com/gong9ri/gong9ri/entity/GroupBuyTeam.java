@@ -80,6 +80,24 @@ public class GroupBuyTeam {
         }
     }
 
+    // 참여 취소(team/leave) — join()의 increaseParticipant()와 대칭이다. 정원 감소는 곧바로 자리 반환을
+    // 의미한다(취소 즉시 다른 사람이 그 자리에 참가할 수 있다). 호출 전 status가 RECRUITING임을 서비스
+    // 계층(TeamService.leave)이 보장한다(참여 취소는 RECRUITING에서만 허용). 마지막 한 명이 빠져
+    // currentCount가 0이 되면 그 팀은 더 이상 유지할 수 없으므로 FAILED로 전환한다 — 남은 결제가 없다는
+    // 전제(docs/dev/ongoing/team-leave-and-refund-request.md "리스크/전제").
+    public void decreaseParticipant() {
+        this.currentCount -= 1;
+        if (this.currentCount <= 0) {
+            this.status = TeamStatus.FAILED;
+        }
+    }
+
+    // 리더가 참여를 취소하면 그다음 최초 참가자에게 리더 지위를 승계한다 — 리더는 "방 구별용" 역할일
+    // 뿐 특별한 권한을 갖지 않는다는 전제(사용자 확인).
+    public void changeLeader(Member newLeader) {
+        this.leader = newLeader;
+    }
+
     // 마감 체크 스케줄러가 호출한다 — RECRUITING 상태일 때만 FAILED로 전환한다(이중 전환 방지 가드).
     public void fail() {
         if (this.status == TeamStatus.RECRUITING) {

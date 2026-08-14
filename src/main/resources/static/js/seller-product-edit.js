@@ -34,13 +34,14 @@
   var priceTierRowsEl = document.getElementById('price-tier-rows');
   var addPriceTierBtn = document.getElementById('add-price-tier-btn');
   var priceTiersErrorEl = document.getElementById('price-tiers-error');
+  var autoRefundOnCancelInput = document.getElementById('auto-refund-on-cancel');
 
   var submitBtn = document.getElementById('submit-btn');
 
   if (
     !formAlertEl || !formAlertTextEl || !formAlertLoginLinkEl || !editStatusEl ||
     !form || !nameInput || !descriptionInput || !basePriceInput || !maxParticipantsInput || !imageUrlInput ||
-    !priceTierRowsEl || !addPriceTierBtn || !priceTiersErrorEl || !submitBtn
+    !priceTierRowsEl || !addPriceTierBtn || !priceTiersErrorEl || !autoRefundOnCancelInput || !submitBtn
   ) {
     return;
   }
@@ -256,6 +257,7 @@
     maxParticipantsInput.value =
       typeof product.maxParticipants === 'number' ? String(product.maxParticipants) : '';
     imageUrlInput.value = product.imageUrl || '';
+    autoRefundOnCancelInput.checked = Boolean(product.autoRefundOnCancel);
 
     var tiers = Array.isArray(product.priceTiers) ? product.priceTiers : [];
     if (tiers.length === 0) {
@@ -352,6 +354,7 @@
       maxParticipants: maxParticipants,
       priceTiers: collected.tiers,
       imageUrl: imageUrl || null,
+      autoRefundOnCancel: autoRefundOnCancelInput.checked,
     })
       .then(function () {
         window.location.href = '/seller/mypage.html';

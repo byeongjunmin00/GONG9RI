@@ -54,9 +54,14 @@
       { "minCount": 10, "price": 15000 }
     ],
     "createdAt": "2026-07-24T10:00:00",
-    "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg"
+    "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg",
+    "autoRefundOnCancel": false
   }
   ```
+
+  > `autoRefundOnCancel`: 참여 취소(`docs/api/team.md`의 `POST /api/teams/{teamId}/leave`)로 자동
+  > 생성되는 환불 요청을 판매자 승인 없이 즉시 처리할지 여부(`docs/api/refund.md`). 솔로 구매 직접
+  > 환불 요청에는 영향 없음(항상 승인 필요).
 
 - 에러:
   | 코드 | HTTP | 설명 |
@@ -78,6 +83,7 @@
   | priceTiers[].minCount | int | Y | 해당 가격 적용 최소 인원 |
   | priceTiers[].price | int | Y | 1인당 가격 |
   | imageUrl | String | N | 상품 이미지 URL (없으면 프론트에서 그라디언트 placeholder 표시) |
+  | autoRefundOnCancel | boolean | N | 참여 취소로 생긴 환불 요청을 승인 절차 없이 즉시 처리할지 여부. 생략하면 `false`(`docs/api/refund.md`) |
 
 - 응답: `201 Created`
   ```json

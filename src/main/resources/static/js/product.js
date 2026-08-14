@@ -21,6 +21,12 @@
  *   (서버가 SSOT라는 이 프로젝트의 기존 원칙과 동일). 본인이 쓴 리뷰에만 수정/삭제 버튼을 보여주는데,
  *   로그인한 회원 정보는 js/header-auth.js가 발행하는 'gong9ri:auth-resolved' 이벤트로 재사용한다
  *   (중복으로 /api/auth/me를 호출하지 않기 위함, js/chat-widget.js와 동일 패턴).
+ * - 각 팀 항목의 "참여자 보기"를 누르면 그때 GET /api/teams/{teamId}/participants를 개별 조회해
+ *   마스킹된 이름·팀장 배지·대략적 참여 시각을 펼쳐 보여준다(팀 목록 로드 시점에 한꺼번에 불러오지 않음).
+ * - "팀 성사 후 환불 불가" 체크박스(#refund-notice-checkbox)를 체크하지 않으면 "신규 팀 신설하기"와
+ *   각 팀의 "참가하기" 버튼이 비활성 상태를 유지한다(명시적 확인 없이는 팀 신설/참가를 진행할 수 없게
+ *   하는 가드 — 기존 목표 인원 라디오 가드와 같은 방식). "혼자 구매하기"는 이 제약과 무관하다(솔로
+ *   구매는 환불 불가 규칙의 대상이 아니라서).
  */
 (function () {
   var pageAlertEl = document.getElementById('page-alert');
@@ -40,6 +46,7 @@
   var priceTiersBodyEl = document.getElementById('price-tiers-body');
   var targetParticipantsFieldEl = document.getElementById('target-participants-field');
   var targetParticipantsOptionsEl = document.getElementById('target-participants-options');
+  var refundNoticeCheckboxEl = document.getElementById('refund-notice-checkbox');
 
   var buyAloneBtn = document.getElementById('buy-alone-btn');
   var createTeamBtn = document.getElementById('create-team-btn');
@@ -61,6 +68,7 @@
     !imageEl ||
     !sellerEl || !nameEl || !descriptionEl || !basePriceEl || !maxParticipantsEl ||
     !priceTiersTableEl || !priceTiersBodyEl || !targetParticipantsFieldEl || !targetParticipantsOptionsEl ||
+    !refundNoticeCheckboxEl ||
     !buyAloneBtn || !createTeamBtn ||
     !teamStatusEl || !teamListEl ||
     !reviewAverageEl || !reviewsStatusEl || !reviewsListEl || !reviewFormEl || !reviewFormAlertEl ||
@@ -222,12 +230,35 @@
   }
 
   /**
+   * "팀 성사 후 환불 불가" 체크박스를 체크했는지 여부 — "신규 팀 신설하기"/각 팀의 "참가하기" 버튼
+   * 게이트로 쓴다(design.md 결정, 혼자 구매하기는 이 제약과 무관).
+   */
+  function refundNoticeAccepted() {
+    return refundNoticeCheckboxEl.checked;
+  }
+
+  function updateCreateTeamButtonState() {
+    createTeamBtn.disabled = selectedTargetParticipants === null || !refundNoticeAccepted();
+  }
+
+  /**
+   * 이미 렌더링된 모든 팀 항목의 "참가하기" 버튼 활성 상태를 체크박스 상태에 맞춰 다시 적용한다
+   * (체크박스를 늦게 체크해도 이미 그려진 팀 목록의 참가 버튼이 즉시 활성화되게).
+   */
+  function updateJoinButtonsState() {
+    var joinButtons = teamListEl.querySelectorAll('.team-item-join-btn');
+    joinButtons.forEach(function (btn) {
+      btn.disabled = !refundNoticeAccepted();
+    });
+  }
+
+  /**
    * "신규 팀 신설하기"에 쓸 목표 인원(price_tier.minCount) 라디오 옵션을 그린다.
    * 아무것도 선택되지 않은 상태로 초기화하고, create-team-btn은 선택 전까지 비활성 상태를 유지한다.
    */
   function renderTargetParticipantsOptions(tiers) {
     selectedTargetParticipants = null;
-    createTeamBtn.disabled = true;
+    updateCreateTeamButtonState();
     clearChildren(targetParticipantsOptionsEl);
 
     if (!tiers || tiers.length === 0) {
@@ -254,7 +285,7 @@
       input.value = String(tier.minCount);
       input.addEventListener('change', function () {
         selectedTargetParticipants = tier.minCount;
-        createTeamBtn.disabled = false;
+        updateCreateTeamButtonState();
       });
       label.appendChild(input);
 
@@ -267,6 +298,79 @@
 
     targetParticipantsOptionsEl.appendChild(fragment);
     targetParticipantsFieldEl.hidden = false;
+  }
+
+  /**
+   * joinedAt(ISO-8601 원본)을 정확한 시:분:초가 아니라 대략적인 단위로 보여준다
+   * (design.md 결정: "대략적으로만" 노출, 정확한 포맷 문자열은 Generate 재량).
+   */
+  function formatApproxJoinedAt(isoString) {
+    var date = isoString ? new Date(isoString) : null;
+    if (!date || isNaN(date.getTime())) {
+      return '';
+    }
+    var diffDays = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays <= 0) {
+      return '오늘 참여';
+    }
+    return diffDays + '일 전 참여';
+  }
+
+  function createParticipantItem(participant) {
+    var li = document.createElement('li');
+    li.className = 'participant-item';
+
+    var nameEl = document.createElement('span');
+    nameEl.className = 'participant-item-name';
+    nameEl.textContent = participant.displayName || '';
+    li.appendChild(nameEl);
+
+    if (participant.isLeader) {
+      var leaderBadgeEl = document.createElement('span');
+      leaderBadgeEl.className = 'badge badge-leader';
+      leaderBadgeEl.textContent = '팀장';
+      li.appendChild(leaderBadgeEl);
+    }
+
+    var joinedAtEl = document.createElement('span');
+    joinedAtEl.className = 'participant-item-joined-at';
+    joinedAtEl.textContent = formatApproxJoinedAt(participant.joinedAt);
+    li.appendChild(joinedAtEl);
+
+    return li;
+  }
+
+  /**
+   * "참여자 보기"를 펼칠 때만 그 팀의 참여자를 개별 조회한다(팀 목록 로드 시점에 한꺼번에 불러오지 않음
+   * — design.md 결정, N개 팀 × 참여자 조회 요청이 동시에 나가는 걸 피함).
+   */
+  function loadParticipants(teamId, listEl, statusEl) {
+    statusEl.hidden = false;
+    statusEl.textContent = '참여자 목록을 불러오는 중입니다...';
+    statusEl.className = 'product-status product-status--loading';
+    clearChildren(listEl);
+
+    return window.Api.get('/teams/' + teamId + '/participants')
+      .then(function (participants) {
+        var list = Array.isArray(participants) ? participants : [];
+        if (list.length === 0) {
+          statusEl.textContent = '아직 참여자가 없습니다.';
+          statusEl.className = 'product-status product-status--empty';
+          return;
+        }
+        statusEl.hidden = true;
+        var fragment = document.createDocumentFragment();
+        list.forEach(function (participant) {
+          fragment.appendChild(createParticipantItem(participant));
+        });
+        listEl.appendChild(fragment);
+      })
+      .catch(function (err) {
+        console.error('[product.js] failed to load participants:', err);
+        statusEl.hidden = false;
+        statusEl.textContent = (err && err.message) || '참여자 목록을 불러오지 못했습니다.';
+        statusEl.className = 'product-status product-status--error';
+      });
   }
 
   function createTeamItem(team) {
@@ -292,12 +396,49 @@
 
     var joinBtn = document.createElement('button');
     joinBtn.type = 'button';
-    joinBtn.className = 'btn btn-secondary btn-sm';
+    joinBtn.className = 'btn btn-secondary btn-sm team-item-join-btn';
     joinBtn.textContent = '참가하기';
+    joinBtn.disabled = !refundNoticeAccepted();
     joinBtn.addEventListener('click', function () {
       handleJoin(team.teamId, joinBtn);
     });
     li.appendChild(joinBtn);
+
+    var toggleParticipantsBtn = document.createElement('button');
+    toggleParticipantsBtn.type = 'button';
+    toggleParticipantsBtn.className = 'btn btn-ghost btn-sm';
+    toggleParticipantsBtn.textContent = '참여자 보기';
+    li.appendChild(toggleParticipantsBtn);
+
+    var participantsStatusEl = document.createElement('div');
+    participantsStatusEl.className = 'product-status';
+    participantsStatusEl.hidden = true;
+
+    var participantsListEl = document.createElement('ul');
+    participantsListEl.className = 'participant-list';
+
+    var participantsPanelEl = document.createElement('div');
+    participantsPanelEl.className = 'participants-panel';
+    participantsPanelEl.hidden = true;
+    participantsPanelEl.appendChild(participantsStatusEl);
+    participantsPanelEl.appendChild(participantsListEl);
+    li.appendChild(participantsPanelEl);
+
+    var participantsLoaded = false;
+    toggleParticipantsBtn.addEventListener('click', function () {
+      var wasOpen = !participantsPanelEl.hidden;
+      if (wasOpen) {
+        participantsPanelEl.hidden = true;
+        toggleParticipantsBtn.textContent = '참여자 보기';
+        return;
+      }
+      participantsPanelEl.hidden = false;
+      toggleParticipantsBtn.textContent = '참여자 숨기기';
+      if (!participantsLoaded) {
+        participantsLoaded = true;
+        loadParticipants(team.teamId, participantsListEl, participantsStatusEl);
+      }
+    });
 
     return li;
   }
@@ -368,6 +509,11 @@
   }
 
   function handleJoin(teamId, joinBtn) {
+    if (!refundNoticeAccepted()) {
+      showPageAlert('먼저 "팀 성사 후 환불 불가" 안내를 확인해주세요.', 'error');
+      return;
+    }
+
     hidePageAlert();
     joinBtn.disabled = true;
 
@@ -378,7 +524,7 @@
         loadTeams(currentProductId);
       })
       .catch(function (err) {
-        joinBtn.disabled = false;
+        joinBtn.disabled = !refundNoticeAccepted();
         handleActionError(err, currentProductId);
       });
   }
@@ -386,6 +532,10 @@
   function handleCreateTeam() {
     if (selectedTargetParticipants === null) {
       showPageAlert('목표 인원을 먼저 선택해주세요.', 'error');
+      return;
+    }
+    if (!refundNoticeAccepted()) {
+      showPageAlert('먼저 "팀 성사 후 환불 불가" 안내를 확인해주세요.', 'error');
       return;
     }
 
@@ -403,7 +553,7 @@
         handleActionError(err, currentProductId);
       })
       .then(function () {
-        createTeamBtn.disabled = selectedTargetParticipants === null;
+        updateCreateTeamButtonState();
       });
   }
 
@@ -659,6 +809,11 @@
       var detail = event.detail || {};
       currentMemberId = detail.loggedIn && detail.member ? detail.member.memberId : null;
       loadReviews(productId);
+    });
+
+    refundNoticeCheckboxEl.addEventListener('change', function () {
+      updateCreateTeamButtonState();
+      updateJoinButtonsState();
     });
 
     loadProduct(productId);
