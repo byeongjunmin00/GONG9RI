@@ -6,8 +6,32 @@
  * - "더 보기" 클릭 시 다음 page를 요청해 카드 뒤에 이어붙이고(append),
  *   totalElements만큼 다 불러왔으면 버튼을 숨긴다.
  * - 상품명/판매자명 등 사용자(판매자) 입력 문자열은 textContent로만 넣어 XSS를 방지한다.
+ * - `?kakaoRoleMismatch=BUYER|SELLER` 쿼리파라미터가 있으면 카카오 로그인 role 불일치 안내
+ *   배너(#page-alert)를 표시한다(login.js의 ?signup=success와 같은 패턴).
  */
 (function () {
+  // 카카오 로그인 role 불일치 안내(?kakaoRoleMismatch=BUYER|SELLER) — 회원가입 페이지의 역할별
+  // 카카오 버튼으로 이미 다른 role로 가입된 계정에 로그인하면 AuthController.kakaoCallback()이
+  // 이 쿼리파라미터를 실어 메인 페이지(`/`)로 리다이렉트한다(login.js의 ?signup=success와 같은 패턴).
+  // 로그인 자체는 기존 role 그대로 진행되므로, 실제로 로그인된 role을 안내 문구에 그대로 반영한다.
+  (function showKakaoRoleMismatchBanner() {
+    var pageAlertEl = document.getElementById('page-alert');
+    var pageAlertTextEl = document.getElementById('page-alert-text');
+    if (!pageAlertEl || !pageAlertTextEl) {
+      return;
+    }
+
+    var roleLabels = { BUYER: '구매자', SELLER: '판매자' };
+    var mismatchedRole = new URLSearchParams(window.location.search).get('kakaoRoleMismatch');
+    var roleLabel = roleLabels[mismatchedRole];
+    if (!roleLabel) {
+      return;
+    }
+
+    pageAlertEl.hidden = false;
+    pageAlertTextEl.textContent = '이미 ' + roleLabel + '로 가입되어 있어 ' + roleLabel + '로 로그인되었습니다.';
+  })();
+
   var PRODUCTS_PATH = '/products';
 
   var gridEl = document.getElementById('product-grid');

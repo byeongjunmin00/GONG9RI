@@ -3,6 +3,7 @@ package com.gong9ri.gong9ri.service;
 import com.gong9ri.gong9ri.client.KakaoUserInfo;
 import com.gong9ri.gong9ri.common.exception.BusinessException;
 import com.gong9ri.gong9ri.common.exception.ErrorCode;
+import com.gong9ri.gong9ri.dto.KakaoLoginResult;
 import com.gong9ri.gong9ri.dto.MemberResponse;
 import com.gong9ri.gong9ri.dto.MemberSignupRequest;
 import com.gong9ri.gong9ri.entity.Member;
@@ -82,29 +83,37 @@ public class MemberService {
      * docs/dev/auth/social-login/design.md). 이메일 동의를 받았는데 그 이메일이 이미 다른 계정에서
      * 쓰이고 있으면 자동 연동하지 않고 거부한다 — 이메일 소유권을 우리가 검증한 게 아니라서(카카오가
      * 검증했다는 것과 우리 DB의 그 계정이 같은 사람이라는 보장이 없음) 계정 탈취 방지 원칙.
-     * <p>이미 연동된 계정으로 다시 들어오면 {@code intendedRole}은 무시한다 — 로그인 진입 버튼(구매자용/
-     * 판매자용)을 잘못 눌러도 기존 계정 role이 바뀌면 안 된다.
+     * <p>이미 연동된 계정으로 다시 들어오면 {@code intendedRole}은 무시하고 로그인은 그대로 진행한다 —
+     * 로그인 진입 버튼(구매자용/판매자용)을 잘못 눌러도 기존 계정 role이 바뀌면 안 된다. 다만 그 경우
+     * 호출부가 안내를 띄울 수 있도록 {@link KakaoLoginResult#roleMismatch()}로 불일치 여부를 알려준다.
      */
     @Transactional
-    public Member findOrCreateByKakao(KakaoUserInfo kakaoUserInfo, Role intendedRole) {
+    public KakaoLoginResult findOrCreateByKakao(KakaoUserInfo kakaoUserInfo, Role intendedRole) {
         String kakaoId = String.valueOf(kakaoUserInfo.id());
         Optional<Member> existing = memberRepository.findByKakaoId(kakaoId);
         if (existing.isPresent()) {
-            return existing.get();
+            Member member = existing.get();
+            boolean roleMismatch = member.getRole() != intendedRole;
+            return new KakaoLoginResult(member, roleMismatch);
         }
 
         String email = kakaoUserInfo.email();
         if (email != null && memberRepository.existsByEmail(email)) {
             throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
         }
-        String resolvedEmail = email != null ? email : "kakao_" + kakaoId + "@kakao.local";
         String username = "kakao_" + kakaoId;
+        if (memberRepository.existsByUsername(username)) {
+            // 일반 회원가입으로 이미 같은 합성 username을 누가 선점했을 가능성(희박하지만 실존) — signup()의
+            // 기존 existsByUsername 사전검증 패턴과 동일하게 조기에 명확히 거부한다.
+            throw new BusinessException(ErrorCode.DUPLICATE_USERNAME);
+        }
+        String resolvedEmail = email != null ? email : "kakao_" + kakaoId + "@kakao.local";
         String name = kakaoUserInfo.nickname() != null ? kakaoUserInfo.nickname() : username;
         String randomPassword = passwordEncoder.encode(UUID.randomUUID().toString());
 
         Member member = Member.ofKakao(kakaoId, username, randomPassword, name, resolvedEmail, intendedRole);
         Member saved = memberRepository.save(member);
         log.info("카카오 신규 가입 완료: memberId={}, kakaoId={}, role={}", saved.getId(), kakaoId, intendedRole);
-        return saved;
+        return new KakaoLoginResult(saved, false);
     }
 }

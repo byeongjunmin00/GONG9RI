@@ -149,8 +149,8 @@
 
 > 사람(브라우저)이 링크를 클릭해서 들어오는 요청 — JSON이 아니라 카카오 인가 페이지로 **302 리다이렉트**한다. `docs/dev/auth/social-login/design.md` 참고.
 
-- 요청: 쿼리 파라미터 `role`(선택, `BUYER` | `SELLER`, 기본값 `BUYER`) — **신규 가입일 때만** 쓰인다(이미 연동된 계정으로 로그인하는 경우 무시됨). 값이 없거나 유효하지 않으면 `BUYER`로 폴백(2026-08-13 추가, `docs/dev/auth/social-login/design.md` "카카오 role 분리" 참고).
-- 응답: `302 Found`, `Location: https://kauth.kakao.com/oauth/authorize?...` — CSRF 방지용 `state`와 `role`을 세션에 저장한다.
+- 요청: 쿼리 파라미터 `role`(선택, `BUYER` | `SELLER`) — **신규 가입일 때만** 쓰인다(이미 연동된 계정으로 로그인하는 경우 role은 항상 무시되고 기존 role 그대로 로그인됨). 값이 없거나 유효하지 않으면 세션에 저장하지 않고, 신규 가입 시엔 `BUYER`로 폴백한다(2026-08-14부터 — `docs/dev/auth/social-login/design.md` "role 불일치 안내" 참고). `role`을 명시적으로 보냈는지 여부가 아래 콜백의 `kakaoRoleMismatch` 안내 신호 발생 조건에 영향을 준다.
+- 응답: `302 Found`, `Location: https://kauth.kakao.com/oauth/authorize?...` — CSRF 방지용 `state`와(명시된 경우) `role`을 세션에 저장한다.
 
 ---
 
@@ -162,8 +162,9 @@
 - 응답:
   | 상황 | 리다이렉트 위치 |
   |------|------|
-  | 성공(신규 가입 또는 기존 연동 계정 로그인) | `302 Found` → `/` (세션 발급됨) |
-  | 실패(state 불일치, 토큰 교환/사용자 정보 조회 실패, 이메일이 이미 다른 계정에서 사용 중) | `302 Found` → `/login.html?error=kakao` |
+  | 성공(신규 가입, 또는 기존 연동 계정 로그인 + role 일치/미명시) | `302 Found` → `/` (세션 발급됨) |
+  | 성공 + role 불일치 안내(`role`을 명시적으로 보냈는데 기존 연동 계정의 role과 다름 — 로그인은 기존 role 그대로 진행됨, 2026-08-14 추가) | `302 Found` → `/?kakaoRoleMismatch=BUYER\|SELLER`(실제 로그인된 role) — `index.html`이 안내 배너 표시 |
+  | 실패(state 불일치, 토큰 교환/사용자 정보 조회 실패, 이메일이 이미 다른 계정에서 사용 중, 합성 username(`kakao_{id}`)이 이미 일반 회원가입으로 존재) | `302 Found` → `/login.html?error=kakao` |
 
 ---
 

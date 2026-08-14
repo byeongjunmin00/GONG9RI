@@ -112,7 +112,7 @@ class KakaoLoginTest {
     }
 
     @Test
-    @DisplayName("이미 연동된 카카오 계정이면 role 파라미터를 다르게 보내도 기존 role이 바뀌지 않는다")
+    @DisplayName("이미 연동된 카카오 계정이면 role 파라미터를 다르게 보내도 기존 role이 바뀌지 않지만, 안내 신호가 리다이렉트에 실린다")
     void kakaoCallback_existingAccount_ignoresIntendedRole() throws Exception {
         when(kakaoClient.exchangeCodeForAccessToken(anyString(), anyString())).thenReturn("test-access-token");
         when(kakaoClient.getUserInfo("test-access-token"))
@@ -123,16 +123,68 @@ class KakaoLoginTest {
                         .param("code", "code-1")
                         .param("state", extractState(signupSession))
                         .session(signupSession))
-                .andExpect(status().is3xxRedirection());
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/")); // 신규 가입 시점엔 기존 role과 비교할 게 없으니 안내 없음
 
         MockHttpSession reloginSession = startAuthorizeFlowAndGetSession("SELLER");
         mockMvc.perform(get("/api/auth/kakao/callback")
                         .param("code", "code-2")
                         .param("state", extractState(reloginSession))
                         .session(reloginSession))
-                .andExpect(status().is3xxRedirection());
+                .andExpect(status().is3xxRedirection())
+                // role은 그대로 유지(BUYER)되지만, 사용자가 SELLER 버튼으로 들어왔으니 안내 신호가 실린다.
+                .andExpect(redirectedUrl("/?kakaoRoleMismatch=BUYER"));
 
         assertEquals(Role.BUYER, memberRepository.findByKakaoId("555555").orElseThrow().getRole());
+    }
+
+    @Test
+    @DisplayName("role 파라미터 없는 일반 카카오 로그인 버튼으로 재로그인하면 role이 달라도 안내 신호 없이 조용히 로그인된다")
+    void kakaoCallback_existingAccount_withoutExplicitRole_noMismatchSignal() throws Exception {
+        when(kakaoClient.exchangeCodeForAccessToken(anyString(), anyString())).thenReturn("test-access-token");
+        when(kakaoClient.getUserInfo("test-access-token"))
+                .thenReturn(new KakaoUserInfo(777777L, null, "일반로그인테스터"));
+
+        MockHttpSession signupSession = startAuthorizeFlowAndGetSession("SELLER");
+        mockMvc.perform(get("/api/auth/kakao/callback")
+                        .param("code", "code-1")
+                        .param("state", extractState(signupSession))
+                        .session(signupSession))
+                .andExpect(status().is3xxRedirection());
+
+        // login.html의 일반 "카카오로 로그인" 버튼과 동일하게 role 파라미터 없이 재로그인.
+        MockHttpSession reloginSession = startAuthorizeFlowAndGetSession();
+        mockMvc.perform(get("/api/auth/kakao/callback")
+                        .param("code", "code-2")
+                        .param("state", extractState(reloginSession))
+                        .session(reloginSession))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/"));
+
+        assertEquals(Role.SELLER, memberRepository.findByKakaoId("777777").orElseThrow().getRole());
+    }
+
+    @Test
+    @DisplayName("합성 username(kakao_{id})이 이미 일반 회원가입으로 존재하면 카카오 신규 가입이 거부되고 실패 페이지로 리다이렉트된다")
+    void kakaoCallback_synthesizedUsernameConflict_redirectsToError() throws Exception {
+        Member conflicting = new Member("kakao_666666", "encoded", "충돌회원", "existing-normal@test.com", Role.BUYER);
+        memberRepository.save(conflicting);
+
+        MockHttpSession session = startAuthorizeFlowAndGetSession();
+        String state = extractState(session);
+
+        when(kakaoClient.exchangeCodeForAccessToken(anyString(), anyString())).thenReturn("test-access-token");
+        when(kakaoClient.getUserInfo("test-access-token"))
+                .thenReturn(new KakaoUserInfo(666666L, null, "새유저"));
+
+        mockMvc.perform(get("/api/auth/kakao/callback")
+                        .param("code", "test-code")
+                        .param("state", state)
+                        .session(session))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/login.html?error=kakao"));
+
+        assertTrue(memberRepository.findByKakaoId("666666").isEmpty());
     }
 
     @Test

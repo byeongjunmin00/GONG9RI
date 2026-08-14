@@ -29,6 +29,11 @@
 
   <main>
     <section class="section container">
+      <!-- 카카오 로그인 role 불일치 안내(?kakaoRoleMismatch=BUYER|SELLER). js/main.js가 표시 여부를 제어한다. -->
+      <div id="page-alert" class="form-alert form-alert--success" role="alert" hidden>
+        <span id="page-alert-text"></span>
+      </div>
+
       <div class="section__head">
         <p class="text-muted" style="font-weight:700; letter-spacing: 0.08em; text-transform: uppercase; font-size: var(--fs-xs);">Group Buy</p>
         <h1><span class="text-gradient">함께 사면</span> 더 저렴하게, GONG9RI</h1>

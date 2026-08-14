@@ -10,6 +10,7 @@ import com.gong9ri.gong9ri.common.security.LoginAttemptGuard;
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.common.security.TokenService;
 import com.gong9ri.gong9ri.dto.EmailVerificationResendRequest;
+import com.gong9ri.gong9ri.dto.KakaoLoginResult;
 import com.gong9ri.gong9ri.dto.MemberLoginRequest;
 import com.gong9ri.gong9ri.dto.MemberResponse;
 import com.gong9ri.gong9ri.dto.MemberSignupRequest;
@@ -18,6 +19,7 @@ import com.gong9ri.gong9ri.dto.PasswordResetRequestDto;
 import com.gong9ri.gong9ri.entity.Member;
 import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.service.MemberService;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -126,12 +128,23 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    // 세션 무효화만으로는 (1) 현재 요청 스레드에 남아있는 SecurityContextHolder의 인증 정보,
+    // (2) 브라우저가 여전히 들고 있는 세션 쿠키(JSESSIONID)가 정리되지 않는다 — 둘 다 확실히
+    // 정리해야 "로그아웃했는데 인증된 것처럼 보이는" 문제가 재현되지 않는다.
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(HttpServletRequest httpRequest) {
+    public ResponseEntity<Void> logout(HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         HttpSession session = httpRequest.getSession(false);
         if (session != null) {
             session.invalidate();
         }
+        SecurityContextHolder.clearContext();
+
+        Cookie sessionCookie = new Cookie("JSESSIONID", null);
+        sessionCookie.setPath("/");
+        sessionCookie.setHttpOnly(true);
+        sessionCookie.setMaxAge(0);
+        httpResponse.addCookie(sessionCookie);
+
         return ResponseEntity.noContent().build();
     }
 
@@ -191,8 +204,13 @@ public class AuthController {
         HttpSession session = httpRequest.getSession(true);
         session.setAttribute(KAKAO_OAUTH_STATE_SESSION_KEY, state);
         // 신규 가입일 때만 쓰는 의도된 role — 회원가입 페이지의 "구매자로 가입"/"판매자로 가입" 카카오
-        // 버튼이 넘겨준다. 없거나 잘못된 값이면 기존 로그인 페이지 버튼과 동일하게 BUYER로 취급한다.
-        session.setAttribute(KAKAO_OAUTH_ROLE_SESSION_KEY, parseRoleOrDefault(role));
+        // 버튼이 넘겨준다. role 파라미터가 없거나 잘못된 값이면(로그인 페이지의 일반 "카카오로 로그인"
+        // 버튼 경로) 세션에 아무 것도 남기지 않는다 — 콜백에서 "명시적으로 role을 선택하고 들어온 진입"과
+        // "일반 로그인 진입"을 구분해서, 후자는 role 불일치 안내를 띄우지 않게 하기 위함이다.
+        Role parsedRole = parseRoleOrNull(role);
+        if (parsedRole != null) {
+            session.setAttribute(KAKAO_OAUTH_ROLE_SESSION_KEY, parsedRole);
+        }
 
         String authorizeUrl = "https://kauth.kakao.com/oauth/authorize"
                 + "?client_id=" + URLEncoder.encode(kakaoClientId, StandardCharsets.UTF_8)
@@ -218,6 +236,10 @@ public class AuthController {
         session.removeAttribute(KAKAO_OAUTH_STATE_SESSION_KEY); // state는 1회성
         Role intendedRole = (Role) session.getAttribute(KAKAO_OAUTH_ROLE_SESSION_KEY);
         session.removeAttribute(KAKAO_OAUTH_ROLE_SESSION_KEY);
+        // 세션에 저장된 값이 있으면 role을 명시적으로 골라 들어온 진입(회원가입 페이지의 역할별 버튼)이다.
+        // 없으면 role 파라미터 없는 일반 "카카오로 로그인" 버튼 경로 — 이 경우는 role 불일치가 있어도
+        // 안내하지 않는다(현행 유지).
+        boolean explicitRoleRequested = intendedRole != null;
         if (intendedRole == null) {
             intendedRole = Role.BUYER;
         }
@@ -225,7 +247,8 @@ public class AuthController {
         try {
             String accessToken = kakaoClient.exchangeCodeForAccessToken(code, kakaoRedirectUri());
             KakaoUserInfo userInfo = kakaoClient.getUserInfo(accessToken);
-            Member member = memberService.findOrCreateByKakao(userInfo, intendedRole);
+            KakaoLoginResult result = memberService.findOrCreateByKakao(userInfo, intendedRole);
+            Member member = result.member();
 
             MemberUserDetails principal = new MemberUserDetails(member);
             Authentication authentication =
@@ -236,9 +259,16 @@ public class AuthController {
             securityContextRepository.saveContext(context, httpRequest, httpResponse);
 
             log.info("카카오 로그인 성공: memberId={}", member.getId());
-            httpResponse.sendRedirect("/");
+            if (explicitRoleRequested && result.roleMismatch()) {
+                // 이미 다른 role로 가입된 계정 — 로그인은 기존 role 그대로 진행하되(design.md), 사용자가
+                // 고른 진입 버튼과 실제 로그인된 role이 다르다는 걸 메인 페이지에서 안내하도록 신호를 싣는다
+                // (login.html의 ?signup=success/?error=kakao와 같은 "쿼리파라미터+배너" 패턴).
+                httpResponse.sendRedirect("/?kakaoRoleMismatch=" + member.getRole().name());
+            } else {
+                httpResponse.sendRedirect("/");
+            }
         } catch (Exception e) {
-            log.warn("카카오 로그인 처리 실패: error={}", e.getMessage());
+            log.error("카카오 로그인 처리 실패: error={}", e.getMessage(), e);
             httpResponse.sendRedirect("/login.html?error=kakao");
         }
     }
@@ -249,11 +279,13 @@ public class AuthController {
         return appBaseUrl + "/api/auth/kakao/callback";
     }
 
-    private Role parseRoleOrDefault(String role) {
+    // role 파라미터가 없거나 잘못된 값이면 null — 호출부(kakaoLogin)가 "명시적 role 선택 없음"으로
+    // 취급해 세션에 아무 것도 저장하지 않는다(신규 가입 시엔 콜백에서 BUYER로 안전하게 폴백).
+    private Role parseRoleOrNull(String role) {
         try {
-            return role != null ? Role.valueOf(role) : Role.BUYER;
+            return role != null ? Role.valueOf(role) : null;
         } catch (IllegalArgumentException e) {
-            return Role.BUYER;
+            return null;
         }
     }
 

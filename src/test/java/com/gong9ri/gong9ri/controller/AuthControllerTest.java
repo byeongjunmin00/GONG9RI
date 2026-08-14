@@ -302,6 +302,29 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("로그아웃 후 같은 세션으로 인증이 필요한 API를 다시 호출하면 401을 반환한다")
+    void logout_thenReusingSameSession_isUnauthorized() throws Exception {
+        signup("gonguri-logout1", "password123");
+        Map<String, Object> loginRequest = Map.of("username", "gonguri-logout1", "password", "password123");
+
+        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        MockHttpSession session = (MockHttpSession) loginResult.getRequest().getSession(false);
+
+        mockMvc.perform(post("/api/auth/logout").session(session))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/auth/me").session(session))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
     @DisplayName("로그인하지 않은 상태에서 로그아웃하면 401과 UNAUTHORIZED를 반환한다")
     void logout_unauthorized() throws Exception {
         mockMvc.perform(post("/api/auth/logout"))
