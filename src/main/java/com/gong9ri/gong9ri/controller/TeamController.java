@@ -51,4 +51,12 @@ public class TeamController {
     public ResponseEntity<ApiResponse<List<TeamParticipantResponse>>> participants(@PathVariable Long teamId) {
         return ResponseEntity.ok(ApiResponse.success(teamService.participants(teamId)));
     }
+
+    // 공구팀 참여 취소 — RECRUITING 상태일 때만 성공한다(docs/api/team.md).
+    @PostMapping("/api/teams/{teamId}/leave")
+    public ResponseEntity<ApiResponse<TeamJoinResponse>> leave(
+            @AuthenticationPrincipal MemberUserDetails principal,
+            @PathVariable Long teamId) {
+        return ResponseEntity.ok(ApiResponse.success(teamService.leave(principal, teamId)));
+    }
 }

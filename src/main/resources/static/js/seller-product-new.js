@@ -30,13 +30,14 @@
   var priceTierRowsEl = document.getElementById('price-tier-rows');
   var addPriceTierBtn = document.getElementById('add-price-tier-btn');
   var priceTiersErrorEl = document.getElementById('price-tiers-error');
+  var autoRefundOnCancelInput = document.getElementById('auto-refund-on-cancel');
 
   var submitBtn = document.getElementById('submit-btn');
 
   if (
     !formAlertEl || !formAlertTextEl || !formAlertLoginLinkEl ||
     !form || !nameInput || !descriptionInput || !basePriceInput || !maxParticipantsInput || !imageUrlInput ||
-    !priceTierRowsEl || !addPriceTierBtn || !priceTiersErrorEl || !submitBtn
+    !priceTierRowsEl || !addPriceTierBtn || !priceTiersErrorEl || !autoRefundOnCancelInput || !submitBtn
   ) {
     return;
   }
@@ -275,6 +276,7 @@
       maxParticipants: maxParticipants,
       priceTiers: collected.tiers,
       imageUrl: imageUrl || null,
+      autoRefundOnCancel: autoRefundOnCancelInput.checked,
     })
       .then(function (product) {
         window.location.href = '/product.html?id=' + product.productId;

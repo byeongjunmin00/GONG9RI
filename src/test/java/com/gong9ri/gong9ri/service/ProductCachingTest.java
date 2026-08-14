@@ -81,7 +81,7 @@ class ProductCachingTest {
 
     private ProductRegisterRequest registerRequest(String name, Integer basePrice) {
         return new ProductRegisterRequest(name, "설명", basePrice, 10,
-                List.of(new PriceTierRequest(2, basePrice - 1000)), null);
+                List.of(new PriceTierRequest(2, basePrice - 1000)), null, null);
     }
 
     @Test
@@ -116,7 +116,7 @@ class ProductCachingTest {
 
         // 무효화 경로(update)를 거치지 않고 엔티티를 직접 변경해 저장한다.
         Product directlyModified = productRepository.findById(product.getId()).orElseThrow();
-        directlyModified.update("무효화안된이름", "설명", 77000, 10, null);
+        directlyModified.update("무효화안된이름", "설명", 77000, 10, null, false);
         productRepository.save(directlyModified);
 
         ProductResponse second = productService.detail(product.getId());

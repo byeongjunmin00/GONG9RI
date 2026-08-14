@@ -14,16 +14,22 @@ import tools.jackson.databind.ObjectMapper;
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.entity.GroupBuyTeam;
 import com.gong9ri.gong9ri.entity.Member;
+import com.gong9ri.gong9ri.entity.Payment;
 import com.gong9ri.gong9ri.entity.PriceTier;
 import com.gong9ri.gong9ri.entity.Product;
+import com.gong9ri.gong9ri.entity.RefundRequest;
+import com.gong9ri.gong9ri.entity.RefundRequestStatus;
 import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.entity.TeamParticipation;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.MemberRepository;
+import com.gong9ri.gong9ri.repository.PaymentRepository;
 import com.gong9ri.gong9ri.repository.PriceTierRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
+import com.gong9ri.gong9ri.repository.RefundRequestRepository;
 import com.gong9ri.gong9ri.repository.TeamParticipationRepository;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -62,6 +68,12 @@ class TeamControllerTest {
     @Autowired
     private TeamParticipationRepository teamParticipationRepository;
 
+    @Autowired
+    private PaymentRepository paymentRepository;
+
+    @Autowired
+    private RefundRequestRepository refundRequestRepository;
+
     private Member saveMember(String username, Role role) {
         Member member = new Member(username, "encoded-password", "테스트유저", username + "@test.com", role);
         return memberRepository.save(member);
@@ -76,6 +88,11 @@ class TeamControllerTest {
 
     private Product saveProduct(Member seller, int maxParticipants) {
         return productRepository.save(new Product(seller, "제주 감귤 5kg", "설명", 25000, maxParticipants, null));
+    }
+
+    private Product saveProduct(Member seller, int maxParticipants, boolean autoRefundOnCancel) {
+        return productRepository.save(
+                new Product(seller, "제주 감귤 5kg", "설명", 25000, maxParticipants, null, autoRefundOnCancel));
     }
 
     private void savePriceTiers(Product product, int... minCounts) {
@@ -413,5 +430,207 @@ class TeamControllerTest {
         mockMvc.perform(get("/api/teams/999999/participants"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("TEAM_NOT_FOUND"));
+    }
+
+    // ---------- 참여 취소(team/leave) ----------
+
+    @Test
+    @DisplayName("RECRUITING 팀에서 참여자가 취소하면 200이고 정원이 즉시 반환된다(자리 반환)")
+    void leave_success_decreasesCountAndFreesSlot() throws Exception {
+        Member seller = saveMember("leaveSeller1", Role.SELLER);
+        Product product = saveProduct(seller, 5);
+        Member leader = saveMember("leaveLeader1", Role.BUYER);
+        GroupBuyTeam team = saveTeam(product, leader, 5);
+        Member joiner = saveMember("leaveJoiner1", Role.BUYER);
+        teamParticipationRepository.save(new TeamParticipation(team, joiner));
+        team.increaseParticipant();
+        groupBuyTeamRepository.save(team);
+
+        mockMvc.perform(post("/api/teams/" + team.getId() + "/leave").with(asUser(joiner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.currentCount").value(1))
+                .andExpect(jsonPath("$.data.status").value("RECRUITING"));
+
+        assertTrue(!teamParticipationRepository.existsByTeamIdAndMemberId(team.getId(), joiner.getId()));
+    }
+
+    @Test
+    @DisplayName("참여 취소로 반환된 자리에 다른 사람이 바로 참가할 수 있다")
+    void leave_thenOtherMemberCanJoinFreedSlot() throws Exception {
+        // maxParticipants=3으로 둬서 "리더+참여자1명(2/3, 아직 RECRUITING)" 상태에서 참여자가 취소할 수
+        // 있게 한다(maxParticipants=2였다면 2명째 참가 시점에 이미 SUCCESS로 전환돼 취소가 불가능해진다).
+        Member seller = saveMember("leaveSeller2", Role.SELLER);
+        Product product = saveProduct(seller, 3);
+        Member leader = saveMember("leaveLeader2", Role.BUYER);
+        GroupBuyTeam team = saveTeam(product, leader, 3);
+        Member joiner = saveMember("leaveJoiner2", Role.BUYER);
+        teamParticipationRepository.save(new TeamParticipation(team, joiner));
+        team.increaseParticipant();
+        groupBuyTeamRepository.save(team);
+
+        mockMvc.perform(post("/api/teams/" + team.getId() + "/leave").with(asUser(joiner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.currentCount").value(1))
+                .andExpect(jsonPath("$.data.status").value("RECRUITING"));
+
+        Member newJoiner = saveMember("leaveJoiner2b", Role.BUYER);
+        mockMvc.perform(post("/api/teams/" + team.getId() + "/join").with(asUser(newJoiner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.currentCount").value(2))
+                .andExpect(jsonPath("$.data.status").value("RECRUITING"));
+    }
+
+    @Test
+    @DisplayName("리더가 참여를 취소하면 그다음 최초 참가자에게 리더가 승계된다")
+    void leave_leaderSuccession_nextEarliestJoinerBecomesLeader() throws Exception {
+        Member seller = saveMember("leaveSeller3", Role.SELLER);
+        Product product = saveProduct(seller, 5);
+        Member leader = saveMember("leaveLeader3", Role.BUYER);
+        GroupBuyTeam team = saveTeam(product, leader, 5);
+        Member secondJoiner = saveMember("leaveJoiner3a", Role.BUYER);
+        teamParticipationRepository.save(new TeamParticipation(team, secondJoiner));
+        team.increaseParticipant();
+        Member thirdJoiner = saveMember("leaveJoiner3b", Role.BUYER);
+        teamParticipationRepository.save(new TeamParticipation(team, thirdJoiner));
+        team.increaseParticipant();
+        groupBuyTeamRepository.save(team);
+
+        mockMvc.perform(post("/api/teams/" + team.getId() + "/leave").with(asUser(leader)))
+                .andExpect(status().isOk());
+
+        GroupBuyTeam refreshed = groupBuyTeamRepository.findById(team.getId()).orElseThrow();
+        assertTrue(refreshed.getLeader().getId().equals(secondJoiner.getId()));
+    }
+
+    @Test
+    @DisplayName("마지막 한 명이 참여를 취소하면 팀이 FAILED로 전환된다")
+    void leave_lastParticipant_teamBecomesFailed() throws Exception {
+        Member seller = saveMember("leaveSeller4", Role.SELLER);
+        Product product = saveProduct(seller, 5);
+        Member leader = saveMember("leaveLeader4", Role.BUYER);
+        GroupBuyTeam team = saveTeam(product, leader, 5);
+
+        mockMvc.perform(post("/api/teams/" + team.getId() + "/leave").with(asUser(leader)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.currentCount").value(0))
+                .andExpect(jsonPath("$.data.status").value("FAILED"));
+    }
+
+    @Test
+    @DisplayName("SUCCESS로 전환된 팀은 참여를 취소할 수 없다(409 TEAM_NOT_RECRUITING)")
+    void leave_teamNotRecruiting_conflict() throws Exception {
+        Member seller = saveMember("leaveSeller5", Role.SELLER);
+        Product product = saveProduct(seller, 2);
+        Member leader = saveMember("leaveLeader5", Role.BUYER);
+        GroupBuyTeam team = saveFullTeam(product, leader, 2);
+
+        mockMvc.perform(post("/api/teams/" + team.getId() + "/leave").with(asUser(leader)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("TEAM_NOT_RECRUITING"));
+    }
+
+    @Test
+    @DisplayName("그 팀의 참여자가 아니면 참여 취소 시 403 FORBIDDEN")
+    void leave_notParticipant_forbidden() throws Exception {
+        Member seller = saveMember("leaveSeller6", Role.SELLER);
+        Product product = saveProduct(seller, 5);
+        Member leader = saveMember("leaveLeader6", Role.BUYER);
+        GroupBuyTeam team = saveTeam(product, leader, 5);
+        Member outsider = saveMember("leaveOutsider1", Role.BUYER);
+
+        mockMvc.perform(post("/api/teams/" + team.getId() + "/leave").with(asUser(outsider)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 팀 참여 취소 시 404 TEAM_NOT_FOUND")
+    void leave_teamNotFound() throws Exception {
+        Member buyer = saveMember("leaveBuyer1", Role.BUYER);
+
+        mockMvc.perform(post("/api/teams/999999/leave").with(asUser(buyer)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("TEAM_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("비로그인으로 참여 취소 시 401 UNAUTHORIZED")
+    void leave_unauthorized() throws Exception {
+        Member seller = saveMember("leaveSeller7", Role.SELLER);
+        Product product = saveProduct(seller, 5);
+        Member leader = saveMember("leaveLeader7", Role.BUYER);
+        GroupBuyTeam team = saveTeam(product, leader, 5);
+
+        mockMvc.perform(post("/api/teams/" + team.getId() + "/leave"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    @DisplayName("PAID 결제가 있는 참여자가 취소하면 환불 요청이 PENDING으로 자동 생성된다(상품별 자동환불 꺼짐)")
+    void leave_paidPayment_createsPendingRefundRequest() throws Exception {
+        Member seller = saveMember("leaveSeller8", Role.SELLER);
+        Product product = saveProduct(seller, 5, false);
+        Member leader = saveMember("leaveLeader8", Role.BUYER);
+        GroupBuyTeam team = saveTeam(product, leader, 5);
+        Member joiner = saveMember("leaveJoiner8", Role.BUYER);
+        teamParticipationRepository.save(new TeamParticipation(team, joiner));
+        team.increaseParticipant();
+        groupBuyTeamRepository.save(team);
+        Payment payment = new Payment(joiner, product, team, 25000, "pay_leave_test_1");
+        payment.confirm();
+        paymentRepository.save(payment);
+
+        mockMvc.perform(post("/api/teams/" + team.getId() + "/leave").with(asUser(joiner)))
+                .andExpect(status().isOk());
+
+        List<RefundRequest> refundRequests =
+                refundRequestRepository.findAllByRequesterIdWithPaymentAndProduct(joiner.getId());
+        assertTrue(refundRequests.size() == 1);
+        assertTrue(refundRequests.get(0).getStatus() == RefundRequestStatus.PENDING);
+        assertTrue(refundRequests.get(0).getReason() == null);
+    }
+
+    @Test
+    @DisplayName("결제가 없는 참여자가 취소하면 환불 요청이 생성되지 않는다")
+    void leave_noPayment_doesNotCreateRefundRequest() throws Exception {
+        Member seller = saveMember("leaveSeller9", Role.SELLER);
+        Product product = saveProduct(seller, 5);
+        Member leader = saveMember("leaveLeader9", Role.BUYER);
+        GroupBuyTeam team = saveTeam(product, leader, 5);
+        Member joiner = saveMember("leaveJoiner9", Role.BUYER);
+        teamParticipationRepository.save(new TeamParticipation(team, joiner));
+        team.increaseParticipant();
+        groupBuyTeamRepository.save(team);
+
+        mockMvc.perform(post("/api/teams/" + team.getId() + "/leave").with(asUser(joiner)))
+                .andExpect(status().isOk());
+
+        assertTrue(refundRequestRepository.findAllByRequesterIdWithPaymentAndProduct(joiner.getId()).isEmpty());
+    }
+
+    @Test
+    @DisplayName("상품별 '참여 취소 시 자동 환불' 설정이 켜져 있으면 환불 요청이 승인 절차 없이 즉시 APPROVED된다")
+    void leave_autoRefundOnCancelEnabled_approvesRefundRequestImmediately() throws Exception {
+        Member seller = saveMember("leaveSeller10", Role.SELLER);
+        Product product = saveProduct(seller, 5, true);
+        Member leader = saveMember("leaveLeader10", Role.BUYER);
+        GroupBuyTeam team = saveTeam(product, leader, 5);
+        Member joiner = saveMember("leaveJoiner10", Role.BUYER);
+        teamParticipationRepository.save(new TeamParticipation(team, joiner));
+        team.increaseParticipant();
+        groupBuyTeamRepository.save(team);
+        Payment payment = new Payment(joiner, product, team, 25000, "pay_leave_test_2");
+        payment.confirm();
+        paymentRepository.save(payment);
+
+        mockMvc.perform(post("/api/teams/" + team.getId() + "/leave").with(asUser(joiner)))
+                .andExpect(status().isOk());
+
+        List<RefundRequest> refundRequests =
+                refundRequestRepository.findAllByRequesterIdWithPaymentAndProduct(joiner.getId());
+        assertTrue(refundRequests.size() == 1);
+        assertTrue(refundRequests.get(0).getStatus() == RefundRequestStatus.APPROVED);
+        assertTrue(refundRequests.get(0).getDecidedAt() != null);
     }
 }

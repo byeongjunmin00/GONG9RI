@@ -17,7 +17,12 @@
 - member_id → member.id
 
 ## 사용하는 기능
-- team/join, mypage/buyer-teams
+- team/join, team/leave, mypage/buyer-teams
 
 ## 삭제 정책
-- 하드 삭제 없음 (참여 이력은 영구 보존)
+- **팀/참가(`team/join`) 시점 기준으로는 여전히 하드 삭제 없음.** 다만 참여 취소(`team/leave`,
+  2026-08-14 추가)는 예외다 — 취소한 사람의 행을 즉시 실제로 `DELETE`한다
+  (`TeamParticipationRepository.deleteByTeamIdAndMemberId`). 참여 취소의 핵심이 "자리 즉시 반환"(다른
+  사람이 그 자리에 바로 참가 가능)이라 이 테이블에서 지우는 게 맞고, 돈이 오간 이력은 이 테이블이 아니라
+  `payment`/`refund_request`가 별도로 보존한다 — "참여 이력"과 "결제/환불 이력"을 서로 다른 테이블의
+  책임으로 분리했다고 보면 된다.

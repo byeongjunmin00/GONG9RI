@@ -132,6 +132,40 @@
 
 ---
 
+## POST /api/teams/{teamId}/leave — 공구팀 참여 취소
+
+`join()`과 대칭적인 API다. 모집 중인(`RECRUITING`) 팀에서만 취소할 수 있다 — 팀이 이미 정원을 채워
+`SUCCESS`로 전환된 뒤에는 어떤 경로로도 취소할 수 없다(사용자 확인, `docs/dev/ongoing/
+team-leave-and-refund-request.md`의 악용 방지 근거 참고).
+
+- 경로 변수: `teamId` (Long)
+- 요청 body: 없음 — 로그인한 구매자 본인이 그 팀에서 나간다.
+
+- 응답: `200 OK` (`POST /api/teams/{teamId}/join`과 동일한 응답 형식)
+  ```json
+  { "teamId": 3, "currentCount": 1, "maxParticipants": 5, "status": "RECRUITING" }
+  ```
+
+  > 취소 즉시 `currentCount`가 감소해 자리가 반환된다(다른 사람이 그 자리에 바로 참가 가능). 취소한
+  > 사람이 리더였다면 그다음 최초 참가자에게 리더가 승계된다(`leaderId`는 이 응답에 포함되지 않지만
+  > 팀 목록/상세 조회에서 확인 가능). 마지막 한 명이 취소하면 `status`가 `FAILED`로 전환된다
+  > (`currentCount: 0`).
+  >
+  > 취소한 사람이 그 팀에 대해 `PAID` 결제를 갖고 있으면, 이 응답과 같은 트랜잭션 안에서 환불 요청
+  > (`docs/api/refund.md`)이 자동 생성된다(사유 없음 — "참여 취소"가 곧 사유). 상품별
+  > "참여 취소 시 자동 환불" 설정이 켜져 있으면 승인 절차 없이 즉시 처리되고, 꺼져 있으면 판매자
+  > 승인/거절을 기다린다.
+
+- 에러:
+  | 코드 | HTTP | 설명 |
+  |------|------|------|
+  | `TEAM_NOT_FOUND` | 404 | 존재하지 않는 팀 |
+  | `TEAM_NOT_RECRUITING` | 409 | 팀이 이미 `SUCCESS`/`FAILED`로 전환됨 — 참여 취소 불가 |
+  | `FORBIDDEN` | 403 | 그 팀의 참여자가 아님, 또는 판매자 계정으로 시도 |
+  | `UNAUTHORIZED` | 401 | 미인증 |
+
+---
+
 ## 실시간 이벤트 — WebSocket/STOMP (REST 아님)
 
 이 참가가 성공(커밋)하면, 그 팀이 속한 상품 페이지를 보고 있는 클라이언트 전원에게 갱신된 팀 상태를 실시간으로 밀어준다. 인증 불필요(이미 위 `GET /api/products/**`로 공개된 정보를 실시간으로 전달하는 것뿐).
@@ -142,4 +176,4 @@
   ```json
   { "teamId": 3, "currentCount": 5, "maxParticipants": 10, "status": "RECRUITING" }
   ```
-- **발행 시점**: `team/join` 성공(커밋) 시점뿐. 팀 신설(`POST /api/products/{productId}/teams`)은 브로드캐스트 대상이 아니다(스코프 밖, `docs/dev/team/crud/design.md` 참고).
+- **발행 시점**: `team/join` 또는 `team/leave` 성공(커밋) 시점. 팀 신설(`POST /api/products/{productId}/teams`)은 브로드캐스트 대상이 아니다(스코프 밖, `docs/dev/team/crud/design.md` 참고).

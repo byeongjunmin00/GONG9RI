@@ -4,6 +4,7 @@ import com.gong9ri.gong9ri.common.exception.BusinessException;
 import com.gong9ri.gong9ri.common.exception.ErrorCode;
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.dto.NotificationResponse;
+import com.gong9ri.gong9ri.dto.RefundRequestResponse;
 import com.gong9ri.gong9ri.dto.RevenueResponse;
 import com.gong9ri.gong9ri.dto.SellerProductResponse;
 import com.gong9ri.gong9ri.dto.SellerTeamResponse;
@@ -11,6 +12,7 @@ import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.NotificationRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
+import com.gong9ri.gong9ri.repository.RefundRequestRepository;
 import com.gong9ri.gong9ri.repository.SellerRevenueSummaryRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +28,7 @@ public class SellerMypageService {
     private final GroupBuyTeamRepository groupBuyTeamRepository;
     private final SellerRevenueSummaryRepository sellerRevenueSummaryRepository;
     private final NotificationRepository notificationRepository;
+    private final RefundRequestRepository refundRequestRepository;
 
     public List<SellerProductResponse> products(MemberUserDetails principal) {
         requireSeller(principal);
@@ -61,6 +64,15 @@ public class SellerMypageService {
         requireSeller(principal);
         return notificationRepository.findAllByMemberIdOrderByCreatedAtDesc(principal.getMember().getId()).stream()
                 .map(NotificationResponse::from)
+                .toList();
+    }
+
+    // 내가 등록한 상품에 대한 환불 요청 전체(대기/승인/거절 포함) — 승인/거절 액션 자체는
+    // RefundRequestController가 담당한다(마이페이지 컨트롤러는 조회만).
+    public List<RefundRequestResponse> refundRequests(MemberUserDetails principal) {
+        requireSeller(principal);
+        return refundRequestRepository.findAllBySellerIdWithPaymentAndProduct(principal.getMember().getId()).stream()
+                .map(RefundRequestResponse::from)
                 .toList();
     }
 

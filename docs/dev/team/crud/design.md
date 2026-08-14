@@ -7,7 +7,7 @@
 ## API / 인터페이스
 
 - `GET/POST /api/products/{productId}/teams`, `POST /api/teams/{teamId}/join`,
-  `GET /api/teams/{teamId}/participants` — 상세: `docs/api/team.md`
+  `POST /api/teams/{teamId}/leave`, `GET /api/teams/{teamId}/participants` — 상세: `docs/api/team.md`
 
 ## 데이터 모델
 
@@ -69,6 +69,30 @@
 - **프론트**: `product.js`의 `createTeamItem()`에 "참여자 보기" 토글 버튼 + 펼치기 패널을 추가, 처음 펼칠 때만
   개별 조회한다(팀 목록 로드 시점에 한꺼번에 불러오지 않음).
 
+## 참여 취소 (team/leave)
+
+`join()`과 대칭적인 `POST /api/teams/{teamId}/leave` — 참여를 취소해 자리를 즉시 반환한다. 상세
+설계·환불 연동은 신규 개념 `refund/request`가 주로 다루므로(`docs/dev/refund/request/design.md`),
+여기서는 team 쪽 규칙만 요약한다.
+
+- **취소 가능 조건**: 로그인한 `BUYER`가 그 팀의 현재 참여자여야 하고(`FORBIDDEN`, 403), 팀 상태가
+  `RECRUITING`이어야 한다 — 그 외 상태(`SUCCESS`/`FAILED`)는 `TEAM_NOT_RECRUITING`(409)으로
+  거절된다. **팀이 정원을 채워 `SUCCESS`로 전환된 뒤에는 이 가드 때문에 그 팀의 어떤 참여자도
+  더는 참여를 취소할 수 없다** — 팀 결제의 환불이 오직 이 경로로만 열려 있다는 전체 제약
+  (`docs/dev/refund/request/design.md`)의 절반을 여기서 담당한다.
+- **동시성**: `join()`과 동일한 `GroupBuyTeamRepository.findByIdForUpdate`(비관적 락)를 그대로
+  재사용해, 취소와 동시에 다른 사람이 참가를 시도하는 경합을 직렬화한다.
+- **한 트랜잭션 안에서 처리**: 참여 기록 실제 삭제(`TeamParticipationRepository.
+  deleteByTeamIdAndMemberId`, 이 기능에서만 하드 삭제 — `docs/db/team_participation.md`) →
+  `GroupBuyTeam.decreaseParticipant()`로 정원 감소(자리 즉시 반환, `currentCount`가 0이 되면
+  `FAILED`로 전환) → 취소한 사람이 리더였다면 `changeLeader()`로 그다음 최초 참가자
+  (`findFirstByTeamIdOrderByJoinedAtAsc`)에게 승계(리더는 "방 구별용" 역할일 뿐 특별한 권한 없음) →
+  취소한 사람의 `PAID` 결제가 있으면 `RefundRequestService.createFromTeamLeave()`로 환불 요청 자동
+  생성.
+- **실시간 브로드캐스트**: 기존 `TeamCapacityChangedEvent`(`join()`과 동일 이벤트/토픽)를 그대로
+  재사용 — 신규 이벤트 불필요, 취소도 정원 변경이므로 같은 채널로 나간다.
+- **에러**: `TEAM_NOT_FOUND`(404), `TEAM_NOT_RECRUITING`(409), `FORBIDDEN`(403), `UNAUTHORIZED`(401).
+
 ## 트래픽 제어 (발제 백엔드 도전과제)
 
 k6 스파이크 테스트(`docs/logs/team/crud/004-spike-test.md`)로 `team/join`이 VU 약 3000 부근에서 Tomcat 동시 연결 수용 한계로 실제로 무너지는 걸 확인해뒀다. 그 실측 약점을 근거로, `POST /api/teams/{teamId}/join`에 애플리케이션 레벨 요청 제어를 추가했다.
@@ -97,18 +121,21 @@ k6 스파이크 테스트(`docs/logs/team/crud/004-spike-test.md`)로 `team/join
 
 ## 관련 코드 위치
 
-- `entity/{GroupBuyTeam,TeamStatus,TeamParticipation}.java` — `TeamParticipation`에 `uk_team_member`(team_id+member_id) 유니크 제약 추가
+- `entity/{GroupBuyTeam,TeamStatus,TeamParticipation}.java` — `TeamParticipation`에 `uk_team_member`(team_id+member_id) 유니크 제약 추가. `GroupBuyTeam.decreaseParticipant()`(participation 감소,
+  0이 되면 `FAILED`)/`changeLeader(Member)`(리더 승계) — team/leave에서 추가
 - `dto/{TeamResponse,TeamJoinResponse,TeamCreateRequest,TeamParticipantResponse}.java` — `TeamCreateRequest`는
   팀 신설 요청 body(`targetParticipants`), `TeamParticipantResponse`는 참여자 목록 응답(마스킹된 이름/팀장
-  여부/참여 시각)
+  여부/참여 시각), `TeamJoinResponse`는 `join()`/`leave()` 공용 응답
 - `repository/{GroupBuyTeamRepository,TeamParticipationRepository,PriceTierRepository}.java` —
   `findByIdForUpdate`(락 경로), `incrementIfCapacity`(원자적 경로), `findByProductIdOrderByMinCountAsc`
-  (신설 시 `targetParticipants` 존재 검증), `findAllByTeamIdWithMemberOrderByJoinedAtAsc`(참여자 목록 fetch join)
+  (신설 시 `targetParticipants` 존재 검증), `findAllByTeamIdWithMemberOrderByJoinedAtAsc`(참여자 목록 fetch join),
+  `deleteByTeamIdAndMemberId`/`findFirstByTeamIdOrderByJoinedAtAsc`(team/leave에서 추가 — 참여 기록 삭제/리더 승계 대상 조회)
 - `service/TeamService.java` — `create()`가 `PriceTierRepository`로 `price_tier.minCount` 존재 검증 후
   그 값으로 팀 생성, `join()`은 `team.join-strategy`로 `joinWithLock`/`joinAtomic` 분기, `participants()`는
-  팀 존재 검증 후 리더 우선 정렬+마스킹 매핑
-- `controller/TeamController.java`
-- `common/exception/ErrorCode.java` — `TEAM_NOT_FOUND`/`TEAM_FULL`/`ALREADY_JOINED`/`INVALID_TARGET_PARTICIPANTS` 추가
+  팀 존재 검증 후 리더 우선 정렬+마스킹 매핑, `leave()`는 `findByIdForUpdate` 재사용 + RECRUITING 가드 +
+  리더 승계 + `RefundRequestService.createFromTeamLeave()` 호출(위 "참여 취소" 절 참고)
+- `controller/TeamController.java` — `leave()` 추가(`POST /api/teams/{teamId}/leave`)
+- `common/exception/ErrorCode.java` — `TEAM_NOT_FOUND`/`TEAM_FULL`/`ALREADY_JOINED`/`INVALID_TARGET_PARTICIPANTS`/`TEAM_NOT_RECRUITING` 추가
 - `src/main/resources/application.yaml` — `team.join-strategy: lock`(기본값)
 - `k6/team-join-load-test.js` — 두 전략 공통 부하테스트 스크립트(설정값만 바꿔 재사용)
 - `common/filter/RateLimitFilter.java` — 트래픽 제어 필터
@@ -117,4 +144,6 @@ k6 스파이크 테스트(`docs/logs/team/crud/004-spike-test.md`)로 `team/join
 - `config/WebSocketConfig.java` — STOMP 엔드포인트/브로커 설정
 - `event/{TeamCapacityChangedEvent,TeamCapacityChangedEventListener}.java` — 실시간 메시징
 - `src/main/resources/static/product.html`, `js/product.js` — 실시간 갱신 구독(프론트)
-- 테스트: `controller/TeamControllerTest.java`(일반 케이스 13개 + 참여자 목록 5개), `service/TeamConcurrencyTest.java`(락 경로 동시성 검증), `service/TeamConcurrencyAtomicTest.java`(원자적 경로 동시성 검증, `@TestPropertySource`로 전략 전환), `common/filter/RateLimitFilterTest.java`(트래픽 제어 검증), `event/TeamCapacityBroadcastTest.java`(실시간 메시징 검증)
+- 테스트: `controller/TeamControllerTest.java`(일반 케이스 13개 + 참여자 목록 5개 + 참여 취소(leave) 11개 —
+  성공/자리재참가/리더승계/마지막참여자FAILED전환/TEAM_NOT_RECRUITING/FORBIDDEN/TEAM_NOT_FOUND/UNAUTHORIZED/
+  PAID결제환불요청자동생성/결제없으면생성안됨/자동환불설정즉시APPROVED), `service/TeamConcurrencyTest.java`(락 경로 동시성 검증), `service/TeamConcurrencyAtomicTest.java`(원자적 경로 동시성 검증, `@TestPropertySource`로 전략 전환), `common/filter/RateLimitFilterTest.java`(트래픽 제어 검증), `event/TeamCapacityBroadcastTest.java`(실시간 메시징 검증)

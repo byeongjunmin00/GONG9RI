@@ -17,6 +17,10 @@
  *   자동으로 팀 목록을 다시 그린다(connectRealtime, 실패해도 조용히 폴백 — 기존 흐름은 그대로 동작).
  * - 각 팀 항목의 "참여자 보기"를 누르면 그때 GET /api/teams/{teamId}/participants를 개별 조회해
  *   마스킹된 이름·팀장 배지·대략적 참여 시각을 펼쳐 보여준다(팀 목록 로드 시점에 한꺼번에 불러오지 않음).
+ * - "팀 성사 후 환불 불가" 체크박스(#refund-notice-checkbox)를 체크하지 않으면 "신규 팀 신설하기"와
+ *   각 팀의 "참가하기" 버튼이 비활성 상태를 유지한다(명시적 확인 없이는 팀 신설/참가를 진행할 수 없게
+ *   하는 가드 — 기존 목표 인원 라디오 가드와 같은 방식). "혼자 구매하기"는 이 제약과 무관하다(솔로
+ *   구매는 환불 불가 규칙의 대상이 아니라서).
  */
 (function () {
   var pageAlertEl = document.getElementById('page-alert');
@@ -36,6 +40,7 @@
   var priceTiersBodyEl = document.getElementById('price-tiers-body');
   var targetParticipantsFieldEl = document.getElementById('target-participants-field');
   var targetParticipantsOptionsEl = document.getElementById('target-participants-options');
+  var refundNoticeCheckboxEl = document.getElementById('refund-notice-checkbox');
 
   var buyAloneBtn = document.getElementById('buy-alone-btn');
   var createTeamBtn = document.getElementById('create-team-btn');
@@ -48,6 +53,7 @@
     !imageEl ||
     !sellerEl || !nameEl || !descriptionEl || !basePriceEl || !maxParticipantsEl ||
     !priceTiersTableEl || !priceTiersBodyEl || !targetParticipantsFieldEl || !targetParticipantsOptionsEl ||
+    !refundNoticeCheckboxEl ||
     !buyAloneBtn || !createTeamBtn ||
     !teamStatusEl || !teamListEl
   ) {
@@ -203,12 +209,35 @@
   }
 
   /**
+   * "팀 성사 후 환불 불가" 체크박스를 체크했는지 여부 — "신규 팀 신설하기"/각 팀의 "참가하기" 버튼
+   * 게이트로 쓴다(design.md 결정, 혼자 구매하기는 이 제약과 무관).
+   */
+  function refundNoticeAccepted() {
+    return refundNoticeCheckboxEl.checked;
+  }
+
+  function updateCreateTeamButtonState() {
+    createTeamBtn.disabled = selectedTargetParticipants === null || !refundNoticeAccepted();
+  }
+
+  /**
+   * 이미 렌더링된 모든 팀 항목의 "참가하기" 버튼 활성 상태를 체크박스 상태에 맞춰 다시 적용한다
+   * (체크박스를 늦게 체크해도 이미 그려진 팀 목록의 참가 버튼이 즉시 활성화되게).
+   */
+  function updateJoinButtonsState() {
+    var joinButtons = teamListEl.querySelectorAll('.team-item-join-btn');
+    joinButtons.forEach(function (btn) {
+      btn.disabled = !refundNoticeAccepted();
+    });
+  }
+
+  /**
    * "신규 팀 신설하기"에 쓸 목표 인원(price_tier.minCount) 라디오 옵션을 그린다.
    * 아무것도 선택되지 않은 상태로 초기화하고, create-team-btn은 선택 전까지 비활성 상태를 유지한다.
    */
   function renderTargetParticipantsOptions(tiers) {
     selectedTargetParticipants = null;
-    createTeamBtn.disabled = true;
+    updateCreateTeamButtonState();
     clearChildren(targetParticipantsOptionsEl);
 
     if (!tiers || tiers.length === 0) {
@@ -235,7 +264,7 @@
       input.value = String(tier.minCount);
       input.addEventListener('change', function () {
         selectedTargetParticipants = tier.minCount;
-        createTeamBtn.disabled = false;
+        updateCreateTeamButtonState();
       });
       label.appendChild(input);
 
@@ -346,8 +375,9 @@
 
     var joinBtn = document.createElement('button');
     joinBtn.type = 'button';
-    joinBtn.className = 'btn btn-secondary btn-sm';
+    joinBtn.className = 'btn btn-secondary btn-sm team-item-join-btn';
     joinBtn.textContent = '참가하기';
+    joinBtn.disabled = !refundNoticeAccepted();
     joinBtn.addEventListener('click', function () {
       handleJoin(team.teamId, joinBtn);
     });
@@ -458,6 +488,11 @@
   }
 
   function handleJoin(teamId, joinBtn) {
+    if (!refundNoticeAccepted()) {
+      showPageAlert('먼저 "팀 성사 후 환불 불가" 안내를 확인해주세요.', 'error');
+      return;
+    }
+
     hidePageAlert();
     joinBtn.disabled = true;
 
@@ -468,7 +503,7 @@
         loadTeams(currentProductId);
       })
       .catch(function (err) {
-        joinBtn.disabled = false;
+        joinBtn.disabled = !refundNoticeAccepted();
         handleActionError(err, currentProductId);
       });
   }
@@ -476,6 +511,10 @@
   function handleCreateTeam() {
     if (selectedTargetParticipants === null) {
       showPageAlert('목표 인원을 먼저 선택해주세요.', 'error');
+      return;
+    }
+    if (!refundNoticeAccepted()) {
+      showPageAlert('먼저 "팀 성사 후 환불 불가" 안내를 확인해주세요.', 'error');
       return;
     }
 
@@ -493,7 +532,7 @@
         handleActionError(err, currentProductId);
       })
       .then(function () {
-        createTeamBtn.disabled = selectedTargetParticipants === null;
+        updateCreateTeamButtonState();
       });
   }
 
@@ -562,6 +601,10 @@
 
     buyAloneBtn.addEventListener('click', handleBuyAlone);
     createTeamBtn.addEventListener('click', handleCreateTeam);
+    refundNoticeCheckboxEl.addEventListener('change', function () {
+      updateCreateTeamButtonState();
+      updateJoinButtonsState();
+    });
 
     loadProduct(productId);
     connectRealtime(productId);

@@ -6,9 +6,11 @@ import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.dto.BuyerTeamResponse;
 import com.gong9ri.gong9ri.dto.NotificationResponse;
 import com.gong9ri.gong9ri.dto.PurchaseResponse;
+import com.gong9ri.gong9ri.dto.RefundRequestResponse;
 import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.repository.NotificationRepository;
 import com.gong9ri.gong9ri.repository.PaymentRepository;
+import com.gong9ri.gong9ri.repository.RefundRequestRepository;
 import com.gong9ri.gong9ri.repository.TeamParticipationRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,7 @@ public class BuyerMypageService {
     private final PaymentRepository paymentRepository;
     private final TeamParticipationRepository teamParticipationRepository;
     private final NotificationRepository notificationRepository;
+    private final RefundRequestRepository refundRequestRepository;
 
     public List<PurchaseResponse> purchases(MemberUserDetails principal) {
         requireBuyer(principal);
@@ -42,6 +45,15 @@ public class BuyerMypageService {
         requireBuyer(principal);
         return notificationRepository.findAllByMemberIdOrderByCreatedAtDesc(principal.getMember().getId()).stream()
                 .map(NotificationResponse::from)
+                .toList();
+    }
+
+    // 본인이 요청한 환불 요청 전체(대기/승인/거절 포함) — 참여 취소로 자동 생성된 요청도 포함된다.
+    public List<RefundRequestResponse> refundRequests(MemberUserDetails principal) {
+        requireBuyer(principal);
+        return refundRequestRepository.findAllByRequesterIdWithPaymentAndProduct(principal.getMember().getId())
+                .stream()
+                .map(RefundRequestResponse::from)
                 .toList();
     }
 

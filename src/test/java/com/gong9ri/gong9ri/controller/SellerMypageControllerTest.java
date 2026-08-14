@@ -10,13 +10,17 @@ import com.gong9ri.gong9ri.entity.GroupBuyTeam;
 import com.gong9ri.gong9ri.entity.Member;
 import com.gong9ri.gong9ri.entity.Notification;
 import com.gong9ri.gong9ri.entity.NotificationType;
+import com.gong9ri.gong9ri.entity.Payment;
 import com.gong9ri.gong9ri.entity.Product;
+import com.gong9ri.gong9ri.entity.RefundRequest;
 import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.entity.SellerRevenueSummary;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.MemberRepository;
 import com.gong9ri.gong9ri.repository.NotificationRepository;
+import com.gong9ri.gong9ri.repository.PaymentRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
+import com.gong9ri.gong9ri.repository.RefundRequestRepository;
 import com.gong9ri.gong9ri.repository.SellerRevenueSummaryRepository;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
@@ -51,6 +55,12 @@ class SellerMypageControllerTest {
 
     @Autowired
     private NotificationRepository notificationRepository;
+
+    @Autowired
+    private PaymentRepository paymentRepository;
+
+    @Autowired
+    private RefundRequestRepository refundRequestRepository;
 
     private Member saveMember(String username, Role role) {
         Member member = new Member(username, "encoded-password", "테스트유저", username + "@test.com", role);
@@ -235,6 +245,58 @@ class SellerMypageControllerTest {
     @DisplayName("비로그인으로 알림 목록 조회 시 401 UNAUTHORIZED")
     void notifications_unauthorized() throws Exception {
         mockMvc.perform(get("/api/seller/mypage/notifications"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    @DisplayName("내 상품에 대한 환불 요청 목록 조회 성공")
+    void refundRequests_success() throws Exception {
+        Member seller = saveMember("mpSellerG1", Role.SELLER);
+        Product product = saveProduct(seller, "제주 감귤 5kg", 10);
+        Member buyer = saveMember("mpBuyerH1", Role.BUYER);
+        Payment payment = paymentRepository.save(new Payment(buyer, product, null, 25000));
+        refundRequestRepository.save(new RefundRequest(payment, buyer, "단순 변심"));
+
+        mockMvc.perform(get("/api/seller/mypage/refund-requests").with(asUser(seller)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].reason").value("단순 변심"));
+    }
+
+    @Test
+    @DisplayName("환불 요청 목록은 다른 판매자의 상품에 대한 요청은 안 보인다 (스코핑)")
+    void refundRequests_scoping_onlyOwnProducts() throws Exception {
+        Member sellerA = saveMember("mpSellerG2", Role.SELLER);
+        Member sellerB = saveMember("mpSellerG3", Role.SELLER);
+        Product productA = saveProduct(sellerA, "제주 감귤 5kg", 10);
+        Product productB = saveProduct(sellerB, "경북 사과 3kg", 8);
+        Member buyer = saveMember("mpBuyerH2", Role.BUYER);
+        Payment paymentA = paymentRepository.save(new Payment(buyer, productA, null, 25000));
+        Payment paymentB = paymentRepository.save(new Payment(buyer, productB, null, 20000));
+        refundRequestRepository.save(new RefundRequest(paymentA, buyer, "A 상품 환불"));
+        refundRequestRepository.save(new RefundRequest(paymentB, buyer, "B 상품 환불"));
+
+        mockMvc.perform(get("/api/seller/mypage/refund-requests").with(asUser(sellerA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].reason").value("A 상품 환불"));
+    }
+
+    @Test
+    @DisplayName("구매자 계정으로 환불 요청 목록 조회 시 403 FORBIDDEN")
+    void refundRequests_forbidden_buyer() throws Exception {
+        Member buyer = saveMember("mpBuyerC5", Role.BUYER);
+
+        mockMvc.perform(get("/api/seller/mypage/refund-requests").with(asUser(buyer)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("비로그인으로 환불 요청 목록 조회 시 401 UNAUTHORIZED")
+    void refundRequests_unauthorized() throws Exception {
+        mockMvc.perform(get("/api/seller/mypage/refund-requests"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
     }

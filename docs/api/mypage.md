@@ -16,10 +16,14 @@
       "productName": "제주 감귤 5kg",
       "amount": 18000,
       "status": "PAID",
-      "paidAt": "2026-07-24T14:35:00"
+      "paidAt": "2026-07-24T14:35:00",
+      "teamId": null
     }
   ]
   ```
+
+  > `teamId`: 팀이 딸린 결제면 값이 있고, 혼자구매면 `null`. `null`인(솔로 구매) `PAID` 결제만
+  > `docs/api/refund.md`의 직접 환불 요청 대상이다.
 
 - 에러:
   | 코드 | HTTP | 설명 |
@@ -179,6 +183,77 @@
       "relatedTeamId": 5,
       "isRead": false,
       "createdAt": "2026-08-10T10:00:00"
+    }
+  ]
+  ```
+
+- 에러:
+  | 코드 | HTTP | 설명 |
+  |------|------|------|
+  | `FORBIDDEN` | 403 | 구매자 계정으로 시도 |
+  | `UNAUTHORIZED` | 401 | 미인증 |
+
+---
+
+## 환불 요청
+
+응답 항목 형식은 `docs/api/refund.md`의 `RefundRequestResponse`와 동일하다(승인/거절 액션 자체는
+`docs/api/refund.md`의 `POST /api/refund-requests/{id}/approve`/`reject`가 담당 — 이 두 조회
+엔드포인트는 목록 노출만 한다).
+
+### GET /api/buyer/mypage/refund-requests — 구매자 본인 환불 요청 목록
+
+본인이 직접 요청했거나(솔로 구매), 본인의 참여 취소로 자동 생성된 환불 요청 전체(대기/승인/거절
+포함)를 반환한다.
+
+- 응답: `200 OK`
+  ```json
+  [
+    {
+      "refundRequestId": 1,
+      "paymentId": 10,
+      "productId": 1,
+      "productName": "제주 감귤 5kg",
+      "teamId": null,
+      "amount": 25000,
+      "paymentStatus": "PAID",
+      "status": "PENDING",
+      "reason": "단순 변심",
+      "rejectionReason": null,
+      "requestedAt": "2026-08-14T10:00:00",
+      "decidedAt": null
+    }
+  ]
+  ```
+
+- 에러:
+  | 코드 | HTTP | 설명 |
+  |------|------|------|
+  | `FORBIDDEN` | 403 | 판매자 계정으로 시도 |
+  | `UNAUTHORIZED` | 401 | 미인증 |
+
+---
+
+### GET /api/seller/mypage/refund-requests — 판매자 본인 상품 환불 요청 목록
+
+내가 등록한 상품에 대해 들어온 환불 요청 전체(대기/승인/거절 포함)를 반환한다.
+
+- 응답: `200 OK`
+  ```json
+  [
+    {
+      "refundRequestId": 1,
+      "paymentId": 10,
+      "productId": 1,
+      "productName": "제주 감귤 5kg",
+      "teamId": null,
+      "amount": 25000,
+      "paymentStatus": "PAID",
+      "status": "PENDING",
+      "reason": "단순 변심",
+      "rejectionReason": null,
+      "requestedAt": "2026-08-14T10:00:00",
+      "decidedAt": null
     }
   ]
   ```

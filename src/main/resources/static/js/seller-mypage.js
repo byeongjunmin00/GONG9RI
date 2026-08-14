@@ -14,6 +14,10 @@
  * - 상품 목록의 "삭제"는 confirm 확인 후 DELETE /api/products/{productId} 호출 →
  *   성공(204) 시 목록에서 해당 항목만 제거, 실패는 목록을 유지하고 상태 영역에 안내한다.
  * - 공구 참여 현황의 상태 뱃지/라벨은 js/product.js의 매핑(RECRUITING/SUCCESS/FAILED)과 동일하게 맞춘다.
+ * - 환불 요청 관리: GET /api/seller/mypage/refund-requests로 목록을 불러와 PENDING 항목에만
+ *   승인/거절 액션을 노출한다. 승인은 즉시 POST .../approve, 거절은 사유 템플릿(select)을 고른 뒤
+ *   POST .../reject로 확정한다(자유 텍스트 아님, docs/api/refund.md). 성공하면 그 항목만 다시 그려
+ *   전체 목록을 재조회하지 않는다.
  * - 서버 응답 문자열(에러 message 등)은 textContent로만 대입해 XSS를 방지한다.
  */
 (function () {
@@ -35,11 +39,15 @@
   var teamsStatusEl = document.getElementById('teams-status');
   var teamsListEl = document.getElementById('teams-list');
 
+  var refundRequestsStatusEl = document.getElementById('refund-requests-status');
+  var refundRequestsListEl = document.getElementById('refund-requests-list');
+
   if (
     !pageAlertEl || !pageAlertTextEl || !pageAlertLoginLinkEl || !mypageSectionsEl ||
     !productsStatusEl || !productsListEl ||
     !revenueStatusEl || !revenueCardsEl || !revenueTotalEl || !revenuePaidCountEl || !revenueRefundedCountEl ||
-    !teamsStatusEl || !teamsListEl
+    !teamsStatusEl || !teamsListEl ||
+    !refundRequestsStatusEl || !refundRequestsListEl
   ) {
     return;
   }
@@ -319,10 +327,217 @@
       });
   }
 
+  // ---------- 환불 요청 관리 ----------
+
+  var REJECTION_REASON_OPTIONS = [
+    { value: 'ALREADY_SHIPPED', label: '상품이 이미 발송됨' },
+    { value: 'ALREADY_USED', label: '이미 사용/소비된 상품' },
+    { value: 'POLICY_VIOLATION', label: '환불 정책 위반' },
+    { value: 'OTHER', label: '기타(판매자 사정)' },
+  ];
+
+  function refundRequestStatusToBadgeClass(status) {
+    if (status === 'APPROVED') {
+      return 'badge-success';
+    }
+    if (status === 'REJECTED') {
+      return 'badge-failed';
+    }
+    return 'badge-recruiting';
+  }
+
+  function refundRequestStatusToLabel(status) {
+    if (status === 'APPROVED') {
+      return '승인됨';
+    }
+    if (status === 'REJECTED') {
+      return '거절됨';
+    }
+    return '대기중';
+  }
+
+  function refundRequestMetaText(request) {
+    var amountText = formatPrice(request.amount);
+    var requestedAtText = request.requestedAt ? '요청일 ' + request.requestedAt : '';
+    var reasonText = request.reason ? '사유: ' + request.reason : '사유: 참여 취소';
+    var rejectionText = request.status === 'REJECTED' && request.rejectionReason
+      ? '거절 사유: ' + request.rejectionReason
+      : '';
+    return [amountText, requestedAtText, reasonText, rejectionText].filter(Boolean).join(' · ');
+  }
+
+  function createRejectPanel(request, li, badgeEl, metaEl, actionsEl) {
+    var panel = document.createElement('div');
+    panel.className = 'refund-reject-panel';
+    panel.hidden = true;
+
+    var select = document.createElement('select');
+    select.className = 'form-select';
+    REJECTION_REASON_OPTIONS.forEach(function (option) {
+      var optionEl = document.createElement('option');
+      optionEl.value = option.value;
+      optionEl.textContent = option.label;
+      select.appendChild(optionEl);
+    });
+    panel.appendChild(select);
+
+    var confirmBtn = document.createElement('button');
+    confirmBtn.type = 'button';
+    confirmBtn.className = 'btn btn-secondary btn-sm';
+    confirmBtn.textContent = '거절 확정';
+    confirmBtn.addEventListener('click', function () {
+      confirmBtn.disabled = true;
+      window.Api.post('/refund-requests/' + request.refundRequestId + '/reject', {
+        rejectionReason: select.value,
+      })
+        .then(function (updated) {
+          applyRefundRequestUpdate(updated, li, badgeEl, metaEl, actionsEl);
+        })
+        .catch(function (err) {
+          console.error('[seller-mypage.js] failed to reject refund request:', err);
+          confirmBtn.disabled = false;
+          if (handleUnauthorized(err)) {
+            return;
+          }
+          var message = (err && err.message) || '환불 요청 거절에 실패했습니다.';
+          showStatus(refundRequestsStatusEl, message, 'error');
+        });
+    });
+    panel.appendChild(confirmBtn);
+
+    var cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'btn btn-ghost btn-sm';
+    cancelBtn.textContent = '취소';
+    cancelBtn.addEventListener('click', function () {
+      panel.hidden = true;
+    });
+    panel.appendChild(cancelBtn);
+
+    return panel;
+  }
+
+  /**
+   * 승인/거절 성공 응답으로 그 항목만 다시 그린다(전체 목록 재조회 없음).
+   */
+  function applyRefundRequestUpdate(request, li, badgeEl, metaEl, actionsEl) {
+    badgeEl.className = 'badge ' + refundRequestStatusToBadgeClass(request.status);
+    badgeEl.textContent = refundRequestStatusToLabel(request.status);
+    metaEl.textContent = refundRequestMetaText(request);
+    clearChildren(actionsEl);
+    actionsEl.appendChild(badgeEl);
+  }
+
+  function createRefundRequestItem(request) {
+    var li = document.createElement('li');
+    li.className = 'mypage-list-item';
+
+    var infoEl = document.createElement('div');
+    infoEl.className = 'mypage-list-item__info';
+
+    var titleEl = document.createElement('span');
+    titleEl.className = 'mypage-list-item__title';
+    titleEl.textContent = request.productName || '';
+    infoEl.appendChild(titleEl);
+
+    var metaEl = document.createElement('span');
+    metaEl.className = 'mypage-list-item__meta';
+    metaEl.textContent = refundRequestMetaText(request);
+    infoEl.appendChild(metaEl);
+
+    li.appendChild(infoEl);
+
+    var badgeEl = document.createElement('span');
+    badgeEl.className = 'badge ' + refundRequestStatusToBadgeClass(request.status);
+    badgeEl.textContent = refundRequestStatusToLabel(request.status);
+
+    var actionsEl = document.createElement('div');
+    actionsEl.className = 'mypage-list-item__actions';
+
+    if (request.status !== 'PENDING') {
+      actionsEl.appendChild(badgeEl);
+      li.appendChild(actionsEl);
+      return li;
+    }
+
+    actionsEl.appendChild(badgeEl);
+
+    var approveBtn = document.createElement('button');
+    approveBtn.type = 'button';
+    approveBtn.className = 'btn btn-primary btn-sm';
+    approveBtn.textContent = '승인';
+    approveBtn.addEventListener('click', function () {
+      approveBtn.disabled = true;
+      window.Api.post('/refund-requests/' + request.refundRequestId + '/approve')
+        .then(function (updated) {
+          applyRefundRequestUpdate(updated, li, badgeEl, metaEl, actionsEl);
+        })
+        .catch(function (err) {
+          console.error('[seller-mypage.js] failed to approve refund request:', err);
+          approveBtn.disabled = false;
+          if (handleUnauthorized(err)) {
+            return;
+          }
+          var message = (err && err.message) || '환불 요청 승인에 실패했습니다.';
+          showStatus(refundRequestsStatusEl, message, 'error');
+        });
+    });
+    actionsEl.appendChild(approveBtn);
+
+    var rejectBtn = document.createElement('button');
+    rejectBtn.type = 'button';
+    rejectBtn.className = 'btn btn-ghost btn-sm';
+    rejectBtn.textContent = '거절';
+    var rejectPanel = createRejectPanel(request, li, badgeEl, metaEl, actionsEl);
+    rejectBtn.addEventListener('click', function () {
+      rejectPanel.hidden = !rejectPanel.hidden;
+    });
+    actionsEl.appendChild(rejectBtn);
+
+    li.appendChild(actionsEl);
+    li.appendChild(rejectPanel);
+
+    return li;
+  }
+
+  function renderRefundRequests(requests) {
+    clearChildren(refundRequestsListEl);
+    var fragment = document.createDocumentFragment();
+    requests.forEach(function (request) {
+      fragment.appendChild(createRefundRequestItem(request));
+    });
+    refundRequestsListEl.appendChild(fragment);
+  }
+
+  function loadRefundRequests() {
+    showStatus(refundRequestsStatusEl, '환불 요청 목록을 불러오는 중입니다...', 'loading');
+    clearChildren(refundRequestsListEl);
+
+    return window.Api.get('/seller/mypage/refund-requests')
+      .then(function (requests) {
+        var list = Array.isArray(requests) ? requests : [];
+        if (list.length === 0) {
+          showStatus(refundRequestsStatusEl, '아직 접수된 환불 요청이 없습니다.', 'empty');
+          return;
+        }
+        hideStatus(refundRequestsStatusEl);
+        renderRefundRequests(list);
+      })
+      .catch(function (err) {
+        console.error('[seller-mypage.js] failed to load refund requests:', err);
+        if (handleUnauthorized(err)) {
+          return;
+        }
+        var message = (err && err.message) || '환불 요청 목록을 불러오지 못했습니다.';
+        showStatus(refundRequestsStatusEl, message, 'error');
+      });
+  }
+
   function init() {
     loadProducts();
     loadRevenue();
     loadTeams();
+    loadRefundRequests();
   }
 
   init();

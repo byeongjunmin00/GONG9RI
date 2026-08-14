@@ -120,6 +120,14 @@
             <p id="price-tiers-error" class="form-error" role="alert" hidden></p>
           </div>
 
+          <!-- 참여 취소(공구팀)로 생기는 환불 요청을 승인 절차 없이 즉시 처리할지 여부(상품 단위 설정).
+               솔로 구매 직접 환불 요청에는 영향 없음(항상 판매자 승인 필요). -->
+          <label class="refund-notice-checkbox">
+            <input type="checkbox" id="auto-refund-on-cancel" />
+            구매자가 공구팀 참여를 취소하면, 그로 인해 생기는 환불 요청을 제 승인 없이 즉시 처리합니다
+            (자동 환불). 체크하지 않으면 참여 취소로 생긴 환불 요청도 제가 직접 승인/거절해야 합니다.
+          </label>
+
           <div class="product-actions">
             <button type="submit" id="submit-btn" class="btn btn-primary">등록하기</button>
             <a href="/" class="btn btn-secondary">취소하기</a>

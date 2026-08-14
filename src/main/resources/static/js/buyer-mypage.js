@@ -18,6 +18,13 @@
  *     productId 기준으로 purchases 목록에서 대응하는 PAID 결제를 찾아(best-effort) 금액/결제일시를
  *     함께 보여준다 — 매칭 실패해도 에러로 취급하지 않고 팀 정보만 표시한다.
  *   - FAILED: "미성사(환불 처리됨)"으로 표시한다(정책상 마감 지난 팀은 이미 환불 처리가 끝난 상태).
+ * - RECRUITING 팀 항목에는 "참여 취소" 버튼을 추가로 노출한다(POST /api/teams/{teamId}/leave). 성공하면
+ *   공구 참여 목록과 환불 요청 내역을 함께 다시 불러온다(취소로 환불 요청이 자동 생성될 수 있어서).
+ * - 혼자구매(teamId가 null)한 PAID 결제 항목에는 "환불 요청" 버튼 + 사유 입력 패널을 노출한다
+ *   (POST /api/payments/{paymentId}/refund-requests). 팀이 딸린 결제는 이 버튼 자체가 없다 — 그 환불은
+ *   참여 취소로만 가능하다(docs/api/refund.md).
+ * - 환불 요청 내역 섹션은 GET /api/buyer/mypage/refund-requests로 상태(대기/승인/거절)와 거절 사유를
+ *   읽기 전용으로 보여준다.
  * - 서버 응답 문자열(상품명/에러 message 등)은 textContent로만 대입해 XSS를 방지한다.
  */
 (function () {
@@ -33,10 +40,14 @@
   var teamsStatusEl = document.getElementById('teams-status');
   var teamsListEl = document.getElementById('teams-list');
 
+  var refundRequestsStatusEl = document.getElementById('refund-requests-status');
+  var refundRequestsListEl = document.getElementById('refund-requests-list');
+
   if (
     !pageAlertEl || !pageAlertTextEl || !pageAlertLoginLinkEl || !mypageSectionsEl ||
     !purchasesStatusEl || !purchasesListEl ||
-    !teamsStatusEl || !teamsListEl
+    !teamsStatusEl || !teamsListEl ||
+    !refundRequestsStatusEl || !refundRequestsListEl
   ) {
     return;
   }
@@ -143,6 +154,68 @@
     return '결제 완료';
   }
 
+  /**
+   * 혼자구매(teamId가 null)한 PAID 결제에만 "환불 요청" 버튼 + 사유 입력 패널을 붙인다 — 팀이 딸린
+   * 결제는 참여 취소로만 환불 가능하므로 이 버튼 자체를 노출하지 않는다(docs/api/refund.md).
+   */
+  function appendRefundRequestAction(purchase, actionsEl) {
+    if (purchase.teamId !== null || purchase.status !== 'PAID') {
+      return;
+    }
+
+    var requestBtn = document.createElement('button');
+    requestBtn.type = 'button';
+    requestBtn.className = 'btn btn-ghost btn-sm';
+    requestBtn.textContent = '환불 요청';
+    actionsEl.appendChild(requestBtn);
+
+    var panel = document.createElement('div');
+    panel.className = 'refund-reject-panel';
+    panel.hidden = true;
+
+    var reasonInput = document.createElement('input');
+    reasonInput.type = 'text';
+    reasonInput.className = 'form-input';
+    reasonInput.placeholder = '환불을 요청하는 사유를 입력하세요';
+    panel.appendChild(reasonInput);
+
+    var submitBtn = document.createElement('button');
+    submitBtn.type = 'button';
+    submitBtn.className = 'btn btn-secondary btn-sm';
+    submitBtn.textContent = '요청 보내기';
+    submitBtn.addEventListener('click', function () {
+      var reason = reasonInput.value.trim();
+      if (!reason) {
+        reasonInput.focus();
+        return;
+      }
+      submitBtn.disabled = true;
+      window.Api.post('/payments/' + purchase.paymentId + '/refund-requests', { reason: reason })
+        .then(function () {
+          panel.hidden = true;
+          requestBtn.disabled = true;
+          requestBtn.textContent = '요청됨';
+          loadRefundRequests();
+        })
+        .catch(function (err) {
+          console.error('[buyer-mypage.js] failed to create refund request:', err);
+          submitBtn.disabled = false;
+          if (handleUnauthorized(err)) {
+            return;
+          }
+          var message = (err && err.message) || '환불 요청에 실패했습니다.';
+          showStatus(purchasesStatusEl, message, 'error');
+        });
+    });
+    panel.appendChild(submitBtn);
+
+    requestBtn.addEventListener('click', function () {
+      panel.hidden = !panel.hidden;
+    });
+
+    actionsEl.appendChild(panel);
+  }
+
   function createPurchaseItem(purchase) {
     var li = document.createElement('li');
     li.className = 'mypage-list-item';
@@ -164,10 +237,17 @@
 
     li.appendChild(infoEl);
 
+    var actionsEl = document.createElement('div');
+    actionsEl.className = 'mypage-list-item__actions';
+
     var badgeEl = document.createElement('span');
     badgeEl.className = 'badge ' + purchaseStatusToBadgeClass(purchase.status);
     badgeEl.textContent = purchaseStatusToLabel(purchase.status);
-    li.appendChild(badgeEl);
+    actionsEl.appendChild(badgeEl);
+
+    appendRefundRequestAction(purchase, actionsEl);
+
+    li.appendChild(actionsEl);
 
     return li;
   }
@@ -288,10 +368,47 @@
 
     li.appendChild(infoEl);
 
+    var actionsEl = document.createElement('div');
+    actionsEl.className = 'mypage-list-item__actions';
+
     var badgeEl = document.createElement('span');
     badgeEl.className = 'badge ' + teamStatusToBadgeClass(team.status);
     badgeEl.textContent = teamStatusToLabel(team.status);
-    li.appendChild(badgeEl);
+    actionsEl.appendChild(badgeEl);
+
+    // RECRUITING 팀만 참여 취소 가능(팀이 정원을 채워 SUCCESS로 전환된 뒤에는 취소 불가 —
+    // docs/api/team.md의 POST /api/teams/{teamId}/leave 계약).
+    if (team.status === 'RECRUITING') {
+      var leaveBtn = document.createElement('button');
+      leaveBtn.type = 'button';
+      leaveBtn.className = 'btn btn-ghost btn-sm';
+      leaveBtn.textContent = '참여 취소';
+      leaveBtn.addEventListener('click', function () {
+        var confirmed = window.confirm(
+          '이 공구팀 참여를 취소하시겠습니까? 결제하신 금액이 있으면 환불 요청이 자동으로 생성됩니다.');
+        if (!confirmed) {
+          return;
+        }
+        leaveBtn.disabled = true;
+        window.Api.post('/teams/' + team.teamId + '/leave')
+          .then(function () {
+            loadTeams();
+            loadRefundRequests();
+          })
+          .catch(function (err) {
+            console.error('[buyer-mypage.js] failed to leave team:', err);
+            leaveBtn.disabled = false;
+            if (handleUnauthorized(err)) {
+              return;
+            }
+            var message = (err && err.message) || '참여 취소에 실패했습니다.';
+            showStatus(teamsStatusEl, message, 'error');
+          });
+      });
+      actionsEl.appendChild(leaveBtn);
+    }
+
+    li.appendChild(actionsEl);
 
     return li;
   }
@@ -329,12 +446,101 @@
       });
   }
 
+  // ---------- 환불 요청 내역(읽기 전용) ----------
+
+  function refundRequestStatusToBadgeClass(status) {
+    if (status === 'APPROVED') {
+      return 'badge-success';
+    }
+    if (status === 'REJECTED') {
+      return 'badge-failed';
+    }
+    return 'badge-recruiting';
+  }
+
+  function refundRequestStatusToLabel(status) {
+    if (status === 'APPROVED') {
+      return '승인됨(환불 처리중/완료)';
+    }
+    if (status === 'REJECTED') {
+      return '거절됨';
+    }
+    return '대기중';
+  }
+
+  function createRefundRequestItem(request) {
+    var li = document.createElement('li');
+    li.className = 'mypage-list-item';
+
+    var infoEl = document.createElement('div');
+    infoEl.className = 'mypage-list-item__info';
+
+    var titleEl = document.createElement('span');
+    titleEl.className = 'mypage-list-item__title';
+    titleEl.textContent = request.productName || '';
+    infoEl.appendChild(titleEl);
+
+    var metaEl = document.createElement('span');
+    metaEl.className = 'mypage-list-item__meta';
+    var amountText = formatPrice(request.amount);
+    var requestedAtText = request.requestedAt ? '요청일 ' + request.requestedAt : '';
+    var reasonText = request.reason ? '사유: ' + request.reason : '사유: 참여 취소';
+    var rejectionText = request.status === 'REJECTED' && request.rejectionReason
+      ? '거절 사유: ' + request.rejectionReason
+      : '';
+    metaEl.textContent = [amountText, requestedAtText, reasonText, rejectionText].filter(Boolean).join(' · ');
+    infoEl.appendChild(metaEl);
+
+    li.appendChild(infoEl);
+
+    var badgeEl = document.createElement('span');
+    badgeEl.className = 'badge ' + refundRequestStatusToBadgeClass(request.status);
+    badgeEl.textContent = refundRequestStatusToLabel(request.status);
+    li.appendChild(badgeEl);
+
+    return li;
+  }
+
+  function renderRefundRequests(requests) {
+    clearChildren(refundRequestsListEl);
+    var fragment = document.createDocumentFragment();
+    requests.forEach(function (request) {
+      fragment.appendChild(createRefundRequestItem(request));
+    });
+    refundRequestsListEl.appendChild(fragment);
+  }
+
+  function loadRefundRequests() {
+    showStatus(refundRequestsStatusEl, '환불 요청 내역을 불러오는 중입니다...', 'loading');
+    clearChildren(refundRequestsListEl);
+
+    return window.Api.get('/buyer/mypage/refund-requests')
+      .then(function (requests) {
+        var list = Array.isArray(requests) ? requests : [];
+        if (list.length === 0) {
+          showStatus(refundRequestsStatusEl, '환불 요청 내역이 없습니다.', 'empty');
+          return;
+        }
+        hideStatus(refundRequestsStatusEl);
+        renderRefundRequests(list);
+      })
+      .catch(function (err) {
+        console.error('[buyer-mypage.js] failed to load refund requests:', err);
+        if (handleUnauthorized(err)) {
+          return;
+        }
+        var message = (err && err.message) || '환불 요청 내역을 불러오지 못했습니다.';
+        showStatus(refundRequestsStatusEl, message, 'error');
+      });
+  }
+
   function init() {
     // purchases를 먼저 로드해 latestPurchases를 채운 뒤 teams를 로드해야
     // SUCCESS 항목의 결제 매칭(findMatchingPurchase)이 최신 데이터를 사용할 수 있다.
     loadPurchases().then(function () {
       loadTeams();
     });
+    loadRefundRequests();
   }
 
   init();
