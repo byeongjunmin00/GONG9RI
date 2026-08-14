@@ -11,6 +11,7 @@ import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.common.security.TokenService;
 import com.gong9ri.gong9ri.dto.EmailVerificationResendRequest;
 import com.gong9ri.gong9ri.dto.KakaoLoginResult;
+import com.gong9ri.gong9ri.dto.MemberInfoUpdateRequest;
 import com.gong9ri.gong9ri.dto.MemberLoginRequest;
 import com.gong9ri.gong9ri.dto.MemberResponse;
 import com.gong9ri.gong9ri.dto.MemberSignupRequest;
@@ -44,6 +45,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -126,6 +128,28 @@ public class AuthController {
     public ResponseEntity<ApiResponse<MemberResponse>> me(@AuthenticationPrincipal MemberUserDetails principal) {
         MemberResponse response = MemberResponse.from(principal.getMember());
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    // 세션의 SecurityContext가 들고 있는 principal은 로그인 시점에 로드된 Member 스냅샷이라, DB만
+    // 바꾸고 세션을 안 갱신하면 이후 GET /me나 헤더 표시가 수정 전 값을 계속 보여주게 된다 —
+    // login()/kakaoCallback()과 동일하게 갱신된 principal로 SecurityContext를 다시 세팅한다.
+    @PatchMapping("/me")
+    public ResponseEntity<ApiResponse<MemberResponse>> updateMe(
+            @AuthenticationPrincipal MemberUserDetails principal,
+            @Valid @RequestBody MemberInfoUpdateRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
+        Member updated = memberService.updateInfo(principal.getMember().getId(), request);
+
+        MemberUserDetails newPrincipal = new MemberUserDetails(updated);
+        Authentication authentication =
+                new UsernamePasswordAuthenticationToken(newPrincipal, null, newPrincipal.getAuthorities());
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(authentication);
+        SecurityContextHolder.setContext(context);
+        securityContextRepository.saveContext(context, httpRequest, httpResponse);
+
+        return ResponseEntity.ok(ApiResponse.success(MemberResponse.from(updated)));
     }
 
     // 세션 무효화만으로는 (1) 현재 요청 스레드에 남아있는 SecurityContextHolder의 인증 정보,

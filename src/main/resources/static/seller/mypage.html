@@ -41,6 +41,32 @@
       </div>
 
       <div id="mypage-sections">
+        <!-- 계정 정보 수정 -->
+        <section class="mypage-section">
+          <div class="section__head">
+            <h2>계정 정보</h2>
+          </div>
+
+          <!-- 저장 성공/실패 공통 안내. js/account-info.js가 제어한다. -->
+          <div id="account-info-alert" class="form-alert" role="alert" hidden></div>
+
+          <form id="account-info-form" novalidate>
+            <div class="form-group">
+              <label class="form-label" for="account-name">이름</label>
+              <input class="form-input" type="text" id="account-name" name="name" autocomplete="name" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="account-email">이메일</label>
+              <input class="form-input" type="email" id="account-email" name="email" autocomplete="email" />
+              <!-- DUPLICATE_EMAIL 안내. js/account-info.js가 제어한다. -->
+              <p id="account-email-error" class="form-error" role="alert" hidden></p>
+            </div>
+
+            <button type="submit" id="account-info-submit" class="btn btn-primary">저장</button>
+          </form>
+        </section>
+
         <!-- 등록 상품 목록 -->
         <section class="mypage-section">
           <div class="section__head">
@@ -98,6 +124,7 @@
   <script src="/js/api.js"></script>
   <script src="/js/header-auth.js"></script>
   <script src="/js/chat-widget.js"></script>
+  <script src="/js/account-info.js"></script>
   <script src="/js/seller-mypage.js"></script>
 </body>
 </html>
