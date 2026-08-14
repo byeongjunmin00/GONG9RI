@@ -99,7 +99,7 @@ public class RefundRequestService {
     @Transactional
     public RefundRequestResponse approve(MemberUserDetails principal, Long refundRequestId) {
         requireSeller(principal);
-        RefundRequest refundRequest = findWithOwnerCheck(principal, refundRequestId);
+        RefundRequest refundRequest = lockAndVerifyOwner(principal, refundRequestId);
 
         if (refundRequest.getStatus() != RefundRequestStatus.PENDING) {
             throw new BusinessException(ErrorCode.REFUND_REQUEST_ALREADY_DECIDED);
@@ -118,7 +118,7 @@ public class RefundRequestService {
     public RefundRequestResponse reject(MemberUserDetails principal, Long refundRequestId,
             RefundRequestRejectRequest request) {
         requireSeller(principal);
-        RefundRequest refundRequest = findWithOwnerCheck(principal, refundRequestId);
+        RefundRequest refundRequest = lockAndVerifyOwner(principal, refundRequestId);
 
         if (refundRequest.getStatus() != RefundRequestStatus.PENDING) {
             throw new BusinessException(ErrorCode.REFUND_REQUEST_ALREADY_DECIDED);
@@ -131,8 +131,19 @@ public class RefundRequestService {
         return RefundRequestResponse.from(refundRequest);
     }
 
-    private RefundRequest findWithOwnerCheck(MemberUserDetails principal, Long refundRequestId) {
-        RefundRequest refundRequest = refundRequestRepository.findByIdWithPaymentAndProduct(refundRequestId)
+    /**
+     * approve()/reject()가 공통으로 쓴다 — 판매자가 같은 요청을 거의 동시에 두 번 승인/거절하려는
+     * 경합(중복 클릭, 여러 탭 등)을 막기 위해 이 트랜잭션에서 이 엔티티를 처음 읽는 시점에 바로
+     * 비관적 락을 건다({@code findByIdForUpdate}). 처음엔 "소유권 확인은 언락 조회로, 그 다음 락만
+     * 추가로 건다"는 2단계 방식으로 짰다가 실측(동시 8회 승인 테스트)으로 실패를 확인했다 — Hibernate는
+     * 이미 영속성 컨텍스트에 있는 엔티티를 재조회(락 강화 포함)해도 필드 값을 자동으로 새로고침하지
+     * 않아서, 락은 걸리지만 그 뒤 상태 체크는 락 걸기 전에 읽어둔 낡은 값을 그대로 보고 있었다.
+     * 그래서 이 트랜잭션에서 이 엔티티를 읽는 시점 자체를 락 조회 하나로 합쳤다 — 처음 읽는 값이므로
+     * "낡은 캐시" 문제가 생길 여지가 없다. 소유권 확인은 그 결과(payment.product.seller)를
+     * 지연로딩으로 확인한다(단건 처리라 추가 SELECT 몇 번은 N+1 문제로 볼 규모가 아님).
+     */
+    private RefundRequest lockAndVerifyOwner(MemberUserDetails principal, Long refundRequestId) {
+        RefundRequest refundRequest = refundRequestRepository.findByIdForUpdate(refundRequestId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.REFUND_REQUEST_NOT_FOUND));
         if (!refundRequest.getPayment().getProduct().getSeller().getId().equals(principal.getMember().getId())) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
