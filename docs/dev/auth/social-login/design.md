@@ -8,7 +8,7 @@
 
 ## 흐름
 
-1. `GET /api/auth/kakao/login?role=BUYER|SELLER`(선택, 기본 `BUYER`) — 카카오 인가 URL로 302 리다이렉트. 랜덤 nonce(`state`)와 함께 `role`도 `HttpSession`에 저장한다(신규 가입 시에만 사용, CSRF 방지는 `state`가 담당).
+1. `GET /api/auth/kakao/login?role=BUYER|SELLER`(선택, 기본 `BUYER`) — 카카오 인가 URL로 302 리다이렉트. 랜덤 nonce(`state`)와 함께 `role`도 `HttpSession`에 저장한다(신규 가입 시에만 사용, CSRF 방지는 `state`가 담당). 인가 URL에는 `prompt=login`을 항상 포함한다(2026-08-14 추가 — 아래 "카카오 자체 세션 강제 재인증" 참고).
 2. 사용자가 카카오에서 로그인·동의 → 카카오가 `GET /api/auth/kakao/callback?code=...&state=...`로 리다이렉트.
 3. 콜백에서: 세션에 저장된 `state`와 일치 확인(불일치 시 즉시 거부, 카카오 API 호출 자체를 안 함) → `code`로 액세스 토큰 발급 → 사용자 정보 조회 → 카카오 `id`로 기존 연동 계정 조회, 없으면 신규 생성 → 세션 생성(기존 `SecurityContextRepository` 재사용, `AuthController.login()`과 동일한 방식) → `/`(성공) 또는 `/login.html?error=kakao`(실패)로 302 리다이렉트.
 4. 실패(state 불일치, 토큰 교환 실패, 이메일 충돌 등)는 전부 `/login.html?error=kakao`로 리다이렉트한다 — 이 흐름은 브라우저 풀 리다이렉트라 JSON 에러 응답이 의미 없다(`?signup=success`/`?reset=success` 처리하는 기존 `login.js` 패턴과 동일하게 쿼리 파라미터로 안내).
@@ -34,6 +34,27 @@ role을 그대로 유지하는 것과 별개로, "이미 SELLER로 가입된 계
 - `kakaoCallback()`은 `explicitRoleRequested(세션에 role 값이 있었는지) && result.roleMismatch()`일 때만 성공 리다이렉트를 `/?kakaoRoleMismatch=<실제 role>`로 보낸다(그 외엔 기존과 동일하게 `/`). role이 일치하거나 role 파라미터 없는 일반 로그인 경로는 안내 없이 조용히 `/`로 리다이렉트된다(현행 유지).
 - 프론트: `index.html`에 배너 영역(`#page-alert`, 기존 `.form-alert`/`.form-alert--success` 재사용), `js/main.js`가 `?kakaoRoleMismatch=BUYER|SELLER` 쿼리를 읽어 "이미 O로 가입되어 있어 O로 로그인되었습니다" 문구를 표시한다(`login.js`의 `?signup=success`와 같은 "쿼리파라미터 + 페이지 로드시 배너" 패턴).
 - 검증: `KakaoLoginTest.kakaoCallback_existingAccount_ignoresIntendedRole`(role 유지 + 안내 신호 확인), `kakaoCallback_existingAccount_withoutExplicitRole_noMismatchSignal`(신규, role 파라미터 없는 재로그인은 안내 없음 확인).
+
+### 카카오 자체 세션 강제 재인증 (2026-08-14 추가)
+
+실사용 중 발견: 우리 앱에서 로그아웃한 뒤 "카카오로 로그인"을 다시 눌러도, 카카오 자체 로그인
+세션(기본 24시간, "로그인 상태 유지" 선택 시 최대 1개월 — 카카오 고객센터 안내 기준)이
+남아있으면 카카오가 로그인 화면 없이 곧바로 인가 코드를 내려줘서 재인증 없이 재로그인됐다.
+실제 프로덕션(`gong9ri-production.up.railway.app`)에서 직접 재현 확인함.
+
+`AuthController.kakaoLogin()`이 조립하는 인가 URL에 `prompt=login` 파라미터를 추가해 해결한다.
+카카오 공식 문서(Kakao Developers REST API): "기존 사용자 인증 여부와 상관없이 사용자에게
+카카오계정 로그인 화면을 출력하여 다시 사용자 인증을 수행하고자 할 때 사용". role 파라미터
+유무와 무관하게 `kakaoLogin()`의 모든 진입 경로(로그인 페이지의 일반 버튼, 회원가입 페이지의
+역할별 버튼)에 항상 적용한다 — 별도 분기 없음. 부수 효과로, 사용자가 다른 카카오 계정으로
+전환해서 로그인하고 싶을 때도 항상 로그인 화면이 뜨므로 계정 전환이 가능해진다.
+
+**알려진 제한**: 카카오톡 인앱 브라우저에서는 `prompt=login`이 지원되지 않는다(카카오 공식
+문서에 명시) — 이 경우 카카오 자체 세션이 남아있으면 여전히 재인증 없이 통과될 수 있다. 이번
+스코프에서는 별도 분기 처리를 하지 않는다(알려진 한계로 기록).
+
+검증: `KakaoLoginTest.kakaoLogin_authorizeUrl_includesPromptLogin` — 인가 요청의 `Location`
+헤더에 `prompt=login`이 포함되는지 확인.
 
 ### 카카오 합성 username 중복 사전 검증 (2026-08-14 추가)
 
@@ -86,6 +107,7 @@ role을 그대로 유지하는 것과 별개로, "이미 SELLER로 가입된 계
 
 - role 불일치 안내 + 합성 username 중복 검증 + 로그 스택트레이스 보존 수정 후 `./gradlew test` 전체 통과 확인(202개, 실패 0 — `KakaoLoginTest` 6→8, `AuthControllerTest` 24→25, 나머지 회귀 전부 그대로 통과). 상세 시도/증거는 `docs/logs/auth/social-login/001-kakao-login-session-fix.md` 참고.
 - 실제 카카오 브라우저 흐름으로 role 불일치 배너를 재현하는 수동 확인은 로컬 카카오 앱 재설정이 필요해 이번엔 수행하지 않음 — `KakaoLoginTest`의 Mockito 기반 통합 테스트로만 검증됨(알려진 한계로 아래 기록).
+- `prompt=login` 추가 후 `./gradlew test --rerun-tasks` 전체 통과 확인(203개, 실패 0 — `KakaoLoginTest` 8→9). 실제 프로덕션에서의 재현("카카오 자체 세션 때문에 재인증 없이 재로그인됨")을 사용자가 직접 확인해준 것을 바탕으로 원인을 특정함. 상세 시도/증거는 `docs/logs/auth/social-login/002-kakao-force-reauth.md` 참고.
 
 ## 필요한 운영 환경변수
 
@@ -103,7 +125,7 @@ role을 그대로 유지하는 것과 별개로, "이미 SELLER로 가입된 계
 - `static/login.html`/`js/login.js` — 카카오 로그인 버튼, `?error=kakao` 안내
 - `static/signup.html` — 역할별 카카오 버튼 2개("...시작하기", 2026-08-14 문구 변경)
 - `static/index.html`/`js/main.js`(2026-08-14 추가) — role 불일치 안내 배너
-- 테스트: `src/test/.../controller/KakaoLoginTest.java`(총 8개 — role 불일치 안내 2개, 합성 username 충돌 1개 포함)
+- 테스트: `src/test/.../controller/KakaoLoginTest.java`(총 9개 — role 불일치 안내 2개, 합성 username 충돌 1개, `prompt=login` 확인 1개 포함)
 
 ## 알려진 한계 / 리스크 (추가, 2026-08-14)
 

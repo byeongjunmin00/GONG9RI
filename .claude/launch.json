@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "gong9ri-bootrun",
+      "runtimeExecutable": "C:\\GitHub\\GONG9RI-main\\gradlew.bat",
+      "runtimeArgs": ["bootRun"],
+      "port": 8080
+    }
+  ]
+}

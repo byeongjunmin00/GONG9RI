@@ -150,7 +150,7 @@
 > 사람(브라우저)이 링크를 클릭해서 들어오는 요청 — JSON이 아니라 카카오 인가 페이지로 **302 리다이렉트**한다. `docs/dev/auth/social-login/design.md` 참고.
 
 - 요청: 쿼리 파라미터 `role`(선택, `BUYER` | `SELLER`) — **신규 가입일 때만** 쓰인다(이미 연동된 계정으로 로그인하는 경우 role은 항상 무시되고 기존 role 그대로 로그인됨). 값이 없거나 유효하지 않으면 세션에 저장하지 않고, 신규 가입 시엔 `BUYER`로 폴백한다(2026-08-14부터 — `docs/dev/auth/social-login/design.md` "role 불일치 안내" 참고). `role`을 명시적으로 보냈는지 여부가 아래 콜백의 `kakaoRoleMismatch` 안내 신호 발생 조건에 영향을 준다.
-- 응답: `302 Found`, `Location: https://kauth.kakao.com/oauth/authorize?...` — CSRF 방지용 `state`와(명시된 경우) `role`을 세션에 저장한다.
+- 응답: `302 Found`, `Location: https://kauth.kakao.com/oauth/authorize?...&prompt=login&...` — CSRF 방지용 `state`와(명시된 경우) `role`을 세션에 저장한다. `prompt=login`은 카카오 자체 로그인 세션이 남아있어도 매번 카카오 로그인 화면을 다시 띄우게 강제한다(2026-08-14 추가 — 로그아웃 후 재로그인 시 재인증 없이 통과되던 문제 수정, `docs/dev/auth/social-login/design.md` "카카오 자체 세션 강제 재인증" 참고). 카카오톡 인앱 브라우저에서는 이 파라미터가 지원되지 않는다.
 
 ---
 

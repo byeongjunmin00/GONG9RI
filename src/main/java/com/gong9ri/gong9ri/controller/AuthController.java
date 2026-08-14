@@ -212,10 +212,15 @@ public class AuthController {
             session.setAttribute(KAKAO_OAUTH_ROLE_SESSION_KEY, parsedRole);
         }
 
+        // prompt=login — 카카오 자체 로그인 세션(기본 24시간, "로그인 상태 유지" 선택 시 최대 1개월)이
+        // 남아있어도 매번 카카오 로그인 화면을 다시 띄우게 강제한다. 우리 앱에서 로그아웃한 뒤 다시
+        // "카카오로 로그인"을 눌렀을 때, 카카오 쪽 세션 때문에 재인증 없이 바로 로그인되는 걸 막기 위함
+        // (카카오톡 인앱 브라우저에서는 이 파라미터가 지원되지 않는다 — 카카오 공식 문서에 명시된 제한).
         String authorizeUrl = "https://kauth.kakao.com/oauth/authorize"
                 + "?client_id=" + URLEncoder.encode(kakaoClientId, StandardCharsets.UTF_8)
                 + "&redirect_uri=" + URLEncoder.encode(kakaoRedirectUri(), StandardCharsets.UTF_8)
                 + "&response_type=code"
+                + "&prompt=login"
                 + "&state=" + state;
         httpResponse.sendRedirect(authorizeUrl);
     }

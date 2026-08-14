@@ -65,6 +65,18 @@ class KakaoLoginTest {
     }
 
     @Test
+    @DisplayName("카카오 인가 요청 URL은 카카오 자체 세션이 남아있어도 재인증하도록 prompt=login을 포함한다")
+    void kakaoLogin_authorizeUrl_includesPromptLogin() throws Exception {
+        MvcResult result = mockMvc.perform(get("/api/auth/kakao/login"))
+                .andExpect(status().is3xxRedirection())
+                .andReturn();
+
+        String location = result.getResponse().getRedirectedUrl();
+        assertNotNull(location);
+        assertTrue(location.contains("prompt=login"));
+    }
+
+    @Test
     @DisplayName("처음 카카오로 로그인하면 새 회원이 생성되고 로그인된다")
     void kakaoCallback_newUser_createsAccountAndLogsIn() throws Exception {
         MockHttpSession session = startAuthorizeFlowAndGetSession();
