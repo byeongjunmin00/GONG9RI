@@ -5,6 +5,7 @@ import com.gong9ri.gong9ri.common.exception.ErrorCode;
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.dto.TeamCreateRequest;
 import com.gong9ri.gong9ri.dto.TeamJoinResponse;
+import com.gong9ri.gong9ri.dto.TeamParticipantResponse;
 import com.gong9ri.gong9ri.dto.TeamResponse;
 import com.gong9ri.gong9ri.entity.GroupBuyTeam;
 import com.gong9ri.gong9ri.entity.Member;
@@ -19,6 +20,7 @@ import com.gong9ri.gong9ri.repository.PriceTierRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
 import com.gong9ri.gong9ri.repository.TeamParticipationRepository;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -146,6 +148,30 @@ public class TeamService {
         log.info("공구팀 참가 완료(atomic): teamId={}, memberId={}, currentCount={}",
                 teamId, member.getId(), team.getCurrentCount());
         return response;
+    }
+
+    /**
+     * 팀 참여자 목록(마스킹된 이름/팀장 여부/참여 시각)을 리더 우선 + joinedAt 오름차순으로 반환한다.
+     * 비로그인 사용자도 호출할 수 있는 공개 조회다(SecurityConfig permitAll, docs/dev/team/crud/changes/ 참고).
+     */
+    public List<TeamParticipantResponse> participants(Long teamId) {
+        if (!groupBuyTeamRepository.existsById(teamId)) {
+            throw new BusinessException(ErrorCode.TEAM_NOT_FOUND);
+        }
+
+        List<TeamParticipation> participations =
+                teamParticipationRepository.findAllByTeamIdWithMemberOrderByJoinedAtAsc(teamId);
+
+        // joinedAt 오름차순으로 이미 조회했으므로, 리더 여부만 안정 정렬(stable sort)로 앞으로 끌어오면
+        // "리더 먼저, 이후 참여 순서" 규칙이 완성된다.
+        return participations.stream()
+                .sorted(Comparator.comparing(TeamService::isLeaderOf).reversed())
+                .map(p -> TeamParticipantResponse.from(p, isLeaderOf(p)))
+                .toList();
+    }
+
+    private static boolean isLeaderOf(TeamParticipation participation) {
+        return participation.getMember().getId().equals(participation.getTeam().getLeader().getId());
     }
 
     private void requireBuyer(MemberUserDetails principal) {

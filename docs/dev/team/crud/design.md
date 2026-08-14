@@ -6,7 +6,8 @@
 
 ## API / 인터페이스
 
-- `GET/POST /api/products/{productId}/teams`, `POST /api/teams/{teamId}/join` — 상세: `docs/api/team.md`
+- `GET/POST /api/products/{productId}/teams`, `POST /api/teams/{teamId}/join`,
+  `GET /api/teams/{teamId}/participants` — 상세: `docs/api/team.md`
 
 ## 데이터 모델
 
@@ -46,6 +47,28 @@
 - 목록은 `RECRUITING` 상태만 반환, 인증 불필요(`GET /api/products/**`가 이미 permitAll)
 - `team/deadline-check`(마감 지난 팀 자동 `FAILED`+환불)는 전용운이 구현 완료(`docs/dev/team/deadline-check/`) — `TeamService.join()`의 락 경로(`findByIdForUpdate`)를 재사용해 마감 처리와 참가 시도의 동시성 경합을 막음
 
+## 참여자 목록 표시
+
+참가를 고민하는 구매자가 "누가 벌써 참여했는지" 참고할 수 있게 `GET /api/teams/{teamId}/participants`로
+그 팀의 현재 참여자 목록을 보여준다.
+
+- **노출 정보**: `displayName`(마스킹된 이름, 첫 글자만 노출+나머지 글자수만큼 `*`. 1글자 이름은 `*` 하나로
+  전체 마스킹), `isLeader`(팀장 여부), `joinedAt`(참여 시각 원본 ISO-8601, 화면에서는 "N일 전 참여"처럼
+  대략적으로만 표시). `memberId`·실명 원문·이메일 등 식별정보는 응답에 포함하지 않는다.
+- **정렬**: 팀장이 먼저, 이후 `joinedAt` 오름차순(참여한 순서). 리포지토리는 `joinedAt` 오름차순으로만
+  가져오고, "리더 우선"은 서비스 계층에서 안정 정렬(stable sort)로 마무리한다.
+- **인증**: 불필요(비로그인 공개, `SecurityConfig` permitAll) — 마스킹된 이름만 노출되고 `currentCount`처럼
+  이미 공개된 정보와 같은 등급으로 취급한다.
+- **에러**: `TEAM_NOT_FOUND`(404, 기존 코드 재사용) — 존재하지 않는 `teamId`.
+- **N+1 방지**: `TeamParticipationRepositoryImpl.findAllByTeamIdWithMemberOrderByJoinedAtAsc`가
+  `member`/`team`/`team.leader`를 모두 fetch join해 쿼리 1번으로 끝난다.
+- **스키마 변경 없음**: 닉네임 필드를 새로 추가하지 않고 기존 `Member.name`을 읽기 시점에 마스킹한다(닉네임
+  기능은 별도 스코프로 미룸). `TeamParticipation.joinedAt`/`GroupBuyTeam.leader`도 기존 컬럼 그대로 사용.
+- **스코프 제외**: 참여자 상세 클릭, 참여자 목록 페이지네이션, 팀 신설 실시간 브로드캐스트에 참여자 목록
+  변경 반영 — 전부 제외(팀 정원 자체가 작은 수이고, 사용자가 펼칠 때 재조회하는 것으로 충분하다고 판단).
+- **프론트**: `product.js`의 `createTeamItem()`에 "참여자 보기" 토글 버튼 + 펼치기 패널을 추가, 처음 펼칠 때만
+  개별 조회한다(팀 목록 로드 시점에 한꺼번에 불러오지 않음).
+
 ## 트래픽 제어 (발제 백엔드 도전과제)
 
 k6 스파이크 테스트(`docs/logs/team/crud/004-spike-test.md`)로 `team/join`이 VU 약 3000 부근에서 Tomcat 동시 연결 수용 한계로 실제로 무너지는 걸 확인해뒀다. 그 실측 약점을 근거로, `POST /api/teams/{teamId}/join`에 애플리케이션 레벨 요청 제어를 추가했다.
@@ -75,13 +98,15 @@ k6 스파이크 테스트(`docs/logs/team/crud/004-spike-test.md`)로 `team/join
 ## 관련 코드 위치
 
 - `entity/{GroupBuyTeam,TeamStatus,TeamParticipation}.java` — `TeamParticipation`에 `uk_team_member`(team_id+member_id) 유니크 제약 추가
-- `dto/{TeamResponse,TeamJoinResponse,TeamCreateRequest}.java` — `TeamCreateRequest`는 팀 신설 요청 body
-  (`targetParticipants`)
+- `dto/{TeamResponse,TeamJoinResponse,TeamCreateRequest,TeamParticipantResponse}.java` — `TeamCreateRequest`는
+  팀 신설 요청 body(`targetParticipants`), `TeamParticipantResponse`는 참여자 목록 응답(마스킹된 이름/팀장
+  여부/참여 시각)
 - `repository/{GroupBuyTeamRepository,TeamParticipationRepository,PriceTierRepository}.java` —
   `findByIdForUpdate`(락 경로), `incrementIfCapacity`(원자적 경로), `findByProductIdOrderByMinCountAsc`
-  (신설 시 `targetParticipants` 존재 검증)
+  (신설 시 `targetParticipants` 존재 검증), `findAllByTeamIdWithMemberOrderByJoinedAtAsc`(참여자 목록 fetch join)
 - `service/TeamService.java` — `create()`가 `PriceTierRepository`로 `price_tier.minCount` 존재 검증 후
-  그 값으로 팀 생성, `join()`은 `team.join-strategy`로 `joinWithLock`/`joinAtomic` 분기
+  그 값으로 팀 생성, `join()`은 `team.join-strategy`로 `joinWithLock`/`joinAtomic` 분기, `participants()`는
+  팀 존재 검증 후 리더 우선 정렬+마스킹 매핑
 - `controller/TeamController.java`
 - `common/exception/ErrorCode.java` — `TEAM_NOT_FOUND`/`TEAM_FULL`/`ALREADY_JOINED`/`INVALID_TARGET_PARTICIPANTS` 추가
 - `src/main/resources/application.yaml` — `team.join-strategy: lock`(기본값)
@@ -92,4 +117,4 @@ k6 스파이크 테스트(`docs/logs/team/crud/004-spike-test.md`)로 `team/join
 - `config/WebSocketConfig.java` — STOMP 엔드포인트/브로커 설정
 - `event/{TeamCapacityChangedEvent,TeamCapacityChangedEventListener}.java` — 실시간 메시징
 - `src/main/resources/static/product.html`, `js/product.js` — 실시간 갱신 구독(프론트)
-- 테스트: `controller/TeamControllerTest.java`(일반 케이스 13개), `service/TeamConcurrencyTest.java`(락 경로 동시성 검증), `service/TeamConcurrencyAtomicTest.java`(원자적 경로 동시성 검증, `@TestPropertySource`로 전략 전환), `common/filter/RateLimitFilterTest.java`(트래픽 제어 검증), `event/TeamCapacityBroadcastTest.java`(실시간 메시징 검증)
+- 테스트: `controller/TeamControllerTest.java`(일반 케이스 13개 + 참여자 목록 5개), `service/TeamConcurrencyTest.java`(락 경로 동시성 검증), `service/TeamConcurrencyAtomicTest.java`(원자적 경로 동시성 검증, `@TestPropertySource`로 전략 전환), `common/filter/RateLimitFilterTest.java`(트래픽 제어 검증), `event/TeamCapacityBroadcastTest.java`(실시간 메시징 검증)

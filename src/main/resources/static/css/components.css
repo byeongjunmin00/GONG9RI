@@ -183,6 +183,11 @@
   color: var(--color-danger);
 }
 
+.badge-leader {
+  background-color: rgba(139, 92, 246, 0.12);
+  color: var(--color-purple);
+}
+
 /* ---------- Form ---------- */
 .form-group {
   margin-bottom: var(--space-4);
@@ -428,6 +433,37 @@
 
 .team-item-count {
   font-weight: 700;
+}
+
+/* ---------- Team participants panel (참여자 목록 펼치기) ---------- */
+.participants-panel {
+  flex-basis: 100%;
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.participant-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  list-style: none;
+}
+
+.participant-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--fs-sm);
+}
+
+.participant-item-name {
+  font-weight: 600;
+}
+
+.participant-item-joined-at {
+  color: var(--color-text-muted);
+  font-size: var(--fs-xs);
 }
 
 /* ---------- Price tier rows (판매 물품 등록 — 가격 구간 입력) ---------- */

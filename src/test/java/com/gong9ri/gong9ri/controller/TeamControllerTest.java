@@ -1,9 +1,12 @@
 package com.gong9ri.gong9ri.controller;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -28,6 +31,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
@@ -316,5 +320,98 @@ class TeamControllerTest {
         mockMvc.perform(post("/api/teams/" + team.getId() + "/join"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    @DisplayName("팀 참여자 목록은 마스킹된 이름/팀장 여부/참여 시각을 포함하고, 리더가 먼저(joinedAt과 무관하게)"
+            + " 나온 뒤 나머지는 참여 순서(joinedAt 오름차순)로 정렬된다")
+    void participants_success_maskedAndSortedLeaderFirst() throws Exception {
+        Member seller = saveMember("teamSeller20", Role.SELLER);
+        Product product = saveProduct(seller, 10);
+        Member leader = memberRepository.save(
+                new Member("teamLeader20", "encoded-password", "김철수", "teamLeader20@test.com", Role.BUYER));
+        GroupBuyTeam team = saveTeam(product, leader, 10);
+
+        Member second = memberRepository.save(
+                new Member("teamJoiner20", "encoded-password", "이영희", "teamJoiner20@test.com", Role.BUYER));
+        Member third = memberRepository.save(
+                new Member("teamJoiner21", "encoded-password", "박준형", "teamJoiner21@test.com", Role.BUYER));
+
+        TeamParticipation leaderParticipation = teamParticipationRepository.findAll().stream()
+                .filter(p -> p.getTeam().getId().equals(team.getId()) && p.getMember().getId().equals(leader.getId()))
+                .findFirst()
+                .orElseThrow();
+        TeamParticipation secondParticipation = teamParticipationRepository.save(new TeamParticipation(team, second));
+        TeamParticipation thirdParticipation = teamParticipationRepository.save(new TeamParticipation(team, third));
+
+        // 리더의 참여 시각을 일부러 가장 나중으로 세팅해도 "리더 먼저" 규칙이 joinedAt과 무관하게 적용되는지 검증.
+        LocalDateTime now = LocalDateTime.now();
+        ReflectionTestUtils.setField(leaderParticipation, "joinedAt", now.plusMinutes(10));
+        ReflectionTestUtils.setField(secondParticipation, "joinedAt", now);
+        ReflectionTestUtils.setField(thirdParticipation, "joinedAt", now.plusMinutes(5));
+
+        mockMvc.perform(get("/api/teams/" + team.getId() + "/participants"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(3))
+                .andExpect(jsonPath("$.data[0].displayName").value("김**"))
+                .andExpect(jsonPath("$.data[0].isLeader").value(true))
+                .andExpect(jsonPath("$.data[1].displayName").value("이**"))
+                .andExpect(jsonPath("$.data[1].isLeader").value(false))
+                .andExpect(jsonPath("$.data[2].displayName").value("박**"))
+                .andExpect(jsonPath("$.data[2].isLeader").value(false));
+    }
+
+    @Test
+    @DisplayName("이름이 1글자면 전체를 '*' 하나로 마스킹한다(최소 마스킹 보장)")
+    void participants_singleCharacterName_maskedFully() throws Exception {
+        Member seller = saveMember("teamSeller21", Role.SELLER);
+        Product product = saveProduct(seller, 5);
+        Member leader = memberRepository.save(
+                new Member("teamLeader21", "encoded-password", "김", "teamLeader21@test.com", Role.BUYER));
+        GroupBuyTeam team = saveTeam(product, leader, 5);
+
+        mockMvc.perform(get("/api/teams/" + team.getId() + "/participants"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].displayName").value("*"))
+                .andExpect(jsonPath("$.data[0].isLeader").value(true));
+    }
+
+    @Test
+    @DisplayName("참여자 목록 응답에 실명 원문·memberId·이메일이 노출되지 않는다")
+    void participants_doesNotExposeRealNameOrMemberId() throws Exception {
+        Member seller = saveMember("teamSeller22", Role.SELLER);
+        Product product = saveProduct(seller, 5);
+        Member leader = memberRepository.save(
+                new Member("teamLeader22", "encoded-password", "정하윤", "teamLeader22@test.com", Role.BUYER));
+        GroupBuyTeam team = saveTeam(product, leader, 5);
+
+        mockMvc.perform(get("/api/teams/" + team.getId() + "/participants"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(not(containsString("정하윤"))))
+                .andExpect(content().string(not(containsString("teamLeader22@test.com"))))
+                .andExpect(content().string(not(containsString("memberId"))))
+                .andExpect(content().string(not(containsString("email"))));
+    }
+
+    @Test
+    @DisplayName("비로그인 상태로 참여자 목록을 조회해도 200이다(permitAll)")
+    void participants_publicAccess() throws Exception {
+        Member seller = saveMember("teamSeller23", Role.SELLER);
+        Product product = saveProduct(seller, 5);
+        Member leader = saveMember("teamLeader23", Role.BUYER);
+        GroupBuyTeam team = saveTeam(product, leader, 5);
+
+        mockMvc.perform(get("/api/teams/" + team.getId() + "/participants"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.length()").value(1));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 teamId로 참여자 조회 시 404 TEAM_NOT_FOUND")
+    void participants_teamNotFound() throws Exception {
+        mockMvc.perform(get("/api/teams/999999/participants"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("TEAM_NOT_FOUND"));
     }
 }

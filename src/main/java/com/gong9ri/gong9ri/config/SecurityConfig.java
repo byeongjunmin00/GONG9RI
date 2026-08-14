@@ -55,6 +55,10 @@ public class SecurityConfig {
                         // 쓰는 흐름이라 인증 없이 열어야 한다.
                         .requestMatchers(HttpMethod.GET, "/api/auth/kakao/login", "/api/auth/kakao/callback").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
+                        // 공구팀 참여자 목록 — 마스킹된 이름만 노출되고, 팀 목록의 currentCount도 이미
+                        // 비로그인에 공개돼 있어 같은 정보 등급으로 취급한다(사용자 결정,
+                        // docs/dev/team/crud/changes/ "공구팀 상세 — 참여자 목록 표시" 참고).
+                        .requestMatchers(HttpMethod.GET, "/api/teams/*/participants").permitAll()
                         // 공구팀 정원 브로드캐스트용 STOMP 핸드셰이크 — 이미 GET /api/products/**로
                         // 공개된 정보를 실시간으로 밀어주는 것뿐이라 인증 불필요.
                         .requestMatchers("/ws-team/**").permitAll()
