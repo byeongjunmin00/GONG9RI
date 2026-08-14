@@ -15,6 +15,12 @@
  * - 상품명/설명/판매자명/서버 에러 message 등 신뢰할 수 없는 문자열은 textContent로만 대입해 XSS를 방지한다.
  * - 다른 사용자의 참가로 팀 정원이 바뀌면 "/topic/products/{id}/teams" STOMP 브로드캐스트를 받아
  *   자동으로 팀 목록을 다시 그린다(connectRealtime, 실패해도 조용히 폴백 — 기존 흐름은 그대로 동작).
+ * - 리뷰: GET /api/products/{id}/reviews로 목록+평균 평점을 불러온다(비로그인도 조회 가능).
+ *   작성 폼은 항상 노출하고, 자격이 없으면(구매 안 함=REVIEW_NOT_ELIGIBLE, 이미 작성함=DUPLICATE_REVIEW,
+ *   비로그인=UNAUTHORIZED) 서버 응답을 그대로 안내한다 — 클라이언트에서 미리 자격을 예측하지 않는다
+ *   (서버가 SSOT라는 이 프로젝트의 기존 원칙과 동일). 본인이 쓴 리뷰에만 수정/삭제 버튼을 보여주는데,
+ *   로그인한 회원 정보는 js/header-auth.js가 발행하는 'gong9ri:auth-resolved' 이벤트로 재사용한다
+ *   (중복으로 /api/auth/me를 호출하지 않기 위함, js/chat-widget.js와 동일 패턴).
  */
 (function () {
   var pageAlertEl = document.getElementById('page-alert');
@@ -41,13 +47,24 @@
   var teamStatusEl = document.getElementById('team-status');
   var teamListEl = document.getElementById('team-list');
 
+  var reviewAverageEl = document.getElementById('review-average');
+  var reviewsStatusEl = document.getElementById('reviews-status');
+  var reviewsListEl = document.getElementById('reviews-list');
+  var reviewFormEl = document.getElementById('review-form');
+  var reviewFormAlertEl = document.getElementById('review-form-alert');
+  var reviewRatingEl = document.getElementById('review-rating');
+  var reviewContentEl = document.getElementById('review-content');
+  var reviewSubmitBtn = document.getElementById('review-submit');
+
   if (
     !pageAlertEl || !pageAlertTextEl || !pageAlertLoginLinkEl || !pageAlertPayLinkEl || !statusEl || !detailEl ||
     !imageEl ||
     !sellerEl || !nameEl || !descriptionEl || !basePriceEl || !maxParticipantsEl ||
     !priceTiersTableEl || !priceTiersBodyEl || !targetParticipantsFieldEl || !targetParticipantsOptionsEl ||
     !buyAloneBtn || !createTeamBtn ||
-    !teamStatusEl || !teamListEl
+    !teamStatusEl || !teamListEl ||
+    !reviewAverageEl || !reviewsStatusEl || !reviewsListEl || !reviewFormEl || !reviewFormAlertEl ||
+    !reviewRatingEl || !reviewContentEl || !reviewSubmitBtn
   ) {
     return;
   }
@@ -56,6 +73,10 @@
   var currentProductId = null;
   // 구매자가 라디오로 고른 목표 인원(price_tier.minCount). 아무 것도 안 고르면 null.
   var selectedTargetParticipants = null;
+  // 'gong9ri:auth-resolved'로 채워진다. 비로그인이면 null — 리뷰 목록에서 "내가 쓴 리뷰"를 가려낼 때 쓴다.
+  var currentMemberId = null;
+  // 리뷰 폼이 "새로 작성" 모드인지 "기존 리뷰 수정" 모드인지 구분한다. null이면 작성 모드.
+  var editingReviewId = null;
 
   function formatPrice(value) {
     if (typeof value !== 'number') {
@@ -417,6 +438,184 @@
     client.activate();
   }
 
+  // ---------- 리뷰 ----------
+
+  function showReviewsStatus(text, variant) {
+    reviewsStatusEl.hidden = false;
+    reviewsStatusEl.textContent = text;
+    reviewsStatusEl.className = 'product-status product-status--' + variant;
+  }
+
+  function hideReviewsStatus() {
+    reviewsStatusEl.hidden = true;
+    reviewsStatusEl.textContent = '';
+  }
+
+  function showReviewFormAlert(text, variant) {
+    reviewFormAlertEl.hidden = false;
+    reviewFormAlertEl.textContent = text;
+    reviewFormAlertEl.className = 'form-alert form-alert--' + variant;
+  }
+
+  function hideReviewFormAlert() {
+    reviewFormAlertEl.hidden = true;
+    reviewFormAlertEl.textContent = '';
+  }
+
+  function resetReviewForm() {
+    editingReviewId = null;
+    reviewRatingEl.value = '5';
+    reviewContentEl.value = '';
+    reviewSubmitBtn.textContent = '리뷰 작성';
+  }
+
+  function startEditingReview(review) {
+    editingReviewId = review.reviewId;
+    reviewRatingEl.value = String(review.rating);
+    reviewContentEl.value = review.content || '';
+    reviewSubmitBtn.textContent = '리뷰 수정 저장';
+    hideReviewFormAlert();
+    reviewFormEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function handleDeleteReview(reviewId) {
+    if (!window.confirm('리뷰를 삭제할까요?')) {
+      return;
+    }
+    window.Api.del('/reviews/' + reviewId)
+      .then(function () {
+        if (editingReviewId === reviewId) {
+          resetReviewForm();
+        }
+        loadReviews(currentProductId);
+      })
+      .catch(function (err) {
+        console.error('[product.js] failed to delete review:', err);
+        window.alert((err && err.message) || '리뷰 삭제에 실패했습니다.');
+      });
+  }
+
+  function createReviewItem(review) {
+    var li = document.createElement('li');
+    li.className = 'mypage-list-item';
+
+    var infoEl = document.createElement('div');
+    infoEl.className = 'mypage-list-item__info';
+
+    var titleEl = document.createElement('span');
+    titleEl.className = 'mypage-list-item__title';
+    titleEl.textContent = review.memberName + ' · ' + review.rating + '점';
+    infoEl.appendChild(titleEl);
+
+    var metaEl = document.createElement('span');
+    metaEl.className = 'mypage-list-item__meta';
+    metaEl.textContent = review.content || '';
+    infoEl.appendChild(metaEl);
+
+    li.appendChild(infoEl);
+
+    if (currentMemberId !== null && review.memberId === currentMemberId) {
+      var actionsEl = document.createElement('div');
+      actionsEl.className = 'mypage-list-item__actions';
+
+      var editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'btn btn-secondary btn-sm';
+      editBtn.textContent = '수정';
+      editBtn.addEventListener('click', function () {
+        startEditingReview(review);
+      });
+      actionsEl.appendChild(editBtn);
+
+      var deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'btn btn-ghost btn-sm';
+      deleteBtn.textContent = '삭제';
+      deleteBtn.addEventListener('click', function () {
+        handleDeleteReview(review.reviewId);
+      });
+      actionsEl.appendChild(deleteBtn);
+
+      li.appendChild(actionsEl);
+    }
+
+    return li;
+  }
+
+  function renderReviews(data) {
+    if (typeof data.averageRating === 'number') {
+      reviewAverageEl.textContent = '평균 ' + data.averageRating.toFixed(1) + '점 (' + data.count + '개)';
+    } else {
+      reviewAverageEl.textContent = '';
+    }
+
+    clearChildren(reviewsListEl);
+    var fragment = document.createDocumentFragment();
+    (data.reviews || []).forEach(function (review) {
+      fragment.appendChild(createReviewItem(review));
+    });
+    reviewsListEl.appendChild(fragment);
+  }
+
+  function loadReviews(productId) {
+    showReviewsStatus('리뷰를 불러오는 중입니다...', 'loading');
+    clearChildren(reviewsListEl);
+
+    return window.Api.get('/products/' + productId + '/reviews')
+      .then(function (data) {
+        if (!data.reviews || data.reviews.length === 0) {
+          reviewAverageEl.textContent = '';
+          showReviewsStatus('아직 작성된 리뷰가 없습니다.', 'empty');
+          return;
+        }
+        hideReviewsStatus();
+        renderReviews(data);
+      })
+      .catch(function (err) {
+        console.error('[product.js] failed to load reviews:', err);
+        var message = (err && err.message) || '리뷰를 불러오지 못했습니다.';
+        showReviewsStatus(message, 'error');
+      });
+  }
+
+  function handleReviewFormError(err) {
+    var status = err && err.status;
+    var code = err && err.code;
+    var message = (err && err.message) || '요청 처리 중 오류가 발생했습니다.';
+
+    if (status === 401 || code === 'UNAUTHORIZED') {
+      showReviewFormAlert('로그인 후 작성할 수 있습니다.', 'error');
+      return;
+    }
+    showReviewFormAlert(message, 'error');
+  }
+
+  function handleReviewFormSubmit(event) {
+    event.preventDefault();
+    hideReviewFormAlert();
+
+    var rating = Number(reviewRatingEl.value);
+    var content = reviewContentEl.value.trim();
+    var body = { rating: rating, content: content };
+
+    reviewSubmitBtn.disabled = true;
+
+    var request = editingReviewId
+      ? window.Api.put('/reviews/' + editingReviewId, body)
+      : window.Api.post('/products/' + currentProductId + '/reviews', body);
+
+    request
+      .then(function () {
+        showReviewFormAlert(editingReviewId ? '리뷰를 수정했습니다.' : '리뷰를 작성했습니다.', 'success');
+        resetReviewForm();
+        loadReviews(currentProductId);
+      })
+      .catch(handleReviewFormError)
+      .then(function () {
+        reviewSubmitBtn.disabled = false;
+      });
+  }
+
   function loadProduct(productId) {
     showStatus('상품 정보를 불러오는 중입니다...', 'loading');
     detailEl.hidden = true;
@@ -451,8 +650,19 @@
 
     buyAloneBtn.addEventListener('click', handleBuyAlone);
     createTeamBtn.addEventListener('click', handleCreateTeam);
+    reviewFormEl.addEventListener('submit', handleReviewFormSubmit);
+
+    // header-auth.js가 이미 GET /api/auth/me를 호출하므로 그 결과를 재사용한다(중복 호출 방지).
+    // 이 이벤트가 loadReviews()보다 늦게 올 수도 있어(비동기 순서 보장 없음), 도착하면 리뷰를
+    // 다시 불러와서 "내가 쓴 리뷰"의 수정/삭제 버튼이 정확히 반영되게 한다.
+    document.addEventListener('gong9ri:auth-resolved', function (event) {
+      var detail = event.detail || {};
+      currentMemberId = detail.loggedIn && detail.member ? detail.member.memberId : null;
+      loadReviews(productId);
+    });
 
     loadProduct(productId);
+    loadReviews(productId);
     connectRealtime(productId);
   }
 

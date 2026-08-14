@@ -13,4 +13,9 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>, Payment
 
     // PortOne 웹훅이 가리키는 결제 건을 pgPaymentId로 역조회한다(idx_pg_payment_id 인덱스 활용).
     Optional<Payment> findByPgPaymentId(String pgPaymentId);
+
+    // 리뷰 작성 자격 검증 — 이 상품을 실제로 결제 완료(PAID)한 적이 있는 회원인지 확인한다.
+    // (member_id, product_id, status) 복합 인덱스는 따로 없음 — 이 프로젝트 규모에서 성능 문제로
+    // 드러나면 그때 추가한다, 실측 근거 없이 미리 만들지 않음.
+    boolean existsByMemberIdAndProductIdAndStatus(Long memberId, Long productId, PaymentStatus status);
 }

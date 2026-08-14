@@ -90,6 +90,41 @@
 
           <ul id="team-list" class="team-list"></ul>
         </div>
+
+        <div class="reviews-section">
+          <div class="section__head">
+            <h2>리뷰 <span id="review-average" class="text-muted" style="font-size: var(--fs-md); font-weight: 400;"></span></h2>
+          </div>
+
+          <!-- 리뷰 목록 로딩/빈 목록/에러 상태. -->
+          <div id="reviews-status" class="product-status" role="status" hidden></div>
+
+          <ul id="reviews-list" class="mypage-list"></ul>
+
+          <!-- 리뷰 작성/수정 폼 — 로그인 안 한 사람에게도 항상 보이고, 자격이 없으면(구매 안 함/이미 작성함)
+               서버 응답(403/409)을 그대로 안내한다(js/product.js가 처리). -->
+          <form id="review-form" novalidate>
+            <div id="review-form-alert" class="form-alert" role="alert" hidden></div>
+
+            <div class="form-group">
+              <label class="form-label" for="review-rating">평점</label>
+              <select id="review-rating" class="form-input">
+                <option value="5">5점 — 아주 만족</option>
+                <option value="4">4점 — 만족</option>
+                <option value="3">3점 — 보통</option>
+                <option value="2">2점 — 불만족</option>
+                <option value="1">1점 — 아주 불만족</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="review-content">내용</label>
+              <textarea class="form-input" id="review-content" rows="3" maxlength="1000" placeholder="구매한 상품은 어땠나요?"></textarea>
+            </div>
+
+            <button type="submit" id="review-submit" class="btn btn-primary btn-sm">리뷰 작성</button>
+          </form>
+        </div>
       </div>
     </section>
   </main>
