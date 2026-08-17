@@ -23,6 +23,11 @@
   <link rel="stylesheet" href="/css/base.css" />
   <link rel="stylesheet" href="/css/layout.css" />
   <link rel="stylesheet" href="/css/components.css" />
+
+  <!-- 카카오 JS SDK — CDN 스크립트 태그로 로드(checkout.html의 PortOne 브라우저 SDK와 동일 패턴).
+       이 태그가 전역 window.Kakao를 만든다 — js/product.js가 상품 상세 로드 후 Kakao.init(...)으로
+       초기화하고, 공유 버튼 클릭 시 Kakao.Share.sendDefault(...)를 호출한다. -->
+  <script src="https://developers.kakao.com/sdk/js/kakao.min.js"></script>
 </head>
 <body>
   <div data-include="header"></div>
@@ -87,6 +92,7 @@
         <div class="product-actions">
           <button type="button" id="buy-alone-btn" class="btn btn-secondary">혼자 구매하기</button>
           <button type="button" id="create-team-btn" class="btn btn-primary" disabled>신규 팀 신설하기</button>
+          <button type="button" id="kakao-share-btn" class="btn btn-ghost" hidden>카카오톡 공유하기</button>
           <a href="/" class="btn btn-ghost">계속 쇼핑하기</a>
         </div>
 

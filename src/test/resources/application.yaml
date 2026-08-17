@@ -35,6 +35,7 @@ kakao:
   # 빈 생성 자체는 막히지 않도록 더미 값만 둔다.
   client-id: dummy-test-kakao-client-id
   client-secret: dummy-test-kakao-client-secret
+  js-key: dummy-test-kakao-js-key
 
 sendgrid:
   # EmailService가 의존하는 EmailSender는 AuthControllerTest에서 @MockitoBean으로 대체해 실제 HTTP

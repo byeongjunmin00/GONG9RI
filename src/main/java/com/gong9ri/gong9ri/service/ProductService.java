@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
@@ -38,6 +39,9 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final PriceTierRepository priceTierRepository;
+
+    @Value("${kakao.js-key}")
+    private String kakaoJsKey;
 
     // 조회 빈도가 높고 등록/수정/삭제 전까지 안 변해 캐싱 효과가 크다 (docs/policy/caching.md).
     // 정렬 조건(ORDER BY)이 없어 새 상품이 어느 페이지에 들어갈지 특정할 수 없으므로,
@@ -63,7 +67,7 @@ public class ProductService {
     public ProductResponse detail(Long productId) {
         Product product = findProductWithSeller(productId);
         List<PriceTier> priceTiers = priceTierRepository.findByProductIdOrderByMinCountAsc(productId);
-        return ProductResponse.of(product, priceTiers);
+        return ProductResponse.of(product, priceTiers, kakaoJsKey);
     }
 
     // 신규 상품이 어느 페이지에 들어갈지 특정할 수 없어(ORDER BY 없음) 목록 캐시를 전체 무효화한다.
@@ -81,7 +85,7 @@ public class ProductService {
 
         List<PriceTier> priceTiers = savePriceTiers(saved, request.priceTiers());
         log.info("상품 등록 완료: productId={}, sellerId={}", saved.getId(), seller.getId());
-        return ProductResponse.of(saved, priceTiers);
+        return ProductResponse.of(saved, priceTiers, kakaoJsKey);
     }
 
     // 이름/가격 등이 바뀌면 이 상품이 포함된 목록 페이지가 달라질 수 있어(어느 페이지인지 특정 불가) 목록 캐시도
@@ -102,7 +106,7 @@ public class ProductService {
         List<PriceTier> priceTiers = savePriceTiers(product, request.priceTiers());
 
         log.info("상품 수정 완료: productId={}", productId);
-        return ProductResponse.of(product, priceTiers);
+        return ProductResponse.of(product, priceTiers, kakaoJsKey);
     }
 
     // update와 동일한 이유로 상세(해당 productId)·목록(전체) 캐시를 함께 무효화한다.

@@ -104,7 +104,8 @@ class ProductControllerTest {
         mockMvc.perform(get("/api/products/" + product.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.priceTiers.length()").value(2))
-                .andExpect(jsonPath("$.data.sellerId").value(seller.getId().intValue()));
+                .andExpect(jsonPath("$.data.sellerId").value(seller.getId().intValue()))
+                .andExpect(jsonPath("$.data.kakaoJsKey").value("dummy-test-kakao-js-key"));
     }
 
     @Test

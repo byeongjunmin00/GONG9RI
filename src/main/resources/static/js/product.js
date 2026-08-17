@@ -27,6 +27,8 @@
  *   각 팀의 "참가하기" 버튼이 비활성 상태를 유지한다(명시적 확인 없이는 팀 신설/참가를 진행할 수 없게
  *   하는 가드 — 기존 목표 인원 라디오 가드와 같은 방식). "혼자 구매하기"는 이 제약과 무관하다(솔로
  *   구매는 환불 불가 규칙의 대상이 아니라서).
+ * - "카카오톡 공유하기": product.html의 Kakao JS SDK(CDN)를 상품 상세 응답의 kakaoJsKey로 초기화한다.
+ *   키가 없으면(로컬에서 KAKAO_JS_KEY 미설정 등) 버튼을 숨긴 채로 둔다(docs/dev/share/kakao-share/design.md).
  */
 (function () {
   var pageAlertEl = document.getElementById('page-alert');
@@ -50,6 +52,7 @@
 
   var buyAloneBtn = document.getElementById('buy-alone-btn');
   var createTeamBtn = document.getElementById('create-team-btn');
+  var kakaoShareBtn = document.getElementById('kakao-share-btn');
 
   var teamStatusEl = document.getElementById('team-status');
   var teamListEl = document.getElementById('team-list');
@@ -69,7 +72,7 @@
     !sellerEl || !nameEl || !descriptionEl || !basePriceEl || !maxParticipantsEl ||
     !priceTiersTableEl || !priceTiersBodyEl || !targetParticipantsFieldEl || !targetParticipantsOptionsEl ||
     !refundNoticeCheckboxEl ||
-    !buyAloneBtn || !createTeamBtn ||
+    !buyAloneBtn || !createTeamBtn || !kakaoShareBtn ||
     !teamStatusEl || !teamListEl ||
     !reviewAverageEl || !reviewsStatusEl || !reviewsListEl || !reviewFormEl || !reviewFormAlertEl ||
     !reviewRatingEl || !reviewContentEl || !reviewSubmitBtn
@@ -85,6 +88,8 @@
   var currentMemberId = null;
   // 리뷰 폼이 "새로 작성" 모드인지 "기존 리뷰 수정" 모드인지 구분한다. null이면 작성 모드.
   var editingReviewId = null;
+  // 카카오톡 공유하기 버튼 클릭 시 쓸 상품 정보. renderProduct에서 채워진다.
+  var shareTargetProduct = null;
 
   function formatPrice(value) {
     if (typeof value !== 'number') {
@@ -202,6 +207,8 @@
     maxParticipantsEl.textContent =
       typeof product.maxParticipants === 'number' ? String(product.maxParticipants) : '';
 
+    setUpKakaoShare(product);
+
     var tiers = Array.isArray(product.priceTiers) ? product.priceTiers : [];
     clearChildren(priceTiersBodyEl);
     renderTargetParticipantsOptions(tiers);
@@ -227,6 +234,67 @@
     });
     priceTiersBodyEl.appendChild(fragment);
     priceTiersTableEl.hidden = false;
+  }
+
+  /**
+   * 카카오 JS SDK 초기화 + 공유 버튼 노출 여부 결정. product.kakaoJsKey가 비어있으면(로컬 개발 환경에
+   * KAKAO_JS_KEY를 안 넣은 경우 등) 버튼을 계속 숨긴 채로 둔다 — 키 없이 Kakao.init을 시도하면
+   * 공유 시점에 에러가 나므로 아예 진입 자체를 막는 게 안전하다.
+   */
+  function setUpKakaoShare(product) {
+    if (!product.kakaoJsKey || typeof window.Kakao === 'undefined') {
+      kakaoShareBtn.hidden = true;
+      return;
+    }
+    if (!window.Kakao.isInitialized()) {
+      window.Kakao.init(product.kakaoJsKey);
+    }
+    shareTargetProduct = product;
+    kakaoShareBtn.hidden = false;
+  }
+
+  /**
+   * "카카오톡 공유하기" — Kakao Share 기본 템플릿으로 상품명/가격/썸네일/현재 페이지 링크를 담아
+   * 카카오톡 공유 대화상자를 연다. 썸네일(product.imageUrl)이 절대경로(https://...)가 아니면 카카오
+   * 서버가 접근하지 못해 이미지 없이 뜰 수 있다(design.md 리스크 참고) — 별도 방어 로직 없이 그대로
+   * 카카오 SDK에 맡긴다.
+   */
+  function handleKakaoShare() {
+    if (!shareTargetProduct || !window.Kakao || !window.Kakao.isInitialized()) {
+      return;
+    }
+
+    var link = {
+      mobileWebUrl: window.location.href,
+      webUrl: window.location.href
+    };
+    var description = formatPrice(shareTargetProduct.basePrice) + '부터 · 함께할수록 더 저렴해져요';
+    var buttons = [
+      { title: '상품 보러가기', link: link }
+    ];
+
+    // feed 템플릿(objectType: 'feed')은 카카오 SDK 상 imageUrl이 필수라, 상품에 등록된 이미지가
+    // 없으면 이미지 없이도 되는 text 템플릿으로 전환한다(design.md 평가 기준 — 이미지 없는 상품도
+    // 공유 카드가 깨지지 않아야 함).
+    var templateArgs = shareTargetProduct.imageUrl
+      ? {
+          objectType: 'feed',
+          content: {
+            title: shareTargetProduct.name || 'GONG9RI 공동구매',
+            description: description,
+            imageUrl: shareTargetProduct.imageUrl,
+            link: link
+          },
+          buttons: buttons
+        }
+      : {
+          objectType: 'text',
+          text: (shareTargetProduct.name || 'GONG9RI 공동구매') + '\n' + description,
+          link: link,
+          buttons: buttons
+        };
+
+    window.Kakao.Share.sendDefault(templateArgs);
   }
 
   /**
@@ -800,6 +868,7 @@
 
     buyAloneBtn.addEventListener('click', handleBuyAlone);
     createTeamBtn.addEventListener('click', handleCreateTeam);
+    kakaoShareBtn.addEventListener('click', handleKakaoShare);
     reviewFormEl.addEventListener('submit', handleReviewFormSubmit);
 
     // header-auth.js가 이미 GET /api/auth/me를 호출하므로 그 결과를 재사용한다(중복 호출 방지).

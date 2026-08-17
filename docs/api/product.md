@@ -55,13 +55,18 @@
     ],
     "createdAt": "2026-07-24T10:00:00",
     "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg",
-    "autoRefundOnCancel": false
+    "autoRefundOnCancel": false,
+    "kakaoJsKey": "abcd1234..."
   }
   ```
 
   > `autoRefundOnCancel`: 참여 취소(`docs/api/team.md`의 `POST /api/teams/{teamId}/leave`)로 자동
   > 생성되는 환불 요청을 판매자 승인 없이 즉시 처리할지 여부(`docs/api/refund.md`). 솔로 구매 직접
   > 환불 요청에는 영향 없음(항상 승인 필요).
+
+  > `kakaoJsKey`: 카카오톡 공유하기(`docs/dev/share/kakao-share/design.md`)용 카카오 JS SDK 초기화 키.
+  > 서버 설정(`KAKAO_JS_KEY` 환경변수)이 비어있으면 빈 문자열(`""`)이 내려오고, 프론트는 이 경우
+  > 공유 버튼을 숨긴다. 도메인 화이트리스트로 보호되는 공개 가능한 값이라 인증 없이 내려준다.
 
 - 에러:
   | 코드 | HTTP | 설명 |

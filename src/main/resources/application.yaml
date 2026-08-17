@@ -58,6 +58,10 @@ kakao:
   # 콘솔에서 "보안"을 활성화했을 때만 필요 — 안 켰으면 빈 값이어도 됨.
   client-id: ${KAKAO_CLIENT_ID:}
   client-secret: ${KAKAO_CLIENT_SECRET:}
+  # 카카오톡 공유하기(docs/dev/share/kakao-share/design.md) — 브라우저에서 실행되는 Kakao JS SDK 초기화용.
+  # 도메인 화이트리스트(카카오 콘솔에 등록한 사이트 도메인)로 보호되는 공개 가능한 값이라 REST API
+  # 키/client-secret과 달리 그대로 프론트에 내려줘도 되지만, 레포엔 두지 않고 환경변수로 주입한다.
+  js-key: ${KAKAO_JS_KEY:}
 
 team:
   # team/join 동시성 전략 비교용 토글: lock(비관적 락, 기본값) | atomic(조건부 UPDATE)
