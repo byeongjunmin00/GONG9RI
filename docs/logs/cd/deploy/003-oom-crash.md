@@ -48,6 +48,48 @@
 - **로컬 검증**: `docker run --memory=954m`(실제 프로덕션과 동일 한도)로 5분간 재현 테스트 — `/actuator/health` 200 유지, RSS 508MB → 509MB로 사실상 정체, 크래시 없음.
 - **미해결/후속 필요**: 로컬 5분 검증은 통과했지만, Attempt 1도 로컬 90초 검증 시점엔 문제없어 보였다가 프로덕션에서 재발한 전례가 있다 — 이번에도 프로덕션 배포 후 최소 수 시간~하루 단위로 Railway Metrics를 실측 확인하기 전까지는 "해결됐다"고 단정하지 않는다. 재발 시 힙 512MB 자체가 너무 타이트할 가능성(GC 압박 증가)도 함께 점검 필요.
 
+## Attempt 4 — 2026-08-19 (WebSocket 채널 스레드풀 무제한) ✅ 실측으로 원인 특정
+
+- **증상**: Attempt 3 배포(고정 힙 512MB) 이후 며칠은 안정적이었으나, 이번 세션에서 기능 배포를
+  여러 번 연달아 하는 동안 다시 재발 — 약 1시간 간격으로 새 배포 없이 재시작(`Started
+  Gong9riApplication` 로그만 찍히고 그 직전 자바 레벨 에러는 없음, Attempt 1~3과 같은 패턴).
+  `railway metrics --memory`로 확인한 24시간 평균이 이미 901MB(한도 1024MB의 88%)로 평소에도
+  여유가 거의 없었고, 배포 전환 구간(무중단 배포로 신·구 컨테이너가 잠깐 같이 뜸)에서 1.7~1.8GB까지
+  튀는 것도 반복 관찰.
+- **실측 확인**: `railway ssh`로 실행 중인 프로덕션 컨테이너에 직접 접속(Attempt 3과 동일 방법).
+  - `/sys/fs/cgroup/memory.current` = 913MB / `memory.max` = 954MB(91%) — 조용한 상태에서도 이미 임계치.
+  - `ps aux`: 자바 프로세스 RSS 844MB, VSZ 10GB(가상 주소공간은 참고용, 실제 문제는 RSS).
+  - `/sys/fs/cgroup/memory.stat`의 `anon`(익명 메모리, 힙+네이티브) = 827MB — Dockerfile의
+    `-Xmx512m -XX:MaxMetaspaceSize=192m`(합 704MB) 상한을 이미 100MB 이상 넘어서 있음. 즉 이번엔
+    힙이 아니라 **non-heap(스레드 스택 등 네이티브 메모리)가 원인**이라는 뜻(Attempt 2의 가설과
+    같은 방향, 그때는 원인 진단 자체가 틀렸었지만 이번엔 실측으로 확인).
+  - `/proc/1/status`의 `Threads` = **140개**. `/proc/1/task/*/comm`을 전부 뽑아 이름별로 집계해보니
+    `MessageBroker-1`~`MessageBroker-4`가 각각 11개씩(총 48개, 전체 스레드의 34%) 중복 존재 —
+    정상이라면 이름당 1개여야 한다. `WebSocketConfig`(`registry.enableSimpleBroker("/topic")`,
+    `configureClientInboundChannel`/`configureClientOutboundChannel` 전부 미설정)가 브로커용
+    태스크 스케줄러·클라이언트 인바운드/아웃바운드 채널 executor 크기를 Spring 기본값(사실상
+    무제한에 가까운 max)에 맡기고 있었던 게 원인으로 확정 — 스레드 하나당 `-Xss512k` 스택 예약 +
+    glibc malloc arena 오버헤드가 붙어, 이 정도 개수만으로도 non-heap을 수백MB 단위로 잠식한다.
+    (참고: `GET /ws-team -> 403`이 ~10초 간격으로 계속 로그에 찍히는 게 이 세션 내내 관찰됐는데,
+    브라우저 탭이 열린 채 세션 없이 계속 재연결을 시도하는 클라이언트로 추정 — 이런 연결 시도가
+    쌓이면서 채널 executor가 계속 성장했을 가능성이 있으나, 정확한 트리거까지는 100% 확증 못 함.
+    JRE 전용 런타임 이미지라 `jcmd`/`jstack` 등 표준 진단 도구가 없어 스레드 이름 집계 이상의
+    스택트레이스 레벨 확증은 불가능했음 — 정직하게 남김.)
+- **조치**: `WebSocketConfig.java`에 명시적으로 작은 고정 크기를 못박음(이 앱 규모 — 2인팀, 단일
+  인스턴스, 팀 정원 변경 브로드캐스트뿐 — 에 맞춤, 실측 근거 없는 초기값):
+  - 브로커 태스크 스케줄러: `ThreadPoolTaskScheduler` 직접 생성, `poolSize=2`, `setTaskScheduler()`로
+    브로커에 명시 주입.
+  - `configureClientInboundChannel`/`configureClientOutboundChannel`: 각각 `corePoolSize=2,
+    maxPoolSize=4`로 제한.
+- **로컬 검증**: `./gradlew test` 356개 전체 통과(회귀 없음). `bootRun`으로 기동해 WebSocket 연결 1건
+  실측(`WebSocketMessageBrokerStats` 로그로 `inboundChannel`/`outboundChannel` pool이 idle 시
+  `pool size = 0`으로 정상 대기 상태인 것 확인, 필요시에만 core=2까지 늘어나고 max=4를 넘지 않음).
+- **미해결/후속 필요**: 이전 Attempt들과 마찬가지로, 이 조치가 실제 프로덕션 재발을 막는지는 배포 후
+  최소 몇 시간 Railway Metrics(`railway metrics --memory`)로 실측 확인해야 확정된다. 재발하면 (a)
+  `GET /ws-team -> 403` 반복 재연결의 정확한 클라이언트/트리거를 찾아 근본 차단, (b) 힙 자체를
+  더 줄이거나 Metaspace를 더 좁혀 non-heap 여유를 추가로 확보, (c) 유료 플랜으로 메모리 한도 상향을
+  검토.
+
 ### 참고: 관련이지만 별개인 조치 — 헬스체크 타임아웃 연장 (2026-08-13, `61641a6`)
 
 Attempt 2~3 사이, 부팅 중 한 번 크래시 후 재시작하는 패턴이 있어 재시작 후 두 번째 시도가 기존 5분(300초) 헬스체크 예산 안에 못 끝나 배포 자체가 실패하는 문제가 있었다. `railway.json`의 `healthcheckTimeout`을 300 → 600초로 늘려 우선 배포부터 통과하게 함 — 메모리 원인 자체를 고친 조치는 아니고 배포 재시도 여유를 늘린 것.
