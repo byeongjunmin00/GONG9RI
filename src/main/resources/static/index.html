@@ -34,8 +34,11 @@
         <span id="page-alert-text"></span>
       </div>
 
-      <!-- 상품명/판매자명 검색 — ?keyword= 쿼리파라미터로 목록을 다시 불러온다(js/main.js, product/list-search). -->
-      <form id="search-form" class="search-bar" role="search">
+      <!-- 상품명/판매자명 검색 — ?keyword= 쿼리파라미터로 목록을 다시 불러온다(js/main.js, product/list-search).
+           검색 UI 자체는 헤더(partials/header.html의 #header-search-form, js/header-search.js)로
+           옮겼다. 이 폼은 main.js가 요소 존재를 전제로 동작해서(getElementById 가드) DOM에는 남기되,
+           화면에는 안 보이게 인라인 스타일로 숨긴다 — main.js 로직은 건드리지 않는다. -->
+      <form id="search-form" class="search-bar" role="search" style="display:none;">
         <input
           type="search"
           id="search-input"
@@ -51,9 +54,9 @@
         </button>
       </form>
 
-      <!-- 실시간 인기 검색어(product/search-trends) — 클릭하면 그 검색어로 바로 검색된다. js/main.js가
-           채운다. 검색된 키워드가 하나도 없으면(오늘 아직 아무도 검색 안 함) 빈 채로 숨겨진다. -->
-      <div id="search-trends" class="search-trends" hidden></div>
+      <!-- 실시간 인기 검색어 티커도 같은 이유로 화면에서만 숨김(헤더 팝업 목록으로 대체) — js/main.js가
+           채우는 로직 자체는 그대로 두되 표시만 막는다. -->
+      <div id="search-trends" class="search-trends" hidden style="display:none;"></div>
 
       <!-- 광고 배너 — 슬림 공지 바(프론트 전용, 백엔드 연동 없음). 자동 순환 + 점 클릭. js/main.js가 제어한다. -->
       <div id="promo-bar" class="promo-bar">
@@ -98,8 +101,8 @@
   <script src="/js/include.js"></script>
   <script src="/js/api.js"></script>
   <script src="/js/header-auth.js"></script>
+  <script src="/js/header-search.js"></script>
   <script src="/js/chat-widget.js"></script>
-  <script src="/js/search-popup.js"></script>
   <script src="/js/main.js"></script>
 </body>
 </html>

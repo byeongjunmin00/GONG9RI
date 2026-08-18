@@ -63,3 +63,45 @@
   - 중간에 "돋보기 옆에 '검색' 글씨도 넣어달라"는 요청으로 `<span>검색</span>` 추가 + `.site-header__search-toggle`을 고정 40x40 정사각형에서 `padding`+`gap` 기반 가변 폭으로 변경했으나, 사용자가 곧바로 텍스트 라벨을 취소해 아이콘 전용 40x40 정사각형 버튼으로 원복(마크업·CSS 둘 다).
 - 결과: `./gradlew bootRun` + Browser pane으로 `index.html` 확인 — 아이콘이 로고와 통일된 라인 스타일로 렌더링, 헤더 좌우 정렬(로고/검색/로그인/회원가입) 정상. (참고: 확인 도중 사용자가 "간격이 이상하다"고 했으나, 원인은 화면이 아니라 CSS가 하나도 로드되지 않는 `file:///.../partials/header.html` raw 파일 미리보기 탭 — 편집 직후 훅이 자동으로 띄운 탭 — 을 보고 계셨던 것으로 확인됨. 실제 `localhost:8080` 페이지로 재확인 후 정상 확인받음.)
 - 다음: 이 변경(`partials/header.html`)은 아직 커밋 여부 사용자 확인 대기 중.
+
+## Attempt 2 — 2026-08-19 (인라인/팝업 검색창 아이콘 통일 + 컨테이너 여백 재확인)
+
+- 시도: 인라인 쇼케이스 검색창(`design-system.html`의 `.search-input__btn`)에 남아있던 🔍 이모지도 헤더와 같은 SVG 라인 아이콘으로 교체. 검색 팝업(`.search-popup`) 안에도 입력창 왼쪽에 돋보기 아이콘을 추가하고, 닫기 버튼(✕ 텍스트)도 SVG X 아이콘으로 교체(`components.css`에 `.search-popup__field-wrap`/`.search-popup__field-icon` 신설, `.search-popup__close`를 40x40 아이콘 버튼 스타일로 변경).
+- 이슈: 위 변경 직후 사용자가 "반영 안 됐다"고 확인 — 원인은 `./gradlew bootRun`을 재시작하지 않아 Gradle이 `processResources`를 다시 안 돌려서 이전 정적 리소스가 계속 서빙되고 있었음(`fetch('/partials/header.html', {cache:'no-store'})`로 직접 확인). 서버 재시작 후 정상 반영 확인.
+- 이슈 2: 사용자가 "컨테이너 여백이 안 지켜진 것 같다"고 지적 — `getBoundingClientRect()`로 실측한 결과 1440px 뷰포트에서 `.container`가 1320px 폭, 좌우 52.5px 마진 + 48px 패딩으로 정상 중앙 정렬돼 있음을 확인(스크린샷 축소 렌더링 때문에 눈으로는 좁아 보였던 것으로 판단, 실제 계산된 스타일은 정상).
+- 결과: `./gradlew bootRun` 재시작 후 Browser pane 재확인 — 헤더/인라인/팝업 검색 아이콘 전부 라인 스타일로 통일, 팝업 입력창 내부 아이콘 정상 위치, 닫기 버튼 정상 동작.
+- 다음: 커밋 대기 중 팀원이 관리자/위시리스트/검색트렌드 등 11개 커밋을 push — WIP 커밋 후 pull 필요.
+
+## Attempt 2 병합 — 2026-08-19 ✅ PASS
+
+- 시도: 위 아이콘 변경분을 `wip(design-system): 검색 아이콘을 이모지에서 라인 SVG로 교체 (진행 중)`로 WIP 커밋(`b60cb52`) 후 `git pull`.
+- 충돌 2건 발생 및 해결:
+  - `partials/header.html`: 내 `.site-header__right` 래퍼 구조 vs 팀원이 nav에 추가한 관리자 대시보드 링크(`data-role="ADMIN"`) — 래퍼 구조 유지하며 관리자 링크를 nav 안에 포함.
+  - `components.css`: 내 `.search-input`/`.wishlist-btn`(쇼케이스 전용, 미기능) vs 팀원의 `.search-bar`/`.search-trends`(메인페이지 실제 검색+실시간 인기검색어, product/list-search 및 product/search-trends 작업)와 `.card-wishlist-btn`(product/wishlist 작업, 실제 찜하기 기능) — 클래스명이 전부 달라 기계적으로는 병기 가능. 팀원 신규 CSS가 참조하던 삭제된 색상 변수(`--color-purple`, `--color-pink`, `--gradient-brand`)를 전부 `--color-brand`로 치환(`.search-bar:focus-within`, `.search-bar__btn` 배경, `.search-trends__current:hover`, `.search-trends__current b`). 겸사겸사 auto-merge로 조용히 깨져 있던 `.card-seller-trust`(`--color-purple`→`--color-brand`, 배경 rgba도 브랜드 그린 톤으로), `.card-progress-percent`(`--color-coral`→`--color-brand`)도 함께 수정.
+  - **중요 — 사용자 확인 필요(미해결)**: 이번 팀원 작업으로 "백엔드 없어서 UI만 만들었던" 항목 2개가 실제로 구현됐다. (1) 위시리스트: 내 쇼케이스 전용 `.wishlist-btn`(미기능) vs 팀원의 실동작 `.card-wishlist-btn`. (2) 검색: 내 헤더 검색 팝업 `.search-popup`(미기능) + 쇼케이스 `.search-input`(미기능) vs 팀원의 메인페이지 실동작 `.search-bar` + 실시간 인기검색어 `.search-trends`. 지금은 클래스가 달라 충돌 없이 공존하지만, 쇼케이스의 "미기능 placeholder"와 실제 기능이 중복 존재하는 상태라 정리가 필요함 — 이번 세션에서는 병합만 완료하고 정리 방향은 사용자와 상의 예정.
+- 결과: `./gradlew compileJava` → `BUILD SUCCESSFUL`. `./gradlew test` → `BUILD SUCCESSFUL in 1m 3s`. `grep`으로 `css/` 전체 재확인 — 삭제 대상 색상 변수 참조 0건, 충돌 마커 0건, CSS 중괄호 192/192 균형 확인. `git commit`으로 병합 완료(`73a029f`).
+- 브라우저 확인(`./gradlew bootRun` + Browser pane, `index.html`, 1280px): 헤더(로고/검색버튼/로그인·회원가입), 팀원의 실제 검색창(`.search-bar`)+제출버튼, 프로모 배너, 카테고리 필터, 정렬 드롭다운 모두 정상 렌더링. 헤더 검색 버튼 클릭 → 내 팝업 패널이 정상적으로 열리고 닫힘(팀원의 인라인 검색창과 별개로 공존, 기능 중복은 있으나 에러 없음). 네트워크 확인 — `/api/products/search-trends?limit=5` 200 OK 등 팀원 신규 API 정상 응답. 콘솔 에러는 `/api/auth/me` 401(의도된 비로그인 동작)만 있음.
+- 다음: 사용자에게 위시리스트/검색 기능 중복 정리 방향 확인 후 후속 작업(내 placeholder를 실제 기능으로 교체하거나, 역할을 나눠 공존시키는 등) 진행.
+
+## Attempt 3 — 2026-08-19 ✅ PASS (색상 원복 + 헤더 검색바를 실제 기능으로 교체)
+
+- 시도: 사용자가 "디자인이 별로다, 색상 원복하자"고 결정 — 로고/각진 UI/레이아웃 구조는 유지하고 **색상 톤만** 원래(오렌지/코럴/핑크/퍼플 웜 그라디언트)로 되돌림. 이어서 "내가 만든 검색 팝업 구조도 없애"라는 요청으로 헤더의 미기능 검색 팝업(`#search-toggle-btn`/`.search-popup`, 2단계 산출물)을 완전히 제거. 마지막으로 "지금 있는 검색바를 헤더에 길게 넣고, 클릭하면 실시간 인기 검색어 20개가 나오는 팝업"을 요청받아 팀원의 실제 검색 기능과 연결된 새 헤더 검색바를 구현.
+- **색상 원복** (`git show 09fc4c1`로 원본 대조):
+  - `tokens.css`: 무채색 베이스(`--color-bg` 등)와 `--color-orange/coral/pink/purple`, `--gradient-brand(-soft)`를 원본 값으로 복원. `--color-brand`/`--color-brand-dark`/`--color-error`는 완전히 없애는 대신 각각 `var(--color-pink)`/`var(--color-purple)`/`var(--color-coral)`를 가리키는 별칭으로 남겨서, 다크 세이지 시기에 이 변수들을 쓰던 수십 곳(내 컴포넌트 + 팀원이 병합 때 끌어온 코드)을 전부 찾아다니지 않아도 자동으로 웜톤을 따라가게 함. 다만 원본이 `--gradient-brand`(그라디언트 자체)를 쓰던 자리(`.btn-primary`, `.card-price-best`의 텍스트 클립, `.chat-widget` 버튼/유저 메시지/전송버튼, `.card-progress-fill`, `.category-pill.active`, `.search-bar__btn`)는 별칭만으론 안 돼서(별칭은 단색) 각각 직접 `var(--gradient-brand)`로 교정. `--color-purple`이 쓰이던 포커스 링(`.form-*:focus`, `.chat-widget__input:focus`, `.search-input:focus-within`, `.search-bar:focus-within`, `:focus-visible`)과 `.badge-leader`/`.card-seller-trust`도 원본대로 개별 교정.
+  - 팀원이 병합으로 들어온 새 기능(`.card-progress-*`, `.search-trends__*`, `.category-pill`, `.card-wishlist-btn.active`)이 쓰던 색도 각 팀원 커밋의 원래 값(핑크/퍼플/그라디언트)으로 맞춤 — 지난 병합 때 내가 임시로 `--color-brand`(당시 세이지)로 치환했던 걸 원복.
+  - `base.css`의 `.text-gradient`를 그라디언트 텍스트 클립 효과로 복원.
+  - `layout.css`의 헤더/푸터 hover 색도 `--color-pink`로 직접 복원(별칭 경유 안 함, 소스 명확성).
+  - `components.css`에서 다크 세이지 헤더 배경 오버라이드(`.site-header { background-color: ... }` 캐스케이드 트릭)와 헤더 nav 흰색 텍스트 보정을 전부 제거 — `layout.css`가 원래부터 갖고 있던 밝은 반투명 헤더 배경(`rgba(255,249,245,.9)`, 이번에 전혀 안 건드림)이 그대로 되살아남.
+  - 로고는 헤더 배경이 다시 밝아졌으므로 `logo-icon-white.png` 대신 `logo-icon.png`(회색)로 교체. 흰색 버전은 예비 자산으로 남김.
+- **검색 팝업 제거 + 새 헤더 검색바 구현**:
+  - `partials/header.html`에서 `#search-toggle-btn`/`#search-popup-panel`(입력창+닫기 버튼) 마크업, `components.css`의 `.site-header__search-toggle`/`.search-popup*` 스타일, `js/search-popup.js` 파일과 12개 페이지의 스크립트 태그를 전부 제거.
+  - 대신 헤더에 실제 동작하는 긴 검색바(`#header-search-form`, `.search-bar` 클래스 재사용)를 새로 추가 — `partials/header.html`이 모든 페이지에 공통이라 전역 검색 진입점이 된다. 제출 시 `/index.html?keyword=`로 이동하는 방식만 구현하고(`js/header-search.js`, 신규), 실제 검색/목록 필터링 로직(`js/main.js`, product/list-search)은 전혀 건드리지 않았다 — main.js가 페이지 로드 시 이미 `keyword` 쿼리파라미터를 읽어 처리하는 걸 그대로 재사용.
+  - **main.js를 안 건드린 이유**: `js/main.js`의 메인 IIFE가 `#search-form`/`#search-input` 요소 존재를 전제로 하는 가드 클로즈(`if (!... || !searchFormEl || !searchInputEl) return;`)를 갖고 있어서, 이 엘리먼트를 index.html에서 완전히 지우면 상품 그리드/카테고리/정렬 기능 전체가 멈춘다. 그래서 index.html의 기존 인라인 검색폼과 검색어 티커는 DOM에 남기되 인라인 `style="display:none;"`으로 화면에서만 숨겼다(main.js 로직 무변경, 화면엔 헤더 검색바만 보임).
+  - 클릭/포커스 시 `GET /api/products/search-trends?limit=20`(팀원의 실제 Redis 기반 실시간 인기 검색어 API)을 불러와 순위 목록 팝업(`#header-search-trends-panel`, 2열 그리드)으로 보여준다. 항목 클릭 시 그 키워드로 바로 이동. 검색된 키워드가 없으면 빈 상태 문구를 보여준다. Escape/바깥 클릭으로 닫힘.
+  - 헤더가 있는 17개 페이지(관리자 페이지 5개 포함, 팀원이 이번에 추가한 admin/* 도 있음) 전부에 `js/header-search.js` 스크립트 태그 추가.
+- **로컬 시각 확인용 더미 데이터**: DB가 비어 있어 상품 카드/검색 트렌드를 눈으로 확인할 수 없다는 요청으로, 로컬 MySQL에 판매자/구매자 멤버 각 1명 + 상품 3개(RECRUITING/SUCCESS/FAILED 상태 각 1개) + price_tier를 직접 SQL로 삽입(Docker mysql 클라이언트 사용, `docker run --rm mysql:8 mysql -h host.docker.internal ...`로 호스트 로컬 DB에 접속). **이 데이터는 커밋 대상이 아니다** — 로컬 개발 DB 상태일 뿐 저장소에 포함되지 않는다.
+  - 첫 삽입 시 `--default-character-set=utf8mb4`를 안 줘서 한글이 깨졌다(mojibake) — 지우고 다시 넣어 해결.
+  - 재삽입 후에도 API 응답이 계속 깨진 텍스트를 반환해 당황했으나, 원인은 DB가 아니라 **Redis 캐시**였다 — 첫 번째(깨진) 삽입 직후 호출한 `/api/products` 요청이 깨진 응답을 캐시해버려서, DB를 고쳐도 캐시가 안 갱신됐던 것. `redis-cli FLUSHALL`로 해결.
+- **테스트 검증 중 발견한 해프닝(내 변경과 무관)**: 최종 push 전 `./gradlew test`가 `ProductControllerTest`/`ProductCachingTest`에서 실패 — 원인은 내가 로컬 DB에 넣어둔 더미 상품 데이터가 `@SpringBootTest` 통합 테스트가 쓰는 같은 DB를 오염시켜 개수 불일치를 낸 것이었다(더미 데이터 삭제로 해결, 어차피 커밋 대상이 아니므로 삭제해도 무방). 그 다음 `LoginRateLimitFilterTest`가 계속 실패했는데, `git log`로 확인해보니 이 필터/테스트는 팀원이 예전에 작성한 코드로 이번 세션에서 전혀 건드리지 않았다 — 원인은 로그인 rate limit이 60초 고정 윈도우인데 내가 이 테스트를 몇 초 간격으로 반복 실행해서 같은 윈도우 안에 카운트가 쌓인 것으로 보인다. 60초 대기 후 단독 재실행하니 통과, 이어서 전체 테스트도 `BUILD SUCCESSFUL`.
+- 결과: `./gradlew test` 전체 통과(더미 데이터 제거 후). 브라우저(`./gradlew bootRun`, 1280px)로 `index.html` 확인 — 색상 전부 웜톤으로 복원(카드 가격 그라디언트 텍스트, 카테고리 활성 pill 그라디언트, 프로모 배너 흰색 밑줄 강조 등), 헤더 검색바 정상 렌더링, 클릭 시 인기검색어 팝업 정상 표시(빈 상태/데이터 있는 상태 둘 다 확인), 항목 클릭 시 `/index.html?keyword=...`로 정상 이동 및 필터링 확인.
+- 다음: 커밋 후 push 예정. 위시리스트 UI 중복(내 쇼케이스 `.wishlist-btn` vs 팀원의 실제 `.card-wishlist-btn`)은 여전히 미해결 — 사용자 확인 필요 항목으로 남아있음.

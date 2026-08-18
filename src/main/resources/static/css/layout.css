@@ -78,7 +78,7 @@
 }
 
 .site-header__nav a:hover {
-  color: var(--color-brand);
+  color: var(--color-pink);
 }
 
 .site-header__auth {
@@ -133,7 +133,7 @@
 }
 
 .site-footer__links a:hover {
-  color: var(--color-brand);
+  color: var(--color-pink);
 }
 
 .site-footer__meta {
