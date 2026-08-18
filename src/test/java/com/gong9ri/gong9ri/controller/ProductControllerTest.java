@@ -317,6 +317,31 @@ class ProductControllerTest {
     }
 
     @Test
+    @DisplayName("sort=DEADLINE이면 RECRUITING 팀 중 가장 이른 마감일 기준으로 오름차순 정렬되고, "
+            + "진행 중인 팀이 없는 상품은 맨 뒤로 밀린다")
+    void list_sortDeadline_ordersByNearestDeadline_andPushesNoTeamProductsLast() throws Exception {
+        int size = 203; // 다른 테스트와 캐시 키가 겹치지 않게 이 테스트 전용 size 사용
+        Member seller = saveMember("seller17", Role.SELLER);
+        Member leaderA = saveMember("leaderDeadlineA", Role.BUYER);
+        Member leaderB = saveMember("leaderDeadlineB", Role.BUYER);
+        Product noTeamProduct = saveProduct(seller, "마감임박테스트-팀없음", ProductCategory.DIGITAL);
+        Product soonProduct = saveProduct(seller, "마감임박테스트-임박", ProductCategory.DIGITAL);
+        Product laterProduct = saveProduct(seller, "마감임박테스트-여유", ProductCategory.DIGITAL);
+
+        groupBuyTeamRepository.save(new GroupBuyTeam(laterProduct, leaderB, 5, LocalDateTime.now().plusDays(10)));
+        groupBuyTeamRepository.save(new GroupBuyTeam(soonProduct, leaderA, 5, LocalDateTime.now().plusDays(1)));
+
+        mockMvc.perform(get("/api/products")
+                        .param("category", "DIGITAL")
+                        .param("size", String.valueOf(size))
+                        .param("sort", "DEADLINE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].name").value("마감임박테스트-임박"))
+                .andExpect(jsonPath("$.data.content[1].name").value("마감임박테스트-여유"))
+                .andExpect(jsonPath("$.data.content[2].name").value("마감임박테스트-팀없음"));
+    }
+
+    @Test
     @DisplayName("본인 상품 수정 시 200")
     void update_success_owner() throws Exception {
         Member seller = saveMember("seller5", Role.SELLER);

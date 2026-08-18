@@ -23,6 +23,9 @@
  * - 검색(#search-form, product/list-search): 상품명 또는 판매자명 검색. 제출 시 `?keyword=`를 URL에
  *   반영하고 카테고리/정렬과 동일하게 처음부터 다시 불러온다. 서버는 검색어가 있으면 목록 캐시를
  *   타지 않는다(docs/api/product.md).
+ * - 마감임박 배지: activeTeamDeadline까지 3일(DEADLINE_URGENT_DAYS) 이하로 남았을 때만 카드 이미지에
+ *   배지를 그린다(product/list-sort). "마감임박순" 정렬(sort=DEADLINE)과는 별개 기능 — 정렬은 항상
+ *   가능하고, 배지는 실제로 임박했을 때만 뜬다.
  */
 (function () {
   // 카카오 로그인 role 불일치 안내(?kakaoRoleMismatch=BUYER|SELLER) — 회원가입 페이지의 역할별
@@ -227,6 +230,8 @@
    * 상세 페이지(product.html)로 이동한다. 라우팅 방식은 쿼리스트링(?id=)이다
    * (정적 리소스 서빙 구조상 /products/{id} 경로 세그먼트 매핑이 없어서다. frontend/product-detail design.md 참고).
    */
+  var DEADLINE_URGENT_DAYS = 3;
+
   function createProductCard(product) {
     var link = document.createElement('a');
     link.className = 'card';
@@ -241,6 +246,15 @@
       imgEl.alt = product.name || '';
       imageEl.appendChild(imgEl);
     }
+
+    // 마감임박 배지(product/list-sort) — 대표 팀(진행바와 같은 팀) 마감까지 3일 이하로 남았을 때만
+    // 노출한다. 모든 카드에 "N일 남음"을 항상 보여주면 정보 과잉이라, 실제로 급한 것만 강조한다
+    // (와디즈/텀블벅 등 참고 사이트도 "마감임박"을 상시 카운터가 아니라 별도 태그로 씀).
+    var deadlineBadgeEl = createDeadlineBadge(product.activeTeamDeadline);
+    if (deadlineBadgeEl) {
+      imageEl.appendChild(deadlineBadgeEl);
+    }
+
     link.appendChild(imageEl);
 
     var bodyEl = document.createElement('div');
@@ -291,6 +305,30 @@
    * activeTeamCurrentCount/activeTeamTargetParticipants가 둘 다 없으면(RECRUITING 팀 없음) null을
    * 반환해 진행바 자체를 렌더링하지 않는다.
    */
+  /**
+   * @param {string} deadlineIso  ProductSummaryResponse.activeTeamDeadline(ISO 문자열) 또는 null
+   * @returns {?HTMLElement} 마감까지 DEADLINE_URGENT_DAYS일 이하로 남았을 때만 배지 엘리먼트, 아니면 null
+   */
+  function createDeadlineBadge(deadlineIso) {
+    if (!deadlineIso) {
+      return null;
+    }
+    var deadline = new Date(deadlineIso);
+    if (isNaN(deadline.getTime())) {
+      return null;
+    }
+    var msRemaining = deadline.getTime() - Date.now();
+    var daysRemaining = Math.ceil(msRemaining / (1000 * 60 * 60 * 24));
+    if (daysRemaining > DEADLINE_URGENT_DAYS) {
+      return null;
+    }
+
+    var badgeEl = document.createElement('span');
+    badgeEl.className = 'badge badge-urgent';
+    badgeEl.textContent = daysRemaining <= 0 ? '오늘 마감' : daysRemaining + '일 남음';
+    return badgeEl;
+  }
+
   function createProgressBar(product) {
     var current = product.activeTeamCurrentCount;
     var target = product.activeTeamTargetParticipants;

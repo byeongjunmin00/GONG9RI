@@ -31,9 +31,9 @@ src/main/resources/static/
 
 `docs/dev/product/list-enhancements/design.md` 참고. 상품명 또는 판매자명으로 검색, 제출 시 `?keyword=`를 URL에 반영하고 카테고리/정렬과 동일하게 목록을 처음부터 다시 불러온다.
 
-### 카드 참여 진행바
+### 카드 참여 진행바 + 마감임박 배지
 
-`activeTeamCurrentCount`/`activeTeamTargetParticipants`가 응답에 둘 다 있을 때만(RECRUITING 팀이 있을 때만) "N명 참여 중 · M명 달성 시 성사" 진행바 + "N% 달성" 배지(참고 사이트들의 공통 패턴)를 카드에 그린다.
+`activeTeamCurrentCount`/`activeTeamTargetParticipants`가 응답에 둘 다 있을 때만(RECRUITING 팀이 있을 때만) "N명 참여 중 · M명 달성 시 성사" 진행바 + "N% 달성" 배지(참고 사이트들의 공통 패턴)를 카드에 그린다. `activeTeamDeadline`까지 3일 이하로 남았을 때만 카드 이미지 위에 "N일 남음"/"오늘 마감" 배지를 추가로 얹는다(정렬 옵션 "마감임박순"과는 별개 기능, `docs/dev/product/list-enhancements/design.md` 참고).
 
 ### 카드 호버(입체감)
 

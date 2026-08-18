@@ -11,7 +11,7 @@
   | page | int | N | 0 | 페이지 번호 (0-based) |
   | size | int | N | 20 | 페이지 크기 |
   | category | String | N | (없음) | `FOOD`/`LIVING`/`BEAUTY`/`FASHION`/`DIGITAL`/`ETC` 중 하나. 생략하면 전체 카테고리(product/category, 메인 페이지 카테고리 바) |
-  | sort | String | N | (없음) | `LATEST`(등록일 내림차순) 또는 `POPULAR`(RECRUITING 팀 중 참여 인원이 가장 많은 팀 기준 내림차순, 진행 중인 팀 없는 상품은 맨 뒤). 생략하면 정렬 조건 없음(product/list-sort) |
+  | sort | String | N | (없음) | `LATEST`(등록일 내림차순) / `POPULAR`(RECRUITING 팀 중 참여 인원이 가장 많은 팀 기준 내림차순) / `DEADLINE`(RECRUITING 팀 중 가장 이른 마감일 기준 오름차순). `POPULAR`/`DEADLINE` 둘 다 진행 중인 팀 없는 상품은 맨 뒤. 생략하면 정렬 조건 없음(product/list-sort) |
   | keyword | String | N | (없음) | 상품명 또는 판매자명에 포함된 상품만(대소문자 무시). 있으면 목록 캐시를 타지 않는다(product/list-search) |
 
 - 응답: `200 OK`
@@ -29,7 +29,8 @@
         "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg",
         "category": "FOOD",
         "activeTeamCurrentCount": 8,
-        "activeTeamTargetParticipants": 10
+        "activeTeamTargetParticipants": 10,
+        "activeTeamDeadline": "2026-08-20T10:00:00"
       }
     ],
     "page": 0,
@@ -38,10 +39,12 @@
   }
   ```
 
-  > `activeTeamCurrentCount`/`activeTeamTargetParticipants`: 메인 페이지 카드 진행바용(product/list-progress).
-  > 이 상품의 RECRUITING 팀 중 진행률(currentCount/maxParticipants)이 가장 높은 팀의 스냅샷 — 진행 중인
-  > 팀이 하나도 없으면 둘 다 `null`(프론트는 이때 진행바를 숨긴다). 팀 상태는 자주 바뀌는 값이라 목록
-  > 캐시(30분 TTL)에 포함시키지 않고 매 요청마다 최신 값을 조회한다.
+  > `activeTeamCurrentCount`/`activeTeamTargetParticipants`/`activeTeamDeadline`: 메인 페이지 카드 진행바·
+  > 마감임박 배지용(product/list-progress, product/list-sort). 이 상품의 RECRUITING 팀 중 진행률
+  > (currentCount/maxParticipants)이 가장 높은 팀의 스냅샷 — 진행 중인 팀이 하나도 없으면 셋 다 `null`
+  > (프론트는 이때 진행바·배지를 숨긴다). 팀 상태는 자주 바뀌는 값이라 목록 캐시(30분 TTL)에 포함시키지
+  > 않고 매 요청마다 최신 값을 조회한다. `activeTeamDeadline`은 이 팀(진행률 최고 팀)의 마감일이며,
+  > `sort=DEADLINE`이 고르는 "가장 이른 마감일의 팀"과는 다른 팀일 수 있다(선택 기준이 다름).
 
 ---
 

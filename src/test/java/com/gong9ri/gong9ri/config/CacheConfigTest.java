@@ -50,7 +50,7 @@ class CacheConfigTest {
 
         ProductSummaryResponse summary = new ProductSummaryResponse(
                 1L, "제주 감귤 5kg", 25000, 15000, 10, "테스트판매자", LocalDateTime.now(), null, ProductCategory.FOOD,
-                null, null);
+                null, null, null);
         ProductPageResponse original = new ProductPageResponse(List.of(summary), 0, 20, 1L);
 
         ByteBuffer serialized = valueSerializer.write(original);

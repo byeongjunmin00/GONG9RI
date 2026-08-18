@@ -109,7 +109,8 @@ public class ProductService {
                     GroupBuyTeam bestTeam = bestTeamByProductId.get(summary.productId());
                     return bestTeam == null
                             ? summary
-                            : summary.withActiveTeamProgress(bestTeam.getCurrentCount(), bestTeam.getMaxParticipants());
+                            : summary.withActiveTeamProgress(bestTeam.getCurrentCount(), bestTeam.getMaxParticipants(),
+                                    bestTeam.getDeadline());
                 })
                 .toList();
 

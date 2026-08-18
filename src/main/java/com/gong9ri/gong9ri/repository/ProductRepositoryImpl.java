@@ -15,6 +15,7 @@ import com.querydsl.core.types.dsl.PathBuilder;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -57,6 +58,17 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
                     .from(groupBuyTeam)
                     .where(groupBuyTeam.product.eq(product).and(groupBuyTeam.status.eq(TeamStatus.RECRUITING)));
             orders.add(new OrderSpecifier<>(Order.DESC, popularTeamCount));
+        } else if (sort == ProductSort.DEADLINE) {
+            // 마감임박순(product/list-sort) — 이 상품의 RECRUITING 팀 중 가장 이른 마감일 기준 오름차순.
+            // MIN() 상관 서브쿼리도 POPULAR와 동일한 이유(페이지네이션 경계)로 DB 레벨에서 정렬한다.
+            // MySQL은 ASC 정렬에서 NULL을 맨 앞으로 보내는데(POPULAR의 DESC와 반대), 그러면 진행 중인
+            // 팀이 하나도 없는 상품이 "제일 급한" 것처럼 맨 위로 온다 — 의도와 반대라 nullsLast()로
+            // 명시적으로 뒤로 보낸다.
+            Expression<LocalDateTime> nearestDeadline = JPAExpressions
+                    .select(groupBuyTeam.deadline.min())
+                    .from(groupBuyTeam)
+                    .where(groupBuyTeam.product.eq(product).and(groupBuyTeam.status.eq(TeamStatus.RECRUITING)));
+            orders.add(new OrderSpecifier<>(Order.ASC, nearestDeadline).nullsLast());
         }
         orders.addAll(List.of(toOrderSpecifiers(pageable.getSort())));
 

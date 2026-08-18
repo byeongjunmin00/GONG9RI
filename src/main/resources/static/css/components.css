@@ -221,6 +221,11 @@
   color: var(--color-danger);
 }
 
+.badge-urgent {
+  background-color: var(--color-danger);
+  color: var(--color-text-on-brand);
+}
+
 .badge-leader {
   background-color: rgba(139, 92, 246, 0.12);
   color: var(--color-purple);
