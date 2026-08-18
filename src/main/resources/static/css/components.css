@@ -1003,10 +1003,13 @@
   color: var(--color-text-muted);
 }
 
-.search-trends__item {
+/* 한 번에 하나씩, 순위가 자동으로 바뀌는 티커(promo-bar 자동 순환과 같은 패턴) —
+   .is-swapping이 붙는 순간 opacity 0으로 내려갔다가, JS가 다음 프레임에 떼어내면서
+   opacity 1로 되돌아오는 크로스페이드. */
+.search-trends__current {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   border: none;
   background: none;
   padding: 2px 0;
@@ -1014,14 +1017,19 @@
   font-weight: 600;
   color: var(--color-text);
   cursor: pointer;
-  transition: color 0.15s ease;
+  opacity: 1;
+  transition: opacity 0.25s ease, color 0.15s ease;
 }
 
-.search-trends__item:hover {
+.search-trends__current.is-swapping {
+  opacity: 0;
+}
+
+.search-trends__current:hover {
   color: var(--color-purple);
 }
 
-.search-trends__item b {
+.search-trends__current b {
   color: var(--color-pink);
   font-weight: 800;
 }
