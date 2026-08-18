@@ -45,7 +45,10 @@
         aria-controls="search-popup-panel"
         aria-label="검색 열기"
       >
-        <span aria-hidden="true">🔍</span>
+        <svg class="icon-search" aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="10.5" cy="10.5" r="6.5" />
+          <line x1="20" y1="20" x2="15.3" y2="15.3" />
+        </svg>
       </button>
 
       <div class="site-header__auth" id="header-auth-guest">
@@ -62,14 +65,25 @@
 
   <div class="search-popup" id="search-popup-panel" hidden>
     <div class="container search-popup__inner">
-      <input
-        type="search"
-        class="search-popup__field"
-        id="search-popup-field"
-        placeholder="상품명을 검색해보세요"
-        aria-label="상품 검색"
-      />
-      <button type="button" class="search-popup__close" id="search-popup-close" aria-label="검색창 닫기">✕</button>
+      <div class="search-popup__field-wrap">
+        <svg class="search-popup__field-icon icon-search" aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="10.5" cy="10.5" r="6.5" />
+          <line x1="20" y1="20" x2="15.3" y2="15.3" />
+        </svg>
+        <input
+          type="search"
+          class="search-popup__field"
+          id="search-popup-field"
+          placeholder="상품명을 검색해보세요"
+          aria-label="상품 검색"
+        />
+      </div>
+      <button type="button" class="search-popup__close" id="search-popup-close" aria-label="검색창 닫기">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="5" y1="5" x2="19" y2="19" />
+          <line x1="19" y1="5" x2="5" y2="19" />
+        </svg>
+      </button>
     </div>
   </div>
 </header>

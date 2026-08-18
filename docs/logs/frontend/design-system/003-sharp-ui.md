@@ -56,3 +56,10 @@
   - `git commit`으로 병합 완료(커밋 `b8849b3`).
   - `./gradlew bootRun` + Browser pane으로 `index.html` 실사용 확인: 헤더(로고/검색버튼/로그인·회원가입 정렬 정상) + 프로모 배너(흰색 밑줄 강조, 자동 슬라이드+점 네비게이션 정상) + 카테고리 필터(전체/식품 등 pill, 클릭 시 활성 상태가 다크 세이지로 정상 전환, 클릭 시 배너도 갱신) 모두 정상 렌더링. 네트워크 요청 확인 — `/api/products?sort=POPULAR&size=1`, `?sort=LATEST`(팀원 신규 API) 200 OK, `/js/search-popup.js` 200 OK. 콘솔 에러는 `/api/auth/me` 401(비로그인 기존 의도된 동작)만 있고 그 외 없음.
 - 다음: Evaluate 단계로 진행 권장(이번 병합 포함 전체 diff 대상).
+
+## 후속 수정 — 2026-08-18 ✅ PASS (검색 버튼 아이콘 이모지 → SVG 교체)
+
+- 시도: 사용자 피드백 — 헤더 검색 토글 버튼의 🔍 이모지가 "짜쳐 보인다"(플랫폼별 렌더링 불일치로 로고의 라인아트 톤과 안 어울림). `partials/header.html`의 `<span aria-hidden="true">🔍</span>`를 로고와 같은 선 굵기(stroke-width 2, round cap)의 인라인 SVG 돋보기 아이콘(`stroke="currentColor"`)으로 교체해 헤더 색 상속·hover 색 전환이 그대로 적용되게 함(`.site-header__search-toggle`의 `color`/`:hover` 규칙 재사용, CSS 변경 없음).
+  - 중간에 "돋보기 옆에 '검색' 글씨도 넣어달라"는 요청으로 `<span>검색</span>` 추가 + `.site-header__search-toggle`을 고정 40x40 정사각형에서 `padding`+`gap` 기반 가변 폭으로 변경했으나, 사용자가 곧바로 텍스트 라벨을 취소해 아이콘 전용 40x40 정사각형 버튼으로 원복(마크업·CSS 둘 다).
+- 결과: `./gradlew bootRun` + Browser pane으로 `index.html` 확인 — 아이콘이 로고와 통일된 라인 스타일로 렌더링, 헤더 좌우 정렬(로고/검색/로그인/회원가입) 정상. (참고: 확인 도중 사용자가 "간격이 이상하다"고 했으나, 원인은 화면이 아니라 CSS가 하나도 로드되지 않는 `file:///.../partials/header.html` raw 파일 미리보기 탭 — 편집 직후 훅이 자동으로 띄운 탭 — 을 보고 계셨던 것으로 확인됨. 실제 `localhost:8080` 페이지로 재확인 후 정상 확인받음.)
+- 다음: 이 변경(`partials/header.html`)은 아직 커밋 여부 사용자 확인 대기 중.
