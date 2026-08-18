@@ -18,6 +18,15 @@
   }
 }
 
+/* 2단계(design-system-sharp-ui): --container-max가 넓어진(1200→1320px) 만큼, 데스크톱 이상
+   화면에서는 좌우 여백을 한 단계 더 키워 "콘텐츠는 넓게, 여백은 적당히"를 유지한다.
+   컬럼 수/브레이크포인트 구조는 변경하지 않는다(간격 값만 조정). */
+@media (min-width: 1024px) {
+  .container {
+    padding: 0 var(--space-7);
+  }
+}
+
 /* ---------- Header ---------- */
 .site-header {
   position: sticky;
@@ -45,6 +54,13 @@
   font-weight: 800;
   letter-spacing: -0.02em;
   white-space: nowrap;
+}
+
+.site-header__right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  flex-wrap: wrap;
 }
 
 .site-header__nav {
@@ -149,16 +165,18 @@
 }
 
 /* ---------- Card grid (상품 카드 등에서 재사용) ---------- */
+/* 2단계(design-system-sharp-ui): 카드가 더 촘촘해 보이도록 gap만 축소(16/24 → 12/16px).
+   컬럼 수(repeat(N, 1fr))·브레이크포인트는 변경하지 않는다. */
 .grid-cards {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-4);
+  gap: var(--space-3);
 }
 
 @media (min-width: 768px) {
   .grid-cards {
     grid-template-columns: repeat(3, 1fr);
-    gap: var(--space-5);
+    gap: var(--space-4);
   }
 }
 

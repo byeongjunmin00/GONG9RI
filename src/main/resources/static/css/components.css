@@ -14,7 +14,9 @@
   gap: var(--space-2);
   padding: 12px 24px;
   border: none;
-  border-radius: var(--radius-full);
+  /* 2단계(design-system-sharp-ui): 알약(pill) 형태(--radius-full)가 "AI 냄새 난다"는 피드백으로
+     각진 사각 버튼(--radius-sm)으로 변경. */
+  border-radius: var(--radius-sm);
   font-family: var(--font-heading);
   font-size: var(--fs-sm);
   font-weight: 700;
@@ -28,12 +30,13 @@
 }
 
 .btn-primary {
-  background: var(--gradient-brand);
+  background-color: var(--color-brand);
   color: var(--color-text-on-brand);
   box-shadow: var(--shadow-md);
 }
 
 .btn-primary:hover {
+  background-color: var(--color-brand-dark);
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
 }
@@ -45,8 +48,8 @@
 }
 
 .btn-secondary:hover {
-  border-color: var(--color-pink);
-  color: var(--color-pink);
+  border-color: var(--color-brand);
+  color: var(--color-brand);
   transform: translateY(-2px);
 }
 
@@ -57,7 +60,7 @@
 }
 
 .btn-ghost:hover {
-  color: var(--color-pink);
+  color: var(--color-brand);
 }
 
 .btn-sm {
@@ -90,7 +93,7 @@
   position: relative;
   width: 100%;
   aspect-ratio: 1 / 1;
-  background: var(--gradient-brand-soft);
+  background-color: var(--color-surface-alt);
   overflow: hidden;
 }
 
@@ -104,6 +107,12 @@
   position: absolute;
   top: var(--space-3);
   left: var(--space-3);
+}
+
+.card-image .wishlist-btn {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
 }
 
 .card-body {
@@ -144,10 +153,7 @@
   font-family: var(--font-heading);
   font-size: var(--fs-lg);
   font-weight: 800;
-  background: var(--gradient-brand);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--color-brand);
 }
 
 .card-price-label {
@@ -184,8 +190,8 @@
 }
 
 .badge-leader {
-  background-color: rgba(139, 92, 246, 0.12);
-  color: var(--color-purple);
+  background-color: rgba(68, 89, 64, 0.12);
+  color: var(--color-brand);
 }
 
 /* ---------- Form ---------- */
@@ -223,8 +229,8 @@
 .form-textarea:focus,
 .form-select:focus {
   outline: none;
-  border-color: var(--color-purple);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 3px rgba(68, 89, 64, 0.15);
 }
 
 .form-input::placeholder,
@@ -241,7 +247,7 @@
 .form-error {
   margin-top: var(--space-1);
   font-size: var(--fs-xs);
-  color: var(--color-coral);
+  color: var(--color-error);
   font-weight: 600;
 }
 
@@ -256,8 +262,8 @@
 }
 
 .form-alert--error {
-  background-color: rgba(255, 107, 107, 0.12);
-  color: var(--color-coral);
+  background-color: rgba(179, 72, 60, 0.12);
+  color: var(--color-error);
 }
 
 .form-alert--success {
@@ -289,12 +295,12 @@
 }
 
 .role-option input {
-  accent-color: var(--color-pink);
+  accent-color: var(--color-brand);
 }
 
 .role-option:has(input:checked) {
-  border-color: var(--color-pink);
-  color: var(--color-pink);
+  border-color: var(--color-brand);
+  color: var(--color-brand);
   background-color: var(--color-surface-alt);
 }
 
@@ -308,7 +314,7 @@
 }
 
 .product-status--error {
-  color: var(--color-coral);
+  color: var(--color-error);
   font-weight: 600;
 }
 
@@ -508,12 +514,12 @@
 }
 
 .product-tab:hover {
-  color: var(--color-pink);
+  color: var(--color-brand);
 }
 
 .product-tab.is-active {
   color: var(--color-text);
-  border-bottom-color: var(--color-pink);
+  border-bottom-color: var(--color-brand);
 }
 
 .product-tab-panel {
@@ -608,6 +614,35 @@
   min-width: 200px;
 }
 
+/* ---------- Header brand (다크 세이지 배경 + 이미지 로고) ---------- */
+/* layout.css의 .site-header는 반투명 오프화이트 배경(rgba(255,249,245,.9))을 하드코딩하고 있는데,
+   이 파일(components.css)이 layout.css보다 나중에 로드되므로 같은 선택자에 background-color를
+   다시 선언해 다크 세이지 톤으로 덮어쓴다 — layout.css 파일 자체는 건드리지 않는다(구조 불변).
+   흰색 로고 이미지(logo-icon-white.png)가 이 어두운 배경 위에서 대비를 확보하기 위함이다. */
+.site-header {
+  background-color: rgba(38, 43, 34, 0.94);
+}
+
+.site-header__logo {
+  display: inline-flex;
+  align-items: center;
+}
+
+.site-header__logo img {
+  display: block;
+  height: 40px;
+  width: auto;
+}
+
+/* 헤더가 어두운 배경으로 바뀌어 layout.css의 무채색 nav 링크색을 밝은 톤으로 보정한다 */
+.site-header__nav a {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.site-header__nav a:hover {
+  color: var(--color-text-on-brand);
+}
+
 /* ---------- Header auth (헤더 로그인 상태 표시) ---------- */
 /* .site-header__auth는 layout.css에서 display: flex를 선언하고 있어
    네이티브 [hidden]이 무시될 수 있으므로 명시적으로 보정한다. */
@@ -618,13 +653,100 @@
 .header-auth-user__name {
   font-size: var(--fs-sm);
   font-weight: 700;
-  color: var(--color-text);
+  color: var(--color-text-on-brand);
 }
 
 /* 로그인한 역할에 해당하는 nav 링크 강조 — 링크 자체는 숨기지 않는다 */
 .site-header__nav a.nav-link--role-active {
-  color: var(--color-pink);
+  color: var(--color-text-on-brand);
   font-weight: 800;
+}
+
+/* ---------- Header search toggle + popup panel (2단계, design-system-sharp-ui) ---------- */
+/* 열기/닫기 토글만 있는 순수 UI(js/search-popup.js). 제출 핸들러·실제 검색 실행 없음,
+   "최근 검색어" 등 콘텐츠 섹션 없음(백엔드 검색 API 없음) — 검색 입력창 하나만 있다. */
+.site-header__search-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: var(--fs-lg);
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.site-header__search-toggle:hover,
+.site-header__search-toggle.is-active {
+  background-color: rgba(255, 255, 255, 0.14);
+  color: var(--color-text-on-brand);
+}
+
+/* .site-header가 position: sticky라 이 패널의 포지셔닝 컨텍스트가 되어, absolute + top:100%로
+   헤더 바로 아래에 전체 폭으로 붙는다(무신사류 구조 패턴만 참고, 콘텐츠는 검색 입력창 1개뿐). */
+.search-popup {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background-color: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: var(--shadow-md);
+  z-index: 99;
+}
+
+.search-popup[hidden] {
+  display: none;
+}
+
+.search-popup__inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-top: var(--space-5);
+  padding-bottom: var(--space-5);
+}
+
+.search-popup__field {
+  flex: 1;
+  min-width: 0;
+  padding: 14px 20px;
+  background-color: var(--color-surface-alt);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-lg);
+  color: var(--color-text);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.search-popup__field:focus {
+  outline: none;
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 3px rgba(68, 89, 64, 0.15);
+}
+
+.search-popup__field::placeholder {
+  color: var(--color-text-muted);
+}
+
+.search-popup__close {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--fs-xl);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.search-popup__close:hover {
+  color: var(--color-brand);
 }
 
 /* ---------- Chat widget (구매자 챗봇 플로팅 위젯) ---------- */
@@ -652,7 +774,7 @@
   padding: 0 var(--space-4);
   border: none;
   border-radius: var(--radius-full);
-  background: var(--gradient-brand);
+  background-color: var(--color-brand);
   color: var(--color-text-on-brand);
   font-family: var(--font-heading);
   font-size: var(--fs-sm);
@@ -710,7 +832,7 @@
 }
 
 .chat-widget__close:hover {
-  color: var(--color-pink);
+  color: var(--color-brand);
 }
 
 .chat-widget__messages {
@@ -735,7 +857,7 @@
 
 .chat-widget__message--user {
   align-self: flex-end;
-  background: var(--gradient-brand);
+  background-color: var(--color-brand);
   color: var(--color-text-on-brand);
 }
 
@@ -774,8 +896,8 @@
 
 .chat-widget__input:focus {
   outline: none;
-  border-color: var(--color-purple);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 3px rgba(68, 89, 64, 0.15);
 }
 
 .chat-widget__input:disabled,
@@ -789,7 +911,7 @@
   padding: 8px 16px;
   border: none;
   border-radius: var(--radius-md);
-  background: var(--gradient-brand);
+  background-color: var(--color-brand);
   color: var(--color-text-on-brand);
   font-size: var(--fs-sm);
   font-weight: 700;
@@ -827,4 +949,88 @@
   font-family: var(--font-heading);
   font-size: var(--fs-xl);
   font-weight: 800;
+}
+
+/* ---------- Search input (검색 입력창 — 쇼케이스 전용, 실제 페이지 미반영) ---------- */
+/* submit 핸들러/필터링 로직 없음. 입력만 되는 순수 UI(design-system-layout-revamp 계획 참고). */
+.search-input {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 360px;
+  padding: 6px 6px 6px 16px;
+  background-color: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  /* 2단계(design-system-sharp-ui): 알약형(--radius-full)에서 각진 라운드 사각형(--radius-md)으로 축소. */
+  border-radius: var(--radius-md);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.search-input:focus-within {
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 3px rgba(68, 89, 64, 0.15);
+}
+
+.search-input__field {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: var(--fs-sm);
+  color: var(--color-text);
+}
+
+.search-input__field::placeholder {
+  color: var(--color-text-muted);
+}
+
+.search-input__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: none;
+  /* 2단계(design-system-sharp-ui): 외곽 .search-input이 각진 사각형이 됨에 따라 내부 버튼도 통일. */
+  border-radius: var(--radius-sm);
+  background-color: var(--color-brand);
+  color: var(--color-text-on-brand);
+  font-size: var(--fs-base);
+  line-height: 1;
+}
+
+.search-input__btn:hover {
+  background-color: var(--color-brand-dark);
+}
+
+/* ---------- Wishlist button (찜하기 버튼 — 쇼케이스 전용, 실제 페이지 미반영) ---------- */
+/* 클릭 핸들러/상태 저장/API 호출 없음. 카드 이미지 위 오버레이로 쓸 때는
+   .card-image .wishlist-btn(위 Card 섹션 참고)이 위치를 잡아준다. */
+.wishlist-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: var(--fs-lg);
+  line-height: 1;
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
+}
+
+.wishlist-btn:hover {
+  border-color: var(--color-brand);
+  color: var(--color-brand);
+  transform: translateY(-2px);
+}
+
+.wishlist-btn.is-active {
+  border-color: var(--color-brand);
+  background-color: var(--color-brand);
+  color: var(--color-text-on-brand);
 }

@@ -19,27 +19,57 @@
     "구매자 마이페이지"(`/buyer/mypage.html`)도 실제 페이지가 만들어졌다(frontend/buyer-mypage 작업).
     이 페이지들은 서브디렉토리에 있어 SecurityConfig의 정적 리소스 permitAll 매처에
     "/**/*.html"이 추가돼 있어야 비로그인 상태에서도 정상 렌더링된다.
+  * 검색 버튼(#search-toggle-btn) + 팝업 패널(#search-popup-panel)은 js/search-popup.js가
+    'gong9ri:includes-ready' 이벤트를 구독해 열기/닫기 토글만 담당한다(design-system-sharp-ui, 2단계).
+    제출 핸들러/실제 검색 실행/API 호출은 없고, 패널 안에는 검색 입력창 하나만 있다
+    ("최근 검색어" 등 콘텐츠 섹션 없음 — 백엔드 검색 API 없음).
 -->
 <header class="site-header">
   <div class="container site-header__inner">
     <a href="/" class="site-header__logo">
-      GONG<span class="text-gradient">9</span>RI
+      <img src="/images/logo-icon-white.png" alt="GONG9RI" />
     </a>
 
-    <nav class="site-header__nav" aria-label="주요 메뉴">
-      <a href="/seller/products/new.html" data-role="SELLER" hidden>판매 물품 등록</a>
-      <a href="/seller/mypage.html" data-role="SELLER" hidden>판매자 마이페이지</a>
-      <a href="/buyer/mypage.html" data-role="BUYER" hidden>구매자 마이페이지</a>
-    </nav>
+    <div class="site-header__right">
+      <nav class="site-header__nav" aria-label="주요 메뉴">
+        <a href="/seller/products/new.html" data-role="SELLER" hidden>판매 물품 등록</a>
+        <a href="/seller/mypage.html" data-role="SELLER" hidden>판매자 마이페이지</a>
+        <a href="/buyer/mypage.html" data-role="BUYER" hidden>구매자 마이페이지</a>
+      </nav>
 
-    <div class="site-header__auth" id="header-auth-guest">
-      <a href="/login.html" class="btn btn-secondary btn-sm">로그인</a>
-      <a href="/signup.html" class="btn btn-primary btn-sm">회원가입</a>
+      <button
+        type="button"
+        class="site-header__search-toggle"
+        id="search-toggle-btn"
+        aria-expanded="false"
+        aria-controls="search-popup-panel"
+        aria-label="검색 열기"
+      >
+        <span aria-hidden="true">🔍</span>
+      </button>
+
+      <div class="site-header__auth" id="header-auth-guest">
+        <a href="/login.html" class="btn btn-secondary btn-sm">로그인</a>
+        <a href="/signup.html" class="btn btn-primary btn-sm">회원가입</a>
+      </div>
+
+      <div class="site-header__auth" id="header-auth-user" hidden>
+        <span class="header-auth-user__name" id="header-auth-user-name"></span>
+        <button type="button" class="btn btn-secondary btn-sm" id="header-auth-logout">로그아웃</button>
+      </div>
     </div>
+  </div>
 
-    <div class="site-header__auth" id="header-auth-user" hidden>
-      <span class="header-auth-user__name" id="header-auth-user-name"></span>
-      <button type="button" class="btn btn-secondary btn-sm" id="header-auth-logout">로그아웃</button>
+  <div class="search-popup" id="search-popup-panel" hidden>
+    <div class="container search-popup__inner">
+      <input
+        type="search"
+        class="search-popup__field"
+        id="search-popup-field"
+        placeholder="상품명을 검색해보세요"
+        aria-label="상품 검색"
+      />
+      <button type="button" class="search-popup__close" id="search-popup-close" aria-label="검색창 닫기">✕</button>
     </div>
   </div>
 </header>

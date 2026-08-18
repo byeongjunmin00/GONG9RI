@@ -5,13 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GONG9RI 디자인 시스템</title>
 
-  <!-- 폰트: 헤딩 - Poppins(Google Fonts CDN), 본문 - Pretendard(jsdelivr CDN) -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&display=swap"
-    rel="stylesheet"
-  />
+  <!-- 폰트: 헤딩 · 본문 모두 Pretendard(jsdelivr CDN)로 통일 (예전엔 헤딩에 Poppins를 썼으나 제거) -->
   <link
     rel="stylesheet"
     as="style"
@@ -32,12 +26,32 @@
       <div class="section__head">
         <p class="text-muted" style="font-weight:700; letter-spacing: 0.08em; text-transform: uppercase; font-size: var(--fs-xs);">Design System</p>
         <h1>
-          <span class="text-gradient">갬성 있는</span> GONG9RI 디자인 시스템
+          <span class="text-gradient">담백하게</span> 정돈한 GONG9RI 디자인 시스템
         </h1>
         <p class="text-muted" style="margin-top: var(--space-2); max-width: 640px;">
-          색상 · 타이포그래피 · 버튼 · 카드 · 뱃지 · 폼 컴포넌트를 한눈에 확인하는 쇼케이스 페이지입니다.
+          화이트 · 라이트 그레이 무채색 베이스에 다크 세이지 그린 브랜드 포인트를 더한 색상 팔레트와
+          타이포그래피 · 버튼 · 카드 · 뱃지 · 폼 · 검색창 · 찜하기 버튼 컴포넌트를 한눈에 확인하는 쇼케이스 페이지입니다.
           이후 페이지들은 이 토큰과 컴포넌트를 그대로 재사용합니다.
         </p>
+      </div>
+    </section>
+
+    <!-- ================= 브랜드 마크 ================= -->
+    <section class="section container">
+      <div class="section__head">
+        <h2 class="section__title">브랜드 마크</h2>
+        <p class="text-muted">라쿤 얼굴 모양의 "9" 라인아트 아이콘. 밝은 배경엔 회색 버전, 어두운 배경(헤더)엔 흰색 버전을 사용합니다.</p>
+      </div>
+
+      <div style="display:flex; flex-wrap:wrap; gap: var(--space-6); align-items:center;">
+        <div style="display:flex; flex-direction:column; align-items:center; gap: var(--space-2);">
+          <img src="/images/logo-icon.png" alt="GONG9RI 로고 (회색, 밝은 배경용)" style="height:72px; width:auto;" />
+          <span class="text-muted" style="font-size: var(--fs-xs);">logo-icon.png · 밝은 배경용</span>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center; gap: var(--space-2); padding: var(--space-4); background-color: var(--color-text); border-radius: var(--radius-md);">
+          <img src="/images/logo-icon-white.png" alt="GONG9RI 로고 (흰색, 어두운 배경용)" style="height:72px; width:auto;" />
+          <span style="font-size: var(--fs-xs); color: var(--color-text-on-brand);">logo-icon-white.png · 어두운 배경용(헤더)</span>
+        </div>
       </div>
     </section>
 
@@ -45,7 +59,7 @@
     <section class="section container">
       <div class="section__head">
         <h2 class="section__title">색상 팔레트</h2>
-        <p class="text-muted">오프화이트 뉴트럴 베이스 + 코럴 · 핑크 · 퍼플 · 오렌지 웜 그라디언트 포인트</p>
+        <p class="text-muted">화이트 · 라이트 그레이 무채색 베이스 + 다크 세이지 그린 브랜드 포인트 (무신사류 3톤 팔레트 참고, "검정에 가까운 회색" 자리를 세이지 그린으로 대체)</p>
       </div>
 
       <div class="grid-auto">
@@ -53,7 +67,7 @@
           <div style="height: 96px; background: var(--color-bg); border-bottom: 1px solid var(--color-border);"></div>
           <div class="card-body">
             <span class="card-title" style="font-size: var(--fs-sm);">bg</span>
-            <span class="text-muted" style="font-size: var(--fs-xs);">#FFF9F5</span>
+            <span class="text-muted" style="font-size: var(--fs-xs);">#F5F6F3</span>
           </div>
         </div>
         <div class="card">
@@ -64,38 +78,52 @@
           </div>
         </div>
         <div class="card">
-          <div style="height: 96px; background: var(--color-orange);"></div>
+          <div style="height: 96px; background: var(--color-surface-alt); border-bottom: 1px solid var(--color-border);"></div>
           <div class="card-body">
-            <span class="card-title" style="font-size: var(--fs-sm);">orange</span>
-            <span class="text-muted" style="font-size: var(--fs-xs);">#FFA24C</span>
+            <span class="card-title" style="font-size: var(--fs-sm);">surface-alt</span>
+            <span class="text-muted" style="font-size: var(--fs-xs);">#EEF0EA</span>
           </div>
         </div>
         <div class="card">
-          <div style="height: 96px; background: var(--color-coral);"></div>
+          <div style="height: 96px; background: var(--color-border);"></div>
           <div class="card-body">
-            <span class="card-title" style="font-size: var(--fs-sm);">coral</span>
-            <span class="text-muted" style="font-size: var(--fs-xs);">#FF6B6B</span>
+            <span class="card-title" style="font-size: var(--fs-sm);">border</span>
+            <span class="text-muted" style="font-size: var(--fs-xs);">#E1E4DC</span>
           </div>
         </div>
         <div class="card">
-          <div style="height: 96px; background: var(--color-pink);"></div>
+          <div style="height: 96px; background: var(--color-text);"></div>
           <div class="card-body">
-            <span class="card-title" style="font-size: var(--fs-sm);">pink</span>
-            <span class="text-muted" style="font-size: var(--fs-xs);">#FF4D8D</span>
+            <span class="card-title" style="font-size: var(--fs-sm);">text (다크 세이지 그린)</span>
+            <span class="text-muted" style="font-size: var(--fs-xs);">#262B22</span>
           </div>
         </div>
         <div class="card">
-          <div style="height: 96px; background: var(--color-purple);"></div>
+          <div style="height: 96px; background: var(--color-text-muted);"></div>
           <div class="card-body">
-            <span class="card-title" style="font-size: var(--fs-sm);">purple</span>
-            <span class="text-muted" style="font-size: var(--fs-xs);">#8B5CF6</span>
+            <span class="card-title" style="font-size: var(--fs-sm);">text-muted</span>
+            <span class="text-muted" style="font-size: var(--fs-xs);">#6E7568</span>
           </div>
         </div>
         <div class="card">
-          <div style="height: 96px; background: var(--gradient-brand);"></div>
+          <div style="height: 96px; background: var(--color-brand);"></div>
           <div class="card-body">
-            <span class="card-title" style="font-size: var(--fs-sm);">gradient-brand</span>
-            <span class="text-muted" style="font-size: var(--fs-xs);">버튼/포인트 텍스트</span>
+            <span class="card-title" style="font-size: var(--fs-sm);">brand (다크 세이지 그린)</span>
+            <span class="text-muted" style="font-size: var(--fs-xs);">#445940 · 버튼/링크/포인트 텍스트</span>
+          </div>
+        </div>
+        <div class="card">
+          <div style="height: 96px; background: var(--color-brand-dark);"></div>
+          <div class="card-body">
+            <span class="card-title" style="font-size: var(--fs-sm);">brand-dark</span>
+            <span class="text-muted" style="font-size: var(--fs-xs);">#333F30 · hover 등</span>
+          </div>
+        </div>
+        <div class="card">
+          <div style="height: 96px; background: var(--color-error);"></div>
+          <div class="card-body">
+            <span class="card-title" style="font-size: var(--fs-sm);">error</span>
+            <span class="text-muted" style="font-size: var(--fs-xs);">#B3483C · 폼 검증 에러 전용</span>
           </div>
         </div>
       </div>
@@ -105,11 +133,11 @@
     <section class="section container">
       <div class="section__head">
         <h2 class="section__title">타이포그래피</h2>
-        <p class="text-muted">헤딩: Poppins · 본문: Pretendard</p>
+        <p class="text-muted">헤딩 · 본문 모두 Pretendard로 통일 (예전엔 헤딩에 둥근 인상의 Poppins를 썼으나 제거)</p>
       </div>
 
       <div style="display:flex; flex-direction:column; gap: var(--space-4);">
-        <h1>H1 — 인스타 감성 헤드라인 <span class="text-gradient">Aa</span></h1>
+        <h1>H1 — 담백한 헤드라인 <span class="text-gradient">Aa</span></h1>
         <h2>H2 — 섹션 타이틀 Aa 가나다</h2>
         <h3>H3 — 카드 그룹 타이틀 Aa 가나다</h3>
         <h4>H4 — 상품명급 타이틀 Aa 가나다</h4>
@@ -124,7 +152,7 @@
     <section class="section container">
       <div class="section__head">
         <h2 class="section__title">버튼</h2>
-        <p class="text-muted">Primary(그라디언트) / Secondary(아웃라인) / Ghost / 크기 variant</p>
+        <p class="text-muted">Primary(다크 세이지 그린) / Secondary(아웃라인) / Ghost / 크기 variant</p>
       </div>
 
       <div style="display:flex; flex-wrap:wrap; gap: var(--space-4); align-items:center;">
@@ -145,13 +173,16 @@
     <section class="section container">
       <div class="section__head">
         <h2 class="section__title">상품 카드</h2>
-        <p class="text-muted">이미지 + 상품명 + 기본가 + 베스트 공구가 + 상태 뱃지</p>
+        <p class="text-muted">이미지 + 상품명 + 기본가 + 베스트 공구가 + 상태 뱃지 + 찜하기 버튼(우측 상단 오버레이)</p>
       </div>
 
       <div class="grid-cards" style="max-width: 900px;">
         <div class="card">
           <div class="card-image">
             <span class="badge badge-recruiting">모집중</span>
+            <button type="button" class="wishlist-btn" aria-pressed="false" aria-label="찜하기">
+              <span aria-hidden="true">♡</span>
+            </button>
           </div>
           <div class="card-body">
             <span class="card-seller">제주농장</span>
@@ -167,6 +198,9 @@
         <div class="card">
           <div class="card-image">
             <span class="badge badge-success">성사</span>
+            <button type="button" class="wishlist-btn is-active" aria-pressed="true" aria-label="찜 해제하기">
+              <span aria-hidden="true">♥</span>
+            </button>
           </div>
           <div class="card-body">
             <span class="card-seller">서울베이커리</span>
@@ -182,6 +216,9 @@
         <div class="card">
           <div class="card-image">
             <span class="badge badge-failed">미성사</span>
+            <button type="button" class="wishlist-btn" aria-pressed="false" aria-label="찜하기">
+              <span aria-hidden="true">♡</span>
+            </button>
           </div>
           <div class="card-body">
             <span class="card-seller">강원목장</span>
@@ -193,6 +230,56 @@
             <span class="card-price-label">모집 기간 종료 (인원 미달)</span>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- ================= 검색 입력창 / 검색 팝업 패널 (쇼케이스 전용) ================= -->
+    <section class="section container">
+      <div class="section__head">
+        <h2 class="section__title">검색 입력창 (인라인)</h2>
+        <p class="text-muted">
+          컴포넌트 예시입니다 — 백엔드 검색 API가 아직 없어 입력만 되는 순수 UI이며,
+          제출 핸들러나 필터링 로직은 연결돼 있지 않습니다. 실제 메인 페이지 반영은 후속 계획입니다.
+        </p>
+      </div>
+
+      <div class="search-input">
+        <input type="search" class="search-input__field" placeholder="상품명을 검색해보세요" aria-label="상품 검색" />
+        <button type="button" class="search-input__btn" aria-label="검색">🔍</button>
+      </div>
+    </section>
+
+    <!-- ================= 검색 팝업 패널 (헤더 검색 버튼, 2단계 신규) ================= -->
+    <section class="section container">
+      <div class="section__head">
+        <h2 class="section__title">검색 팝업 패널</h2>
+        <p class="text-muted">
+          이 페이지 상단 헤더 우측의 돋보기 버튼(<code>#search-toggle-btn</code>)을 눌러보세요 —
+          헤더 바로 아래 전체 폭으로 펼쳐지는 팝업 패널(<code>.search-popup</code>)이 열립니다.
+          다시 누르거나 패널의 닫기 버튼(✕)을 누르면 닫힙니다(<code>js/search-popup.js</code>, 열기/닫기 토글만).
+          패널 안에는 검색 입력창 하나만 있고, 제출·실제 검색 실행 기능은 없습니다 —
+          "최근 검색어" 등 콘텐츠 섹션은 백엔드 검색 API가 없어 의도적으로 넣지 않았습니다.
+        </p>
+      </div>
+    </section>
+
+    <!-- ================= 찜하기 버튼 (쇼케이스 전용) ================= -->
+    <section class="section container">
+      <div class="section__head">
+        <h2 class="section__title">찜하기 버튼</h2>
+        <p class="text-muted">
+          컴포넌트 예시입니다 — 위시리스트 백엔드 API가 아직 없어 클릭 핸들러·상태 저장·API 호출은 없습니다.
+          기본(찜 안 함)과 <code>.is-active</code>(찜함) 두 가지 시각 상태만 보여줍니다.
+        </p>
+      </div>
+
+      <div style="display:flex; gap: var(--space-4); align-items:center;">
+        <button type="button" class="wishlist-btn" aria-pressed="false" aria-label="찜하기">
+          <span aria-hidden="true">♡</span>
+        </button>
+        <button type="button" class="wishlist-btn is-active" aria-pressed="true" aria-label="찜 해제하기">
+          <span aria-hidden="true">♥</span>
+        </button>
       </div>
     </section>
 
@@ -247,5 +334,6 @@
   <script src="/js/api.js"></script>
   <script src="/js/header-auth.js"></script>
   <script src="/js/chat-widget.js"></script>
+  <script src="/js/search-popup.js"></script>
 </body>
 </html>

@@ -1,30 +1,26 @@
 /*
  * tokens.css — GONG9RI 디자인 토큰
  * 색상 / 타이포그래피 / 스페이싱 / 라운드 / 그림자 등 CSS 커스텀 프로퍼티 정의.
- * 무드: 오프화이트 뉴트럴 베이스 + 코럴·핑크·퍼플·오렌지 웜 그라디언트 포인트
- *       (인스타그램 피드 감성 — 화사하고 생기 있는 느낌)
+ * 무드: 화이트 · 라이트 그레이 무채색 베이스 + 다크 세이지 그린(어두운 쑥색) 브랜드 포인트
+ *       (무신사류 3톤 무채색 팔레트를 참고하되, "검정에 가까운 회색" 자리를 세이지 그린으로 대체)
  */
 
 :root {
   /* ---------- Color: Neutral base ---------- */
-  --color-bg: #FFF9F5;           /* 오프화이트 배경 */
+  --color-bg: #F5F6F3;           /* 라이트 그레이(연한 세이지 톤) 배경 */
   --color-surface: #FFFFFF;      /* 카드 등 표면 */
-  --color-surface-alt: #FFF3EC;  /* 은은한 웜톤 서브 표면 */
-  --color-border: #F0E4DC;
-  --color-text: #2B2530;         /* 차콜에 가까운 진한 플럼 톤 텍스트 */
-  --color-text-muted: #7A7280;
+  --color-surface-alt: #EEF0EA;  /* 은은한 세이지톤 서브 표면 */
+  --color-border: #E1E4DC;
+  --color-text: #262B22;         /* 다크 세이지 그린에 가까운 차콜 톤 텍스트 */
+  --color-text-muted: #6E7568;
   --color-text-on-brand: #FFFFFF;
 
-  /* ---------- Color: Brand accents (warm gradient family) ---------- */
-  --color-orange: #FFA24C;
-  --color-coral: #FF6B6B;
-  --color-pink: #FF4D8D;
-  --color-purple: #8B5CF6;
+  /* ---------- Color: Brand accent (dark sage green) ---------- */
+  --color-brand: #445940;        /* 메인 브랜드 강조색 — 버튼/링크/포인트 텍스트 */
+  --color-brand-dark: #333F30;   /* 더 어두운 톤 — hover 등 */
 
-  /* 대표 브랜드 그라디언트 — 버튼/포인트 텍스트/뱃지 등에 사용 */
-  --gradient-brand: linear-gradient(135deg, var(--color-orange) 0%, var(--color-coral) 35%, var(--color-pink) 65%, var(--color-purple) 100%);
-  /* 배경용 은은한 버전 */
-  --gradient-brand-soft: linear-gradient(135deg, rgba(255, 162, 76, 0.14) 0%, rgba(255, 107, 107, 0.14) 35%, rgba(255, 77, 141, 0.14) 65%, rgba(139, 92, 246, 0.14) 100%);
+  /* 폼 검증 등에 쓰는 에러색 — 상태 뱃지(--color-danger)와는 별개(뱃지는 의도적으로 중립색) */
+  --color-error: #B3483C;
 
   /* ---------- Color: Semantic (상태 뱃지 등) ---------- */
   --color-success: #2FBF71;      /* 성사 */
@@ -35,7 +31,7 @@
   --color-danger-bg: #F1EEF4;
 
   /* ---------- Typography ---------- */
-  --font-heading: 'Poppins', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Segoe UI', Roboto, sans-serif;
+  --font-heading: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Segoe UI', Roboto, sans-serif;
   --font-body: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Segoe UI', Roboto, 'Malgun Gothic', sans-serif;
 
   --fs-xs: 0.75rem;    /* 12px */
@@ -62,17 +58,21 @@
   --space-8: 64px;
 
   /* ---------- Radius ---------- */
-  --radius-sm: 8px;
-  --radius-md: 16px;
-  --radius-lg: 24px;
+  /* 2단계(design-system-sharp-ui): 무신사류 "각진" 인상을 위해 큰 폭으로 축소(8/16/24 → 4/8/12).
+     --radius-full(핀/원형 아이콘용)은 이번 변경 대상이 아니다. */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
   --radius-full: 999px;
 
-  /* ---------- Shadow (warm-tinted soft shadow) ---------- */
-  --shadow-sm: 0 2px 8px rgba(139, 92, 246, 0.08);
-  --shadow-md: 0 8px 24px rgba(255, 77, 141, 0.12);
-  --shadow-lg: 0 16px 40px rgba(255, 107, 107, 0.16);
+  /* ---------- Shadow (sage-tinted soft shadow) ---------- */
+  --shadow-sm: 0 2px 8px rgba(38, 43, 34, 0.08);
+  --shadow-md: 0 8px 24px rgba(38, 43, 34, 0.12);
+  --shadow-lg: 0 16px 40px rgba(38, 43, 34, 0.16);
 
   /* ---------- Layout ---------- */
-  --container-max: 1200px;
+  /* 2단계(design-system-sharp-ui): 넓은 화면에서 콘텐츠 폭을 더 넓게(1200 → 1320px, 무신사류 참고).
+     좌우 여백은 css/layout.css의 .container padding에서 화면 폭별로 조정한다. */
+  --container-max: 1320px;
   --header-height: 72px;
 }

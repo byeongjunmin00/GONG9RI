@@ -78,17 +78,14 @@ h6 { font-size: var(--fs-base); }
 
 /* 접근성: 키보드 포커스는 항상 보이게 (마우스 클릭 시엔 숨김) */
 :focus-visible {
-  outline: 2px solid var(--color-purple);
+  outline: 2px solid var(--color-brand);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
 
-/* 브랜드 그라디언트를 텍스트에 입히는 유틸리티 */
+/* 브랜드 포인트 텍스트 — 예전엔 그라디언트였으나, 다크 세이지 그린 단일 강조색으로 통일 */
 .text-gradient {
-  background: var(--gradient-brand);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--color-brand);
 }
 
 .text-muted {
