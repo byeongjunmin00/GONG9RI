@@ -57,6 +57,9 @@
 
       <div id="header-search-trends-panel" class="header-search-trends" hidden>
         <p class="header-search-trends__label">실시간 인기 검색어</p>
+        <!-- 검색어 집계는 실시간(Redis, product/search-trends)이지만, 화면에 뜬 이 순위 자체는 방금
+             불러온 시점 스냅샷이라 "몇 시 기준"인지 명시한다 — js/header-search.js가 채운다. -->
+        <p id="header-search-trends-updated" class="header-search-trends__updated"></p>
         <ol id="header-search-trends-list" class="header-search-trends__list"></ol>
       </div>
     </div>

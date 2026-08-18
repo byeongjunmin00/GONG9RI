@@ -18,10 +18,11 @@
     var inputEl = document.getElementById('header-search-input');
     var panelEl = document.getElementById('header-search-trends-panel');
     var listEl = document.getElementById('header-search-trends-list');
+    var updatedEl = document.getElementById('header-search-trends-updated');
     var tickerEl = document.getElementById('header-search-trends-ticker');
     var wrapEl = document.querySelector('.site-header__search');
 
-    if (!formEl || !inputEl || !panelEl || !listEl || !tickerEl || !wrapEl || !window.Api) {
+    if (!formEl || !inputEl || !panelEl || !listEl || !updatedEl || !tickerEl || !wrapEl || !window.Api) {
       return;
     }
 
@@ -81,10 +82,14 @@
           trendKeywords = (data && data.keywords) || [];
           renderTrends(trendKeywords);
           startTicker(trendKeywords);
+          // 집계 자체는 실시간이지만, 화면에 뜬 순위는 지금 이 응답을 받은 시점의 스냅샷이라
+          // 언제 기준인지 명시한다(사용자 피드백 — "이게 몇 시 기준인지 안 나와있다").
+          updatedEl.textContent = new Date().toLocaleString('ko-KR') + ' 기준';
         })
         .catch(function () {
           trendsLoaded = false;
           renderTrends(null);
+          updatedEl.textContent = '';
         });
     }
 

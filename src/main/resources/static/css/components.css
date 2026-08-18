@@ -811,15 +811,22 @@
   }
 }
 
-/* ---------- Header search (전역 검색 진입점) ---------- */
+/* ---------- Header search (전역 검색 진입점) ----------
+   검색창과 인기 검색어 티커를 나란히 두되(가운데 gap으로 확실히 분리), 검색창은 남는 공간을 채우고
+   티커는 자기 콘텐츠 너비만큼만 차지한다(.header-search-trends-ticker의 flex: none과 짝). */
 .site-header__search {
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
   flex: 1;
   min-width: 160px;
-  max-width: 520px;
+  max-width: 640px;
 }
 
 .site-header__search .search-bar {
+  flex: 1;
+  min-width: 0;
   margin-bottom: 0;
 }
 
@@ -846,7 +853,13 @@
   font-size: var(--fs-xs);
   font-weight: 700;
   color: var(--color-text-muted);
-  margin-bottom: var(--space-2);
+}
+
+.header-search-trends__updated {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  opacity: 0.8;
+  margin-bottom: var(--space-3);
 }
 
 .header-search-trends__list {
