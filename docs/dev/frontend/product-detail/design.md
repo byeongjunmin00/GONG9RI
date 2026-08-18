@@ -2,7 +2,7 @@
 
 ## 개요
 
-GONG9RI 상품 상세 페이지다. 상품 기본 정보(이름/설명/기본가/가격구간표)와 모집 중인 공동구매 팀 목록을 보여주고, "혼자 구매하기"/"기존 팀 참가하기"/"신규 팀 신설하기"/"계속 쇼핑하기" 네 가지 액션의 진입점이다. 공통 디자인 시스템 위에서 정적 HTML/CSS/JS로 동작한다.
+GONG9RI 상품 상세 페이지다. 상품 기본 정보(이름/기본가/가격구간표)와 모집 중인 공동구매 팀 목록을 보여주고, "혼자 구매하기"/"기존 팀 참가하기"/"신규 팀 신설하기"/"계속 쇼핑하기" 네 가지 액션의 진입점이다. 그 아래에 **상품정보 / 리뷰 / 문의** 3개 탭으로 콘텐츠를 전환해서 볼 수 있다. 공통 디자인 시스템 위에서 정적 HTML/CSS/JS로 동작한다.
 
 ## 인터페이스 / 산출물
 
@@ -14,8 +14,29 @@ src/main/resources/static/
 ```
 
 - 라우팅: 쿼리스트링 `product.html?id={productId}` (정적 리소스 서빙 구조상 `/products/{id}` 경로 세그먼트 라우팅 불가).
-- `css/components.css`에 `.product-detail`(+`[hidden]` 보정 규칙), `.product-price-box`/`.product-price-row`, `.price-tiers-table`, `.product-actions`, `.team-list`/`.team-item`/`.team-item-info`/`.team-item-count` 추가.
+- `css/components.css`에 `.product-detail`(+`[hidden]` 보정 규칙), `.product-price-box`/`.product-price-row`, `.price-tiers-table`, `.product-actions`, `.team-list`/`.team-item`/`.team-item-info`/`.team-item-count`, `.product-tabs`/`.product-tab`/`.product-tab-panel` 추가.
 - `js/main.js`: 상품 카드 링크를 `product.html?id={productId}`로 연결(과거 `href="#"` placeholder에서 갱신).
+
+## 탭 UI (상품정보 / 리뷰 / 문의)
+
+- `team-list-section`(모집 중인 공구팀) 다음, `product-tabs-section` 안에 탭 네비게이션(`role="tablist"`,
+  버튼 3개 `.product-tab`)과 패널 3개(`.product-tab-panel`)를 둔다. 팀 목록은 참가하기와 직결된 구매
+  액션이라 탭 밖에 그대로 둔다.
+- 탭: `product-tab-info`(기본 활성) / `product-tab-reviews` / `product-tab-inquiries`.
+- 패널:
+  - **상품정보** (`product-info-panel`): `#product-description`(`product.description`을 `textContent`로
+    렌더). 설명이 비어 있으면 `#product-description-status`(`product-status--empty` 패턴)로 "등록된
+    상품 설명이 없습니다." 안내. 과거에는 상품명 옆 헤더에 흐린 문단으로만 노출됐으나, 이 작업으로
+    헤더(`section__head`)에는 판매자/상품명만 남고 설명은 이 패널로 이동했다.
+  - **리뷰** (`reviews-panel`, 기존 `.reviews-section`): 리뷰 기능 전체(평균 평점, 목록, 작성/수정
+    폼) — 내부 DOM id·로직 불변, 감싸는 위치만 탭 패널로 바뀜.
+  - **문의** (`inquiries-panel`, 기존 `.inquiries-section`): 문의 기능 전체(개수 표시, 목록, 작성/수정
+    폼, 판매자 답변 인라인 폼) — 내부 DOM id·로직 불변, 감싸는 위치만 탭 패널로 바뀜. 상세:
+    `docs/dev/inquiry/crud/design.md`.
+- 탭 전환(`js/product.js`의 `switchTab()`/`setUpTabs()`)은 **표시/숨김(`hidden`)과 `is-active`/
+  `aria-selected` 토글만** 수행한다. 리뷰/문의 데이터 재조회는 하지 않는다 — 데이터는 탭 UI와 무관하게
+  기존 트리거(`init()`의 `loadReviews`/`loadInquiries` 즉시 호출, `loadProduct()` 성공 후
+  `loadInquiries` 재호출, `gong9ri:auth-resolved` 도착 시 재호출)로 항상 먼저 로드돼 있다.
 
 ## 데이터 연동
 
@@ -46,3 +67,5 @@ src/main/resources/static/
 - `src/main/resources/static/css/components.css` — 상세 페이지 전용 규칙 추가
 - `src/main/resources/static/js/main.js` — 카드 링크 갱신
 - 경위: `docs/dev/frontend/product-detail/changes/001-product-detail.md`, 실행 로그: `docs/logs/frontend/product-detail/001-product-detail.md`
+- 탭 UI 추가 경위: `docs/dev/frontend/product-detail/changes/002-product-detail-tabs.md`, 실행 로그:
+  `docs/logs/frontend/product-detail/002-product-detail-tabs.md`

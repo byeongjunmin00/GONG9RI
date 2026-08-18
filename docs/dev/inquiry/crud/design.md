@@ -60,8 +60,10 @@
 
 ## 프론트엔드
 
-- `product.html`: `reviews-section` 바로 아래 `inquiries-section`(목록 + 항상 노출되는 작성/수정
-  폼)을 병렬로 추가.
+- `product.html`: `inquiries-section`(목록 + 항상 노출되는 작성/수정 폼)은 이제 "상품정보/리뷰/문의"
+  탭 UI의 `inquiries-panel` 안에 배치된다(리뷰 패널과 나란히가 아니라 탭으로 전환해서 봄). 내부
+  DOM id·로직은 그대로이며 감싸는 위치만 바뀌었다. 탭 구조의 SSOT는
+  `docs/dev/frontend/product-detail/design.md` — 이 문서는 문의 콘텐츠의 배치만 최신화한다.
 - `product.js`:
   - `loadInquiries()`가 `GET /api/products/{id}/inquiries`로 목록을 불러온다. init() 초기 호출 +
     `loadProduct()` 성공 후(판매자 판별용 `currentSellerId` 확정 후 재조회) + `gong9ri:auth-

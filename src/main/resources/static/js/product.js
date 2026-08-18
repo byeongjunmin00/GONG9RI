@@ -48,6 +48,7 @@
   var sellerEl = document.getElementById('product-seller');
   var nameEl = document.getElementById('product-name');
   var descriptionEl = document.getElementById('product-description');
+  var descriptionStatusEl = document.getElementById('product-description-status');
   var basePriceEl = document.getElementById('product-base-price');
   var maxParticipantsEl = document.getElementById('product-max-participants');
   var priceTiersTableEl = document.getElementById('price-tiers-table');
@@ -83,7 +84,7 @@
   if (
     !pageAlertEl || !pageAlertTextEl || !pageAlertLoginLinkEl || !pageAlertPayLinkEl || !statusEl || !detailEl ||
     !imageEl ||
-    !sellerEl || !nameEl || !descriptionEl || !basePriceEl || !maxParticipantsEl ||
+    !sellerEl || !nameEl || !descriptionEl || !descriptionStatusEl || !basePriceEl || !maxParticipantsEl ||
     !priceTiersTableEl || !priceTiersBodyEl || !targetParticipantsFieldEl || !targetParticipantsOptionsEl ||
     !refundNoticeCheckboxEl ||
     !buyAloneBtn || !createTeamBtn || !kakaoShareBtn ||
@@ -181,6 +182,34 @@
   }
 
   /**
+   * 상품정보/리뷰/문의 탭 전환 — 표시/숨김만 바꾼다. 리뷰/문의 데이터는 이미 init()에서 탭과
+   * 무관하게 먼저 불러와 둔 상태라 여기서는 재조회하지 않는다(design.md 결정).
+   */
+  function switchTab(targetPanelId) {
+    var tabButtons = document.querySelectorAll('.product-tab');
+    var tabPanels = document.querySelectorAll('.product-tab-panel');
+
+    tabButtons.forEach(function (btn) {
+      var isActive = btn.getAttribute('data-tab-target') === targetPanelId;
+      btn.classList.toggle('is-active', isActive);
+      btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+
+    tabPanels.forEach(function (panel) {
+      panel.hidden = panel.id !== targetPanelId;
+    });
+  }
+
+  function setUpTabs() {
+    var tabButtons = document.querySelectorAll('.product-tab');
+    tabButtons.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        switchTab(btn.getAttribute('data-tab-target'));
+      });
+    });
+  }
+
+  /**
    * @returns {number|null} 유효한 양의 정수 ID, 없거나 형식이 잘못되면 null
    */
   function parseProductId() {
@@ -225,7 +254,15 @@
 
     sellerEl.textContent = product.sellerName || '';
     nameEl.textContent = product.name || '';
-    descriptionEl.textContent = product.description || '';
+    if (product.description) {
+      descriptionEl.hidden = false;
+      descriptionEl.textContent = product.description;
+      descriptionStatusEl.hidden = true;
+    } else {
+      descriptionEl.hidden = true;
+      descriptionEl.textContent = '';
+      descriptionStatusEl.hidden = false;
+    }
     basePriceEl.textContent = formatPrice(product.basePrice);
     maxParticipantsEl.textContent =
       typeof product.maxParticipants === 'number' ? String(product.maxParticipants) : '';
@@ -1173,6 +1210,8 @@
     }
 
     currentProductId = productId;
+
+    setUpTabs();
 
     buyAloneBtn.addEventListener('click', handleBuyAlone);
     createTeamBtn.addEventListener('click', handleCreateTeam);
