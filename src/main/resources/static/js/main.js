@@ -271,12 +271,32 @@
           wishlistedProductIds.add(productId);
         }
       })
-      .catch(function () {
-        // 예: 판매자 계정으로 시도해 403 — 별도 에러 배너 없이 조용히 무시하고 하트 상태를 그대로 둔다.
+      .catch(function (err) {
+        // 찜은 구매자 전용(WishlistService.requireBuyer) — 판매자 계정으로 시도하면 403이 온다.
+        // 예전엔 여기서 조용히 무시해서 "하트가 눌러지지 않는다"는 걸 사용자가 오류로 착각했다.
+        if (err && err.status === 403) {
+          showPageNotice('구매자 계정으로 로그인해야 찜할 수 있어요.', 'error');
+        }
       })
       .then(function () {
         heartEl.disabled = false;
       });
+  }
+
+  /**
+   * 페이지 상단 공용 안내 배너(#page-alert) — 원래 카카오 로그인 role 불일치 안내(showKakaoRoleMismatchBanner)
+   * 전용이었는데, 찜 403 같은 "조용히 무시하면 사용자가 오류로 착각하는" 케이스에도 재사용한다.
+   */
+  function showPageNotice(text, variant) {
+    var pageAlertEl = document.getElementById('page-alert');
+    var pageAlertTextEl = document.getElementById('page-alert-text');
+    if (!pageAlertEl || !pageAlertTextEl) {
+      return;
+    }
+    pageAlertEl.hidden = false;
+    pageAlertEl.className = 'form-alert form-alert--' + (variant || 'success');
+    pageAlertTextEl.textContent = text;
+    pageAlertEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   function formatPrice(value) {
