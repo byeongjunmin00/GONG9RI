@@ -1,11 +1,18 @@
 package com.gong9ri.gong9ri.repository;
 
+import static com.gong9ri.gong9ri.entity.QGroupBuyTeam.groupBuyTeam;
 import static com.gong9ri.gong9ri.entity.QProduct.product;
 
+import com.gong9ri.gong9ri.dto.ProductSort;
 import com.gong9ri.gong9ri.entity.Product;
+import com.gong9ri.gong9ri.entity.ProductCategory;
+import com.gong9ri.gong9ri.entity.TeamStatus;
+import com.querydsl.core.types.Expression;
 import com.querydsl.core.types.Order;
+import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.PathBuilder;
+import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
 import java.util.ArrayList;
@@ -26,11 +33,32 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
     }
 
     @Override
-    public Page<Product> findAllWithSeller(Pageable pageable) {
+    public Page<Product> findAllWithSeller(Pageable pageable, ProductCategory category, ProductSort sort) {
+        BooleanExpression categoryCondition = category == null ? null : product.category.eq(category);
+
+        List<OrderSpecifier<?>> orders = new ArrayList<>();
+        if (sort == ProductSort.LATEST) {
+            orders.add(product.createdAt.desc());
+        } else if (sort == ProductSort.POPULAR) {
+            // 인기순(product/list-sort) — 이 상품의 RECRUITING 팀 중 참여 인원이 가장 많은 팀의 인원수로
+            // 정렬한다. 진행바(activeTeamCurrentCount)가 보여주는 "달성률이 가장 높은 팀"과는 다른
+            // 선택 기준이다 — 인기순은 "얼마나 많이 모였는지" 자체가 신호라 순수 인원수(MAX)를 쓴다.
+            // 상관 서브쿼리라 페이지네이션 이전(DB 레벨) 정렬이 가능하다 — 조회 후 자바에서 정렬하면
+            // 페이지 경계가 어긋난다. RECRUITING 팀이 없는 상품은 서브쿼리가 NULL을 반환하고, MySQL은
+            // DESC 정렬에서 NULL을 마지막으로 보내 자연스럽게 맨 뒤로 밀린다.
+            Expression<Integer> popularTeamCount = JPAExpressions
+                    .select(groupBuyTeam.currentCount.max())
+                    .from(groupBuyTeam)
+                    .where(groupBuyTeam.product.eq(product).and(groupBuyTeam.status.eq(TeamStatus.RECRUITING)));
+            orders.add(new OrderSpecifier<>(Order.DESC, popularTeamCount));
+        }
+        orders.addAll(List.of(toOrderSpecifiers(pageable.getSort())));
+
         List<Product> content = queryFactory
                 .selectFrom(product)
                 .join(product.seller).fetchJoin()
-                .orderBy(toOrderSpecifiers(pageable.getSort()))
+                .where(categoryCondition)
+                .orderBy(orders.toArray(new OrderSpecifier<?>[0]))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();
@@ -38,6 +66,7 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
         Long total = queryFactory
                 .select(product.count())
                 .from(product)
+                .where(categoryCondition)
                 .fetchOne();
 
         return new PageImpl<>(content, pageable, Objects.requireNonNullElse(total, 0L));

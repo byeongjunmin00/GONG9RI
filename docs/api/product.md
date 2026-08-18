@@ -10,6 +10,8 @@
   |----------|------|------|--------|------|
   | page | int | N | 0 | 페이지 번호 (0-based) |
   | size | int | N | 20 | 페이지 크기 |
+  | category | String | N | (없음) | `FOOD`/`LIVING`/`BEAUTY`/`FASHION`/`DIGITAL`/`ETC` 중 하나. 생략하면 전체 카테고리(product/category, 메인 페이지 카테고리 바) |
+  | sort | String | N | (없음) | `LATEST`(등록일 내림차순) 또는 `POPULAR`(RECRUITING 팀 중 참여 인원이 가장 많은 팀 기준 내림차순, 진행 중인 팀 없는 상품은 맨 뒤). 생략하면 정렬 조건 없음(product/list-sort) |
 
 - 응답: `200 OK`
   ```json
@@ -23,7 +25,10 @@
         "maxParticipants": 10,
         "sellerName": "제주농장",
         "createdAt": "2026-07-24T10:00:00",
-        "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg"
+        "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg",
+        "category": "FOOD",
+        "activeTeamCurrentCount": 8,
+        "activeTeamTargetParticipants": 10
       }
     ],
     "page": 0,
@@ -31,6 +36,11 @@
     "totalElements": 42
   }
   ```
+
+  > `activeTeamCurrentCount`/`activeTeamTargetParticipants`: 메인 페이지 카드 진행바용(product/list-progress).
+  > 이 상품의 RECRUITING 팀 중 진행률(currentCount/maxParticipants)이 가장 높은 팀의 스냅샷 — 진행 중인
+  > 팀이 하나도 없으면 둘 다 `null`(프론트는 이때 진행바를 숨긴다). 팀 상태는 자주 바뀌는 값이라 목록
+  > 캐시(30분 TTL)에 포함시키지 않고 매 요청마다 최신 값을 조회한다.
 
 ---
 
@@ -56,9 +66,13 @@
     "createdAt": "2026-07-24T10:00:00",
     "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg",
     "autoRefundOnCancel": false,
-    "kakaoJsKey": "abcd1234..."
+    "kakaoJsKey": "abcd1234...",
+    "category": "FOOD"
   }
   ```
+
+  > `category`: 메인 페이지 카테고리 필터용 고정 값(`FOOD`/`LIVING`/`BEAUTY`/`FASHION`/`DIGITAL`/`ETC`,
+  > product/category). 등록/수정 시 필수 선택.
 
   > `autoRefundOnCancel`: 참여 취소(`docs/api/team.md`의 `POST /api/teams/{teamId}/leave`)로 자동
   > 생성되는 환불 요청을 판매자 승인 없이 즉시 처리할지 여부(`docs/api/refund.md`). 솔로 구매 직접
@@ -89,6 +103,7 @@
   | priceTiers[].price | int | Y | 1인당 가격 |
   | imageUrl | String | N | 상품 이미지 URL (없으면 프론트에서 그라디언트 placeholder 표시) |
   | autoRefundOnCancel | boolean | N | 참여 취소로 생긴 환불 요청을 승인 절차 없이 즉시 처리할지 여부. 생략하면 `false`(`docs/api/refund.md`) |
+  | category | String | Y | `FOOD`/`LIVING`/`BEAUTY`/`FASHION`/`DIGITAL`/`ETC` 중 하나(product/category) |
 
 - 응답: `201 Created`
   ```json
@@ -103,14 +118,15 @@
       { "minCount": 10, "price": 15000 }
     ],
     "createdAt": "2026-07-24T10:00:00",
-    "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg"
+    "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg",
+    "category": "FOOD"
   }
   ```
 
 - 에러:
   | 코드 | HTTP | 설명 |
   |------|------|------|
-  | `VALIDATION_FAILED` | 400 | 필드 유효성 실패 |
+  | `VALIDATION_FAILED` | 400 | 필드 유효성 실패(카테고리 미선택 포함) |
   | `FORBIDDEN` | 403 | 구매자 계정으로 시도 |
   | `UNAUTHORIZED` | 401 | 미인증 |
 

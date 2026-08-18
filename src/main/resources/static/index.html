@@ -34,12 +34,28 @@
         <span id="page-alert-text"></span>
       </div>
 
+      <!-- 광고 배너 — 슬림 공지 바(프론트 전용, 백엔드 연동 없음). 자동 순환 + 점 클릭. js/main.js가 제어한다. -->
+      <div id="promo-bar" class="promo-bar">
+        <div id="promo-bar-track" class="promo-bar-track"></div>
+        <div id="promo-bar-dots" class="promo-bar-dots"></div>
+        <a id="promo-bar-cta" href="#product-grid" class="promo-bar-cta">자세히 보기 →</a>
+      </div>
+
       <div class="section__head">
         <p class="text-muted" style="font-weight:700; letter-spacing: 0.08em; text-transform: uppercase; font-size: var(--fs-xs);">Group Buy</p>
         <h1><span class="text-gradient">함께 사면</span> 더 저렴하게, GONG9RI</h1>
         <p class="text-muted" style="margin-top: var(--space-2); max-width: 640px;">
           지금 진행 중인 공동구매 상품을 둘러보세요. 참여자가 모일수록 1인당 가격이 낮아집니다.
         </p>
+      </div>
+
+      <!-- 카테고리 바 + 정렬 — 클릭/선택 시 ?category=, ?sort= 쿼리파라미터로 목록을 다시 불러온다(js/main.js). -->
+      <div class="category-bar-row">
+        <div id="category-bar" class="category-bar"></div>
+        <select id="sort-select" class="sort-select">
+          <option value="LATEST">최신순</option>
+          <option value="POPULAR">인기순</option>
+        </select>
       </div>
 
       <!-- 로딩/빈 목록/에러 상태 안내. js/main.js가 텍스트와 표시 여부를 제어한다. -->

@@ -3,6 +3,8 @@ package com.gong9ri.gong9ri.entity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -61,6 +63,15 @@ public class Product {
     @ColumnDefault("false")
     private boolean autoRefundOnCancel;
 
+    // 메인 페이지 카테고리 필터용(product/category). 기존 row가 있는 테이블에 NOT NULL 컬럼을
+    // 추가하는 마이그레이션이라 autoRefundOnCancel과 동일하게 @ColumnDefault로 SQL DEFAULT 절을
+    // 만들어 기존 row도 안전하게 처리되게 한다 — 기존 상품은 전부 ETC로 시작하고, 실제 재분류는
+    // 판매자가 상품 수정 폼에서 직접 한다(일괄 마이그레이션 스코프 밖, 사용자 결정).
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @ColumnDefault("'ETC'")
+    private ProductCategory category;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -71,11 +82,16 @@ public class Product {
 
     public Product(Member seller, String name, String description, Integer basePrice, Integer maxParticipants,
             String imageUrl) {
-        this(seller, name, description, basePrice, maxParticipants, imageUrl, false);
+        this(seller, name, description, basePrice, maxParticipants, imageUrl, false, ProductCategory.ETC);
     }
 
     public Product(Member seller, String name, String description, Integer basePrice, Integer maxParticipants,
             String imageUrl, boolean autoRefundOnCancel) {
+        this(seller, name, description, basePrice, maxParticipants, imageUrl, autoRefundOnCancel, ProductCategory.ETC);
+    }
+
+    public Product(Member seller, String name, String description, Integer basePrice, Integer maxParticipants,
+            String imageUrl, boolean autoRefundOnCancel, ProductCategory category) {
         this.seller = seller;
         this.name = name;
         this.description = description;
@@ -83,15 +99,17 @@ public class Product {
         this.maxParticipants = maxParticipants;
         this.imageUrl = imageUrl;
         this.autoRefundOnCancel = autoRefundOnCancel;
+        this.category = category;
     }
 
     public void update(String name, String description, Integer basePrice, Integer maxParticipants,
-            String imageUrl, boolean autoRefundOnCancel) {
+            String imageUrl, boolean autoRefundOnCancel, ProductCategory category) {
         this.name = name;
         this.description = description;
         this.basePrice = basePrice;
         this.maxParticipants = maxParticipants;
         this.imageUrl = imageUrl;
         this.autoRefundOnCancel = autoRefundOnCancel;
+        this.category = category;
     }
 }

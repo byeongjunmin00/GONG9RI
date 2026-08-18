@@ -1,5 +1,6 @@
 package com.gong9ri.gong9ri.dto;
 
+import com.gong9ri.gong9ri.entity.ProductCategory;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -15,6 +16,8 @@ public record ProductRegisterRequest(
         String imageUrl,
         // 참여 취소(team/leave) 시 생기는 환불 요청을 판매자 승인 없이 즉시 처리할지 여부. 생략(null)하면
         // false로 취급한다(docs/dev/ongoing/team-leave-and-refund-request.md).
-        Boolean autoRefundOnCancel
+        Boolean autoRefundOnCancel,
+        // 메인 페이지 카테고리 필터용(product/category). 필수 — 등록/수정 폼에서 항상 선택하게 한다.
+        @NotNull ProductCategory category
 ) {
 }

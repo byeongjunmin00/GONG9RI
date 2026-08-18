@@ -9,13 +9,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
+import com.gong9ri.gong9ri.entity.GroupBuyTeam;
 import com.gong9ri.gong9ri.entity.Member;
 import com.gong9ri.gong9ri.entity.PriceTier;
 import com.gong9ri.gong9ri.entity.Product;
+import com.gong9ri.gong9ri.entity.ProductCategory;
 import com.gong9ri.gong9ri.entity.Role;
+import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.MemberRepository;
 import com.gong9ri.gong9ri.repository.PriceTierRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
@@ -49,6 +53,9 @@ class ProductControllerTest {
     @Autowired
     private PriceTierRepository priceTierRepository;
 
+    @Autowired
+    private GroupBuyTeamRepository groupBuyTeamRepository;
+
     private Member saveMember(String username, Role role) {
         Member member = new Member(username, "encoded-password", "테스트유저", username + "@test.com", role);
         return memberRepository.save(member);
@@ -69,6 +76,11 @@ class ProductControllerTest {
         return saved;
     }
 
+    private Product saveProduct(Member seller, String name, ProductCategory category) {
+        Product product = new Product(seller, name, "설명", 10000, 10, null, false, category);
+        return productRepository.save(product);
+    }
+
     private Map<String, Object> registerRequestBody() {
         return Map.of(
                 "name", "제주 감귤 5kg",
@@ -78,7 +90,8 @@ class ProductControllerTest {
                 "priceTiers", List.of(
                         Map.of("minCount", 2, "price", 22000),
                         Map.of("minCount", 10, "price", 15000)
-                )
+                ),
+                "category", "FOOD"
         );
     }
 
@@ -174,6 +187,96 @@ class ProductControllerTest {
     }
 
     @Test
+    @DisplayName("카테고리 없이 등록하면 400 VALIDATION_FAILED")
+    void register_missingCategory_validationFailed() throws Exception {
+        Member seller = saveMember("seller12", Role.SELLER);
+        Map<String, Object> invalid = Map.of(
+                "name", "제주 감귤 5kg",
+                "basePrice", 25000,
+                "maxParticipants", 10,
+                "priceTiers", List.of(Map.of("minCount", 2, "price", 22000))
+        );
+
+        mockMvc.perform(post("/api/products")
+                        .with(asUser(seller))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(invalid)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    }
+
+    @Test
+    @DisplayName("category 쿼리파라미터로 목록을 필터링하면 그 카테고리 상품만 반환된다")
+    void list_filterByCategory_returnsOnlyMatchingCategory() throws Exception {
+        Member seller = saveMember("seller13", Role.SELLER);
+        saveProduct(seller, "식품상품", ProductCategory.FOOD);
+        saveProduct(seller, "뷰티상품", ProductCategory.BEAUTY);
+
+        mockMvc.perform(get("/api/products").param("category", "FOOD"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].name").value("식품상품"))
+                .andExpect(jsonPath("$.data.content[0].category").value("FOOD"));
+    }
+
+    @Test
+    @DisplayName("목록의 진행바 정보는 RECRUITING 팀 중 진행률이 가장 높은 팀을 대표로 보여주고, "
+            + "목록 캐시가 이미 채워져 있어도 팀 상태 변화를 즉시 반영한다(캐시하지 않음)")
+    void list_activeTeamProgress_showsHighestRatioTeam_andReflectsLiveTeamChanges() throws Exception {
+        int size = 201; // 다른 테스트와 캐시 키(page+size+category)가 겹치지 않게 이 테스트 전용 size 사용
+        Member seller = saveMember("seller14", Role.SELLER);
+        Member leaderLowRatio = saveMember("leaderLowRatio", Role.BUYER);
+        Member leaderHighRatio = saveMember("leaderHighRatio", Role.BUYER);
+        Product product = saveProduct(seller, "진행바테스트상품", ProductCategory.FASHION);
+
+        // 진행률 0.2(1/5) 팀과 0.05(1/20) 팀을 동시에 만든다 — 더 높은 쪽(5명 목표 팀)이 대표로 뽑혀야 한다.
+        GroupBuyTeam highRatioTeam = groupBuyTeamRepository.save(
+                new GroupBuyTeam(product, leaderLowRatio, 5, LocalDateTime.now().plusDays(1)));
+        groupBuyTeamRepository.save(new GroupBuyTeam(product, leaderHighRatio, 20, LocalDateTime.now().plusDays(1)));
+
+        mockMvc.perform(get("/api/products").param("category", "FASHION").param("size", String.valueOf(size)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].activeTeamCurrentCount").value(1))
+                .andExpect(jsonPath("$.data.content[0].activeTeamTargetParticipants").value(5));
+
+        // 목록 캐시(page+size+category 키)는 이미 위 호출로 채워졌다. 그 캐시를 갱신하는 경로(register/update
+        // /delete)를 거치지 않고 팀 참가 결과만 직접 반영해, 진행바가 캐시된 스냅샷이 아니라 항상 최신
+        // 팀 상태를 조회한다는 걸 증명한다.
+        highRatioTeam.increaseParticipant();
+        groupBuyTeamRepository.save(highRatioTeam);
+
+        mockMvc.perform(get("/api/products").param("category", "FASHION").param("size", String.valueOf(size)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].activeTeamCurrentCount").value(2));
+    }
+
+    @Test
+    @DisplayName("sort=POPULAR이면 RECRUITING 팀 중 참여 인원이 가장 많은 팀 기준으로 상품이 내림차순 정렬된다")
+    void list_sortPopular_ordersByHighestActiveTeamCount() throws Exception {
+        int size = 202; // 다른 테스트와 캐시 키가 겹치지 않게 이 테스트 전용 size 사용
+        Member seller = saveMember("seller15", Role.SELLER);
+        Member leaderA = saveMember("leaderA", Role.BUYER);
+        Member leaderB = saveMember("leaderB", Role.BUYER);
+        Product lessPopular = saveProduct(seller, "인기순테스트-비인기", ProductCategory.LIVING);
+        Product morePopular = saveProduct(seller, "인기순테스트-인기", ProductCategory.LIVING);
+
+        groupBuyTeamRepository.save(new GroupBuyTeam(lessPopular, leaderA, 20, LocalDateTime.now().plusDays(1)));
+        GroupBuyTeam popularTeam =
+                groupBuyTeamRepository.save(new GroupBuyTeam(morePopular, leaderB, 5, LocalDateTime.now().plusDays(1)));
+        popularTeam.increaseParticipant();
+        popularTeam.increaseParticipant();
+        groupBuyTeamRepository.save(popularTeam); // currentCount=3, lessPopular 쪽은 1명뿐
+
+        mockMvc.perform(get("/api/products")
+                        .param("category", "LIVING")
+                        .param("size", String.valueOf(size))
+                        .param("sort", "POPULAR"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].name").value("인기순테스트-인기"))
+                .andExpect(jsonPath("$.data.content[1].name").value("인기순테스트-비인기"));
+    }
+
+    @Test
     @DisplayName("본인 상품 수정 시 200")
     void update_success_owner() throws Exception {
         Member seller = saveMember("seller5", Role.SELLER);
@@ -184,7 +287,8 @@ class ProductControllerTest {
                 "description", "수정된 설명",
                 "basePrice", 30000,
                 "maxParticipants", 8,
-                "priceTiers", List.of(Map.of("minCount", 2, "price", 20000))
+                "priceTiers", List.of(Map.of("minCount", 2, "price", 20000)),
+                "category", "LIVING"
         );
 
         mockMvc.perform(put("/api/products/" + product.getId())

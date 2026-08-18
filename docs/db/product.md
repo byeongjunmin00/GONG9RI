@@ -11,6 +11,7 @@
 | max_participants | INT | NOT NULL | 이 상품에 허용되는 팀 인원 상한(참고값). 각 `price_tier.min_count`는 이 값을 넘을 수 없다(현재는 프론트 가드레일로만 검증, 서버 강제는 없음). **실제 팀 정원은 이 값이 아니라 구매자가 팀 신설 시 고른 `price_tier.min_count`로 결정된다**(`group_buy_team.max_participants`, `team/create` 참고) |
 | image_url | VARCHAR(500) | NULL | 상품 이미지 URL (단순 문자열, 갤러리 없음) |
 | auto_refund_on_cancel | BOOLEAN | NOT NULL, default false | 참여 취소(`team/leave`)로 자동 생성되는 환불 요청을 판매자 승인 없이 즉시 처리할지 여부(상품 단위 설정). 켜져 있어도 솔로 구매 직접 환불 요청에는 영향 없음 — 그건 항상 판매자 승인이 필요하다. 기존 row가 있는 테이블에 추가한 NOT NULL 컬럼이라 `@ColumnDefault("false")`로 DB DEFAULT를 둬 안전하게 마이그레이션한다(`member.email_verified`와 동일 패턴) |
+| category | VARCHAR(20) | NOT NULL, default 'ETC' | 메인 페이지 카테고리 필터용(product/category). `FOOD`/`LIVING`/`BEAUTY`/`FASHION`/`DIGITAL`/`ETC` 중 하나(`@Enumerated(STRING)`). 등록/수정 시 필수 선택. 기존 row가 있는 테이블에 추가한 NOT NULL 컬럼이라 `@ColumnDefault("'ETC'")`로 안전하게 마이그레이션 — 기존 상품은 전부 `ETC`로 시작하고 재분류는 판매자가 상품 수정 폼에서 직접 한다 |
 | created_at | DATETIME | NOT NULL | 등록일 |
 | updated_at | DATETIME | NOT NULL | 마지막 수정일 |
 

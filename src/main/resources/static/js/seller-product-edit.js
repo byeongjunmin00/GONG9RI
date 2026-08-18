@@ -26,6 +26,7 @@
 
   var form = document.getElementById('product-form');
   var nameInput = document.getElementById('name');
+  var categorySelect = document.getElementById('category');
   var descriptionInput = document.getElementById('description');
   var basePriceInput = document.getElementById('basePrice');
   var maxParticipantsInput = document.getElementById('maxParticipants');
@@ -40,7 +41,7 @@
 
   if (
     !formAlertEl || !formAlertTextEl || !formAlertLoginLinkEl || !editStatusEl ||
-    !form || !nameInput || !descriptionInput || !basePriceInput || !maxParticipantsInput || !imageUrlInput ||
+    !form || !nameInput || !categorySelect || !descriptionInput || !basePriceInput || !maxParticipantsInput || !imageUrlInput ||
     !priceTierRowsEl || !addPriceTierBtn || !priceTiersErrorEl || !autoRefundOnCancelInput || !submitBtn
   ) {
     return;
@@ -252,6 +253,7 @@
 
   function fillForm(product) {
     nameInput.value = product.name || '';
+    categorySelect.value = product.category || 'ETC';
     descriptionInput.value = product.description || '';
     basePriceInput.value = typeof product.basePrice === 'number' ? String(product.basePrice) : '';
     maxParticipantsInput.value =
@@ -355,6 +357,7 @@
       priceTiers: collected.tiers,
       imageUrl: imageUrl || null,
       autoRefundOnCancel: autoRefundOnCancelInput.checked,
+      category: categorySelect.value,
     })
       .then(function () {
         window.location.href = '/seller/mypage.html';

@@ -78,12 +78,13 @@
   border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: var(--shadow-sm);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease;
+  will-change: transform;
 }
 
 .card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-md);
+  transform: translateY(-8px) scale(1.015);
+  box-shadow: var(--shadow-lg);
 }
 
 .card-image {
@@ -153,6 +154,35 @@
 .card-price-label {
   font-size: var(--fs-xs);
   color: var(--color-text-muted);
+}
+
+/* ---------- 카드 참여 진행바 (product/list-progress) ---------- */
+.card-progress {
+  margin-top: var(--space-2);
+}
+
+.card-progress-label {
+  font-size: var(--fs-xs);
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+
+.card-progress-label b {
+  color: var(--color-pink);
+  font-weight: 700;
+}
+
+.card-progress-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-surface-alt);
+  overflow: hidden;
+}
+
+.card-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--gradient-brand);
 }
 
 /* ---------- Badge (공구 상태) ---------- */
@@ -794,4 +824,133 @@
   font-family: var(--font-heading);
   font-size: var(--fs-xl);
   font-weight: 800;
+}
+
+/* ---------- 메인 페이지 광고 배너 — 슬림 공지 바 (main-page) ----------
+   초기에는 220px 높이의 큰 그라디언트 히어로로 만들었는데, 실제 이미지 애셋이 없어 텍스트만 있는
+   슬라이드는 미완성처럼 보인다는 피드백(친구 목업 참고)을 받아 한 줄짜리 공지/이벤트 바로 교체했다
+   — 실제 쇼핑몰(쿠팡·배민 등)이 이미지 없이도 정보값 있는 문구만으로 완성도 있게 보이려고 쓰는 패턴. */
+.promo-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  background: var(--color-text);
+  color: var(--color-text-on-brand);
+  border-radius: var(--radius-md);
+  padding: 12px var(--space-5);
+  margin-bottom: var(--space-6);
+}
+
+.promo-bar-track {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  height: 22px;
+}
+
+.promo-bar-slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+
+.promo-bar-slide.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.promo-bar-slide__emoji {
+  flex: none;
+}
+
+.promo-bar-slide__text b {
+  color: var(--color-orange);
+}
+
+.promo-bar-dots {
+  display: flex;
+  gap: 5px;
+  flex: none;
+}
+
+.promo-bar-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  padding: 0;
+}
+
+.promo-bar-dot.active {
+  background: #fff;
+}
+
+.promo-bar-cta {
+  flex: none;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--color-text-on-brand);
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.promo-bar-cta:hover {
+  color: var(--color-orange);
+}
+
+/* ---------- 메인 페이지 카테고리 바 + 정렬 (main-page) ---------- */
+.category-bar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-6);
+}
+
+.category-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.sort-select {
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+  flex: none;
+}
+
+.category-pill {
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.category-pill:hover {
+  border-color: var(--color-pink);
+  color: var(--color-pink);
+}
+
+.category-pill.active {
+  background: var(--gradient-brand);
+  border-color: transparent;
+  color: var(--color-text-on-brand);
 }
