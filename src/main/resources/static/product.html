@@ -50,7 +50,6 @@
         <div class="section__head">
           <span id="product-seller" class="card-seller"></span>
           <h1 id="product-name"></h1>
-          <p id="product-description" class="text-muted" style="margin-top: var(--space-2);"></p>
         </div>
 
         <div class="product-price-box">
@@ -105,65 +104,107 @@
           <ul id="team-list" class="team-list"></ul>
         </div>
 
-        <div class="reviews-section">
-          <div class="section__head">
-            <h2>리뷰 <span id="review-average" class="text-muted" style="font-size: var(--fs-md); font-weight: 400;"></span></h2>
+        <!-- 상품정보/리뷰/문의 탭 — 3개 콘텐츠를 탭으로 전환해 볼 수 있게 묶는다(docs/dev/ongoing/
+             product-detail-tabs.md). 탭 전환은 각 패널의 hidden 속성만 토글하고, 리뷰/문의 데이터는
+             기존과 동일한 시점(loadProduct() 성공 후, gong9ri:auth-resolved 도착 시)에 항상 먼저
+             불러와 둔다 — 숨겨진 탭이라도 이미 데이터가 채워져 있다. -->
+        <div class="product-tabs-section">
+          <div class="product-tabs" role="tablist">
+            <button
+              type="button"
+              id="product-tab-info"
+              class="product-tab is-active"
+              role="tab"
+              aria-selected="true"
+              aria-controls="product-info-panel"
+              data-tab-target="product-info-panel"
+            >상품정보</button>
+            <button
+              type="button"
+              id="product-tab-reviews"
+              class="product-tab"
+              role="tab"
+              aria-selected="false"
+              aria-controls="reviews-panel"
+              data-tab-target="reviews-panel"
+            >리뷰</button>
+            <button
+              type="button"
+              id="product-tab-inquiries"
+              class="product-tab"
+              role="tab"
+              aria-selected="false"
+              aria-controls="inquiries-panel"
+              data-tab-target="inquiries-panel"
+            >문의</button>
           </div>
 
-          <!-- 리뷰 목록 로딩/빈 목록/에러 상태. -->
-          <div id="reviews-status" class="product-status" role="status" hidden></div>
-
-          <ul id="reviews-list" class="mypage-list"></ul>
-
-          <!-- 리뷰 작성/수정 폼 — 로그인 안 한 사람에게도 항상 보이고, 자격이 없으면(구매 안 함/이미 작성함)
-               서버 응답(403/409)을 그대로 안내한다(js/product.js가 처리). -->
-          <form id="review-form" novalidate>
-            <div id="review-form-alert" class="form-alert" role="alert" hidden></div>
-
-            <div class="form-group">
-              <label class="form-label" for="review-rating">평점</label>
-              <select id="review-rating" class="form-input">
-                <option value="5">5점 — 아주 만족</option>
-                <option value="4">4점 — 만족</option>
-                <option value="3">3점 — 보통</option>
-                <option value="2">2점 — 불만족</option>
-                <option value="1">1점 — 아주 불만족</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="review-content">내용</label>
-              <textarea class="form-input" id="review-content" rows="3" maxlength="1000" placeholder="구매한 상품은 어땠나요?"></textarea>
-            </div>
-
-            <button type="submit" id="review-submit" class="btn btn-primary btn-sm">리뷰 작성</button>
-          </form>
-        </div>
-
-        <div class="inquiries-section">
-          <div class="section__head">
-            <h2>문의하기 <span id="inquiries-count" class="text-muted" style="font-size: var(--fs-md); font-weight: 400;"></span></h2>
+          <div id="product-info-panel" class="product-tab-panel" role="tabpanel" aria-labelledby="product-tab-info">
+            <p id="product-description" class="text-muted"></p>
+            <!-- 상품 설명이 비어 있을 때만 노출되는 빈 상태 문구 (product-status--empty 패턴 재사용). -->
+            <div id="product-description-status" class="product-status product-status--empty" role="status" hidden>등록된 상품 설명이 없습니다.</div>
           </div>
 
-          <!-- 문의 목록 로딩/빈 목록/에러 상태. -->
-          <div id="inquiries-status" class="product-status" role="status" hidden></div>
-
-          <ul id="inquiries-list" class="mypage-list"></ul>
-
-          <!-- 문의 작성/수정 폼 — 리뷰와 달리 구매 이력이 필요 없다. 로그인 안 한 사람에게도 항상
-               보이고, 비로그인 상태로 제출하면 서버 응답(401)을 그대로 안내한다(js/product.js가 처리).
-               판매자 답변 등록/수정/삭제 폼은 각 문의 항목 안에 개별적으로 표시된다(currentMemberId가
-               그 상품의 sellerId와 같을 때만, js/product.js). -->
-          <form id="inquiry-form" novalidate>
-            <div id="inquiry-form-alert" class="form-alert" role="alert" hidden></div>
-
-            <div class="form-group">
-              <label class="form-label" for="inquiry-content">문의 내용</label>
-              <textarea class="form-input" id="inquiry-content" rows="3" maxlength="1000" placeholder="배송/옵션 등 궁금한 점을 남겨주세요."></textarea>
+          <div id="reviews-panel" class="product-tab-panel reviews-section" role="tabpanel" aria-labelledby="product-tab-reviews" hidden>
+            <div class="section__head">
+              <h2>리뷰 <span id="review-average" class="text-muted" style="font-size: var(--fs-md); font-weight: 400;"></span></h2>
             </div>
 
-            <button type="submit" id="inquiry-submit" class="btn btn-primary btn-sm">문의 작성</button>
-          </form>
+            <!-- 리뷰 목록 로딩/빈 목록/에러 상태. -->
+            <div id="reviews-status" class="product-status" role="status" hidden></div>
+
+            <ul id="reviews-list" class="mypage-list"></ul>
+
+            <!-- 리뷰 작성/수정 폼 — 로그인 안 한 사람에게도 항상 보이고, 자격이 없으면(구매 안 함/이미 작성함)
+                 서버 응답(403/409)을 그대로 안내한다(js/product.js가 처리). -->
+            <form id="review-form" novalidate>
+              <div id="review-form-alert" class="form-alert" role="alert" hidden></div>
+
+              <div class="form-group">
+                <label class="form-label" for="review-rating">평점</label>
+                <select id="review-rating" class="form-input">
+                  <option value="5">5점 — 아주 만족</option>
+                  <option value="4">4점 — 만족</option>
+                  <option value="3">3점 — 보통</option>
+                  <option value="2">2점 — 불만족</option>
+                  <option value="1">1점 — 아주 불만족</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="review-content">내용</label>
+                <textarea class="form-input" id="review-content" rows="3" maxlength="1000" placeholder="구매한 상품은 어땠나요?"></textarea>
+              </div>
+
+              <button type="submit" id="review-submit" class="btn btn-primary btn-sm">리뷰 작성</button>
+            </form>
+          </div>
+
+          <div id="inquiries-panel" class="product-tab-panel inquiries-section" role="tabpanel" aria-labelledby="product-tab-inquiries" hidden>
+            <div class="section__head">
+              <h2>문의하기 <span id="inquiries-count" class="text-muted" style="font-size: var(--fs-md); font-weight: 400;"></span></h2>
+            </div>
+
+            <!-- 문의 목록 로딩/빈 목록/에러 상태. -->
+            <div id="inquiries-status" class="product-status" role="status" hidden></div>
+
+            <ul id="inquiries-list" class="mypage-list"></ul>
+
+            <!-- 문의 작성/수정 폼 — 리뷰와 달리 구매 이력이 필요 없다. 로그인 안 한 사람에게도 항상
+                 보이고, 비로그인 상태로 제출하면 서버 응답(401)을 그대로 안내한다(js/product.js가 처리).
+                 판매자 답변 등록/수정/삭제 폼은 각 문의 항목 안에 개별적으로 표시된다(currentMemberId가
+                 그 상품의 sellerId와 같을 때만, js/product.js). -->
+            <form id="inquiry-form" novalidate>
+              <div id="inquiry-form-alert" class="form-alert" role="alert" hidden></div>
+
+              <div class="form-group">
+                <label class="form-label" for="inquiry-content">문의 내용</label>
+                <textarea class="form-input" id="inquiry-content" rows="3" maxlength="1000" placeholder="배송/옵션 등 궁금한 점을 남겨주세요."></textarea>
+              </div>
+
+              <button type="submit" id="inquiry-submit" class="btn btn-primary btn-sm">문의 작성</button>
+            </form>
+          </div>
         </div>
       </div>
     </section>

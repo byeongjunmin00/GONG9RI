@@ -517,6 +517,39 @@
   font-size: var(--fs-xs);
 }
 
+/* ---------- Product detail tabs (상품정보 / 리뷰 / 문의) ---------- */
+.product-tabs {
+  display: flex;
+  gap: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.product-tab {
+  padding: var(--space-3) var(--space-4);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-family: var(--font-heading);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.product-tab:hover {
+  color: var(--color-pink);
+}
+
+.product-tab.is-active {
+  color: var(--color-text);
+  border-bottom-color: var(--color-pink);
+}
+
+.product-tab-panel {
+  margin-top: var(--space-5);
+}
+
 /* ---------- Price tier rows (판매 물품 등록 — 가격 구간 입력) ---------- */
 .price-tier-rows {
   display: flex;
