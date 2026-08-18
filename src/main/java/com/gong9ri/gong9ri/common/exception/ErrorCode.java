@@ -39,7 +39,10 @@ public enum ErrorCode {
     REFUND_REQUEST_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 처리 대기 중인 환불 요청이 있습니다."),
     TEAM_PAYMENT_REFUND_NOT_ALLOWED(HttpStatus.CONFLICT,
             "공구팀 결제는 참여 취소를 통해서만 환불할 수 있습니다. 직접 환불 요청은 혼자구매 건에만 가능합니다."),
-    PAYMENT_NOT_REFUNDABLE(HttpStatus.CONFLICT, "환불할 수 없는 결제 상태입니다.");
+    PAYMENT_NOT_REFUNDABLE(HttpStatus.CONFLICT, "환불할 수 없는 결제 상태입니다."),
+    INQUIRY_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 문의입니다."),
+    INQUIRY_ALREADY_ANSWERED(HttpStatus.CONFLICT, "이미 답변이 등록된 문의는 수정/삭제할 수 없습니다."),
+    ANSWER_NOT_FOUND(HttpStatus.NOT_FOUND, "등록된 답변이 없습니다.");
 
     private final HttpStatus httpStatus;
     private final String message;
