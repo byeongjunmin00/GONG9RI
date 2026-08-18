@@ -51,6 +51,10 @@
         </button>
       </form>
 
+      <!-- 실시간 인기 검색어(product/search-trends) — 클릭하면 그 검색어로 바로 검색된다. js/main.js가
+           채운다. 검색된 키워드가 하나도 없으면(오늘 아직 아무도 검색 안 함) 빈 채로 숨겨진다. -->
+      <div id="search-trends" class="search-trends" hidden></div>
+
       <!-- 광고 배너 — 슬림 공지 바(프론트 전용, 백엔드 연동 없음). 자동 순환 + 점 클릭. js/main.js가 제어한다. -->
       <div id="promo-bar" class="promo-bar">
         <div id="promo-bar-track" class="promo-bar-track"></div>

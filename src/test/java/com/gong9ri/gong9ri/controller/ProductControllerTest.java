@@ -1,5 +1,6 @@
 package com.gong9ri.gong9ri.controller;
 
+import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -21,7 +22,9 @@ import com.gong9ri.gong9ri.repository.MemberRepository;
 import com.gong9ri.gong9ri.repository.PriceTierRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
 import com.gong9ri.gong9ri.repository.ReviewRepository;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
@@ -29,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
@@ -60,6 +64,9 @@ class ProductControllerTest {
 
     @Autowired
     private ReviewRepository reviewRepository;
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
 
     private Member saveMember(String username, Role role) {
         Member member = new Member(username, "encoded-password", "테스트유저", username + "@test.com", role);
@@ -520,5 +527,24 @@ class ProductControllerTest {
         mockMvc.perform(get("/api/products").param("category", "ETC").param("size", String.valueOf(size)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content[0].sellerTrustedBadge").value(true));
+    }
+
+    @Test
+    @DisplayName("keyword로 검색하면 실시간 인기 검색어 집계에 반영되고, 해당 엔드포인트에서 조회된다")
+    void list_withKeyword_recordsSearchTrend_andSearchTrendsEndpointReturnsIt() throws Exception {
+        // /api/products/{productId}가 아니라 /api/products/search-trends(리터럴 경로)가 우선 매칭되는지도
+        // 같이 확인한다 — Long 파싱 실패로 400이 나면 라우팅 우선순위가 깨진 것.
+        String keyword = "검색어트렌드테스트" + System.nanoTime();
+        try {
+            mockMvc.perform(get("/api/products").param("keyword", keyword))
+                    .andExpect(status().isOk());
+
+            mockMvc.perform(get("/api/products/search-trends").param("limit", "50"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.keywords", hasItem(keyword)));
+        } finally {
+            String todayKey = "search-trend:" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+            redisTemplate.opsForZSet().remove(todayKey, keyword);
+        }
     }
 }

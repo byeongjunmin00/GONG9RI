@@ -48,6 +48,7 @@ public class ProductService {
     private final PriceTierRepository priceTierRepository;
     private final GroupBuyTeamRepository groupBuyTeamRepository;
     private final ReviewRepository reviewRepository;
+    private final SearchTrendService searchTrendService;
 
     @Value("${kakao.js-key}")
     private String kakaoJsKey;
@@ -75,6 +76,10 @@ public class ProductService {
             key = "#page + '-' + #size + '-' + (#category != null ? #category : 'ALL')"
                     + " + '-' + (#sort != null ? #sort : 'NONE')")
     public ProductPageResponse list(int page, int size, ProductCategory category, ProductSort sort, String keyword) {
+        // 실시간 인기 검색어(product/search-trends) 집계 — 이 메서드는 keyword가 있으면 캐시를 타지
+        // 않아(@Cacheable condition) 실제 검색마다 항상 실행되므로, 집계 누락 없이 여기서 기록한다.
+        searchTrendService.recordSearch(keyword);
+
         Pageable pageable = PageRequest.of(page, size);
         Page<Product> products = productRepository.findAllWithSeller(pageable, category, sort, keyword);
 

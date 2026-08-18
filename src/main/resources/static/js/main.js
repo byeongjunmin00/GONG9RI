@@ -201,6 +201,7 @@
   var sortSelectEl = document.getElementById('sort-select');
   var searchFormEl = document.getElementById('search-form');
   var searchInputEl = document.getElementById('search-input');
+  var searchTrendsEl = document.getElementById('search-trends');
 
   if (!gridEl || !statusEl || !loadMoreBtn || !categoryBarEl || !sortSelectEl || !searchFormEl || !searchInputEl) {
     return;
@@ -638,9 +639,7 @@
     categoryBarEl.appendChild(fragment);
   }
 
-  searchFormEl.addEventListener('submit', function (event) {
-    event.preventDefault();
-    var keyword = searchInputEl.value.trim();
+  function submitSearch(keyword) {
     state.keyword = keyword || null;
 
     var url = new URL(window.location.href);
@@ -652,7 +651,67 @@
     window.history.replaceState(null, '', url.pathname + url.search);
 
     resetAndReload();
+    // 방금 검색한 키워드가 곧바로 집계에 반영되므로("실시간"), 검색할 때마다 순위를 다시 불러온다.
+    loadSearchTrends();
+  }
+
+  searchFormEl.addEventListener('submit', function (event) {
+    event.preventDefault();
+    submitSearch(searchInputEl.value.trim());
   });
+
+  /**
+   * 실시간 인기 검색어(product/search-trends) — 검색창 아래 순위 목록을 그린다. 클릭하면 그 키워드로
+   * 바로 검색된다. keyword는 다른 방문자가 검색창에 직접 입력한 값이라(Redis에 그대로 저장), 반드시
+   * textContent로만 넣는다 — innerHTML로 조립하면 저장형 XSS가 된다.
+   */
+  function renderSearchTrends(keywords) {
+    if (!searchTrendsEl) {
+      return;
+    }
+    searchTrendsEl.innerHTML = '';
+    if (!keywords || !keywords.length) {
+      searchTrendsEl.hidden = true;
+      return;
+    }
+
+    var labelEl = document.createElement('span');
+    labelEl.className = 'search-trends__label';
+    labelEl.textContent = '실시간 인기 검색어';
+    searchTrendsEl.appendChild(labelEl);
+
+    keywords.forEach(function (keyword, index) {
+      var itemEl = document.createElement('button');
+      itemEl.type = 'button';
+      itemEl.className = 'search-trends__item';
+
+      var rankEl = document.createElement('b');
+      rankEl.textContent = String(index + 1);
+      itemEl.appendChild(rankEl);
+      itemEl.appendChild(document.createTextNode(' ' + keyword));
+
+      itemEl.addEventListener('click', function () {
+        searchInputEl.value = keyword;
+        submitSearch(keyword);
+      });
+      searchTrendsEl.appendChild(itemEl);
+    });
+
+    searchTrendsEl.hidden = false;
+  }
+
+  function loadSearchTrends() {
+    if (!searchTrendsEl || !window.Api || typeof window.Api.get !== 'function') {
+      return;
+    }
+    window.Api.get('/products/search-trends?limit=5')
+      .then(function (data) {
+        renderSearchTrends(data && data.keywords);
+      })
+      .catch(function () {
+        // 조용히 무시 — 인기 검색어는 보조 UI라 실패해도 검색 자체엔 영향 없다(서버도 fail-open).
+      });
+  }
 
   sortSelectEl.addEventListener('change', function () {
     state.sort = sortSelectEl.value || 'LATEST';
@@ -666,4 +725,5 @@
 
   renderCategoryBar();
   fetchProducts(0);
+  loadSearchTrends();
 })();

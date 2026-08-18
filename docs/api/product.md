@@ -12,7 +12,7 @@
   | size | int | N | 20 | 페이지 크기 |
   | category | String | N | (없음) | `FOOD`/`LIVING`/`BEAUTY`/`FASHION`/`DIGITAL`/`ETC` 중 하나. 생략하면 전체 카테고리(product/category, 메인 페이지 카테고리 바) |
   | sort | String | N | (없음) | `LATEST`(등록일 내림차순) / `POPULAR`(RECRUITING 팀 중 참여 인원이 가장 많은 팀 기준 내림차순) / `DEADLINE`(RECRUITING 팀 중 가장 이른 마감일 기준 오름차순). `POPULAR`/`DEADLINE` 둘 다 진행 중인 팀 없는 상품은 맨 뒤. 생략하면 정렬 조건 없음(product/list-sort) |
-  | keyword | String | N | (없음) | 상품명 또는 판매자명에 포함된 상품만(대소문자 무시). 있으면 목록 캐시를 타지 않는다(product/list-search) |
+  | keyword | String | N | (없음) | 상품명 또는 판매자명에 포함된 상품만(대소문자 무시). 있으면 목록 캐시를 타지 않는다(product/list-search). 있으면 실시간 인기 검색어 집계에도 반영된다(product/search-trends) |
 
 - 응답: `200 OK`
   ```json
@@ -50,6 +50,27 @@
 
   > `sellerTrustedBadge`: 판매자 신뢰 배지(product/seller-trust). 이 판매자의 전체 상품에 달린 리뷰
   > 평균 평점이 4.5 이상이고 리뷰 개수가 3개 이상이면 `true`. 목록 캐시(30분 TTL)에 그대로 포함된다.
+
+---
+
+## GET /api/products/search-trends — 실시간 인기 검색어 조회
+
+> `GET /api/products/{productId}`보다 리터럴 경로가 먼저 매칭되므로 경로 충돌 없음(product/search-trends).
+
+- 요청: 쿼리 파라미터
+  | 파라미터 | 타입 | 필수 | 기본값 | 설명 |
+  |----------|------|------|--------|------|
+  | limit | int | N | 5 | 반환할 검색어 개수(상위 N개) |
+
+- 응답: `200 OK`
+  ```json
+  {
+    "keywords": ["감귤", "보조배터리", "텀블러"]
+  }
+  ```
+
+  > 오늘(자정 기준) 하루 동안 `GET /api/products?keyword=` 검색에 사용된 키워드를 빈도순으로 정렬한
+  > 목록. 검색 횟수는 노출하지 않고 순위만 노출한다. Redis 장애 시 빈 배열을 반환한다(fail-open).
 
 ---
 

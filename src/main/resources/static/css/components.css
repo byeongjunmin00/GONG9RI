@@ -987,6 +987,45 @@
   cursor: pointer;
 }
 
+/* ---------- 실시간 인기 검색어 (product/search-trends) ---------- */
+.search-trends {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: calc(var(--space-2) * -1);
+  margin-bottom: var(--space-5);
+}
+
+.search-trends__label {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.search-trends__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: none;
+  padding: 2px 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.search-trends__item:hover {
+  color: var(--color-purple);
+}
+
+.search-trends__item b {
+  color: var(--color-pink);
+  font-weight: 800;
+}
+
 /* ---------- 메인 페이지 광고 배너 — 슬림 공지 바 (main-page) ----------
    초기에는 220px 높이의 큰 그라디언트 히어로로 만들었는데, 실제 이미지 애셋이 없어 텍스트만 있는
    슬라이드는 미완성처럼 보인다는 피드백(친구 목업 참고)을 받아 한 줄짜리 공지/이벤트 바로 교체했다
