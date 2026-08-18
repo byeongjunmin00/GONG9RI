@@ -84,11 +84,54 @@
 - **로컬 검증**: `./gradlew test` 356개 전체 통과(회귀 없음). `bootRun`으로 기동해 WebSocket 연결 1건
   실측(`WebSocketMessageBrokerStats` 로그로 `inboundChannel`/`outboundChannel` pool이 idle 시
   `pool size = 0`으로 정상 대기 상태인 것 확인, 필요시에만 core=2까지 늘어나고 max=4를 넘지 않음).
-- **미해결/후속 필요**: 이전 Attempt들과 마찬가지로, 이 조치가 실제 프로덕션 재발을 막는지는 배포 후
-  최소 몇 시간 Railway Metrics(`railway metrics --memory`)로 실측 확인해야 확정된다. 재발하면 (a)
-  `GET /ws-team -> 403` 반복 재연결의 정확한 클라이언트/트리거를 찾아 근본 차단, (b) 힙 자체를
-  더 줄이거나 Metaspace를 더 좁혀 non-heap 여유를 추가로 확보, (c) 유료 플랜으로 메모리 한도 상향을
-  검토.
+- **미해결/후속 필요**: 배포 후 실측한 결과 Attempt 4로는 부족했다 — 아래 Attempt 5에서 진짜 원인이
+  하나 더 있었음이 밝혀짐.
+
+## Attempt 5 — 2026-08-19 (같은 날, JDK 이미지로 임시 전환해 jstack 실측) ✅ 근본 원인 확정
+
+- **증상**: Attempt 4 배포 후에도 재발 — 배포 47분 뒤 다시 확인하니 `MessageBroker-1`(11개)/
+  `MessageBroker-2`(5개)가 재등장(내가 새로 만든 `ws-broker-1`/`ws-broker-2`는 정상적으로 1개씩만
+  유지되고 있었음, 그건 확실히 고쳐짐). 즉 Attempt 4의 조치(`WebSocketConfig`에서 명시적으로 만든
+  스케줄러)와는 **별개의 스케줄러**가 여전히 기본값으로 남아 계속 자라고 있었다는 뜻.
+- **실측 확인**: JRE 전용 이미지라 `jcmd`/`jstack`이 없어 막혀있던 걸, `Dockerfile`을 임시로
+  `eclipse-temurin:17-jdk-jammy`로 바꿔 재배포한 뒤 `railway ssh`로 직접 진단.
+  - `jstack 1`로 스레드 덤프를 여러 번 떠서 비교: `MessageBroker-N` 스레드가 이름 중복 없이(각기
+    다른 tid) 시간이 지나며 -1→-7까지 순차적으로 계속 늘어나는 걸 확인(부팅 후 190초 시점에 이미
+    7개) — 요청 하나당 하나씩 생기는 게 아니라 **시간 기반으로 계속 새 워커 스레드가 추가되는 패턴**
+    (실제로 curl로 `/ws-team`에 정상적인 WebSocket 업그레이드 헤더를 보내 프로덕션의
+    `GET /ws-team -> 403` 로그를 그대로 재현하는 데는 성공했지만, 그 요청 전후로 스레드 수가
+    1:1로 늘어나진 않아 "매 연결 시도마다 스레드 하나"라는 가설은 기각).
+  - `spring-messaging-7.0.8.jar`의 `AbstractMessageBrokerConfiguration.class`를 `javap -c`로
+    직접 디컴파일해서 바이트코드 확인: `messageBrokerTaskScheduler()` 빈이
+    `new ThreadPoolTaskScheduler()` → `setThreadNamePrefix("MessageBroker-")` →
+    `setPoolSize(Runtime.getRuntime().availableProcessors())` 순서로 만들어짐을 직접 확인 —
+    **풀 크기를 JVM이 인식하는 CPU 코어 수로 잡고 있었다.** 이 빈은 `WebSocketConfig`에서
+    `registry.enableSimpleBroker().setTaskScheduler(...)`로 내가 만든 스케줄러를 넘겨준 것과
+    무관하게 Spring이 `@EnableWebSocketMessageBroker` 하나로 자동 생성하는 별도 빈이라, Attempt 4의
+    조치로는 건드리지 못했던 것.
+  - `railway ssh -- java -XshowSettings:system -version`으로 컨테이너가 인식하는 CPU 정보를
+    직접 확인: **`Effective CPU Count: 48`**(호스트 물리 코어 수 그대로) — 그런데 같은 출력의
+    `CPU Quota: 200000us` / `CPU Period: 100000us`를 계산하면 실제 한도는 **2.0**(Railway 요금제의
+    2 vCPU와 정확히 일치). 즉 `Runtime.availableProcessors()`가 48을 반환하고 있었다는 뜻 —
+    Attempt 3에서 확정한 메모리 자동 감지 오류(30GB로 착각)와 **완전히 같은 종류의 컨테이너 인식
+    버그가 CPU 쪽에도 있었다.** `messageBrokerTaskScheduler`가 풀 크기를 48로 잡고, 시간이 지나며
+    브로커 내부 주기 작업(세션 정리·하트비트 등)이 새 워커를 계속 소비하면서 48개까지 서서히
+    쌓이는 것 — 스레드 하나당 `-Xss512k` 스택 + malloc arena 오버헤드가 붙어 non-heap을 크게
+    잠식한다. 이게 Attempt 4까지의 조치로 못 막았던 진짜 근본 원인이었다.
+  - CPU 코어 수 기반 자동 사이징은 Spring의 이 스케줄러 하나만의 관행이 아니라 Netty 이벤트루프,
+    Reactor의 `Schedulers.parallel()`, `ForkJoinPool.commonPool()`(GC/스트림 병렬 연산 등)에서도
+    흔히 쓰는 패턴이라, 이 컨테이너에서 CPU 코어 수를 잘못 읽는 문제 자체가 다른 곳에서도 잠재적으로
+    비슷한 과다 사이징을 일으키고 있었을 가능성이 있다(개별 확인은 못 함, 근본 대응으로 한 번에 해소).
+- **조치**: `Dockerfile` ENTRYPOINT에 `-XX:ActiveProcessorCount=2` 추가 — JVM이 인식하는 프로세서
+  수 자체를 실제 한도(2 vCPU)로 고정해서, `Runtime.availableProcessors()`를 참조하는 모든 컴포넌트가
+  한 번에 정확한 값을 보게 한다(개별 라이브러리를 하나씩 찾아 오버라이드하는 것보다 근본적인 대응).
+  Attempt 4의 `WebSocketConfig` 명시적 풀 크기 지정은 이중 안전장치로 그대로 유지. 진단용으로 잠깐
+  바꿨던 런타임 이미지도 다시 `eclipse-temurin:17-jre-jammy`(JRE 전용)로 원복.
+- **로컬 검증**: `./gradlew test` 356개 전체 통과(회귀 없음, 힙/CPU 플래그는 로컬 실행에 영향 없음).
+- **미해결/후속 필요**: 이전 Attempt들과 마찬가지로 배포 후 최소 몇 시간(가능하면 하루) Railway
+  Metrics + `railway ssh`로 스레드 수·메모리 추세를 실측 확인해야 확정된다. 재발하면 (a) 힙을 더
+  줄이거나 Metaspace를 더 좁혀 non-heap 여유를 추가 확보, (b) `GET /ws-team -> 403` 반복 재연결의
+  정확한 클라이언트를 찾아 근본 차단, (c) 유료 플랜으로 메모리/CPU 한도 자체를 상향.
 
 ### 참고: 관련이지만 별개인 조치 — 헬스체크 타임아웃 연장 (2026-08-13, `61641a6`)
 
