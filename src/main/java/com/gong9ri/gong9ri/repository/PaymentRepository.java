@@ -22,4 +22,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>, Payment
     // 참여 취소(team/leave) — 취소한 사람이 그 팀에 대해 PAID 결제를 갖고 있으면 환불 요청 자동 생성
     // 대상이다(docs/dev/ongoing/team-leave-and-refund-request.md).
     List<Payment> findByTeamIdAndMemberIdAndStatus(Long teamId, Long memberId, PaymentStatus status);
+
+    // 관리자 회원 삭제 — 결제 이력이 하나라도 있으면 하드 삭제를 막는다(product/admin).
+    boolean existsByMemberId(Long memberId);
 }

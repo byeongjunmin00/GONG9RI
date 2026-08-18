@@ -12,4 +12,7 @@ public interface GroupBuyTeamRepository extends JpaRepository<GroupBuyTeam, Long
     // 메인 페이지 카드 진행바(product/list-progress) 전용 — 페이지에 실린 상품들의 RECRUITING 팀을
     // 한 번에 조회한다. 캐시하지 않는다(ProductSummaryResponse.activeTeamCurrentCount 주석 참고).
     List<GroupBuyTeam> findByProductIdInAndStatus(List<Long> productIds, TeamStatus status);
+
+    // 관리자 회원 삭제 — 팀 리더로 신설한 공구팀이 하나라도 있으면 하드 삭제를 막는다(product/admin).
+    boolean existsByLeader_Id(Long leaderId);
 }

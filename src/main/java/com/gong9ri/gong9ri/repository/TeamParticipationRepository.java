@@ -22,4 +22,7 @@ public interface TeamParticipationRepository
 
     // 리더가 참여를 취소했을 때 그다음 최초 참가자(joinedAt 가장 빠른 사람)에게 리더를 승계하기 위한 조회.
     Optional<TeamParticipation> findFirstByTeamIdOrderByJoinedAtAsc(Long teamId);
+
+    // 관리자 회원 삭제 — 참여 중인(또는 참여했던) 공구팀이 하나라도 있으면 하드 삭제를 막는다(product/admin).
+    boolean existsByMember_Id(Long memberId);
 }

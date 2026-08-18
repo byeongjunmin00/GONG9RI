@@ -35,7 +35,7 @@
 - 에러:
   | 코드 | HTTP | 설명 |
   |------|------|------|
-  | `VALIDATION_FAILED` | 400 | 필드 유효성 실패 |
+  | `VALIDATION_FAILED` | 400 | 필드 유효성 실패. `role: "ADMIN"`으로 가입 시도해도 이 코드로 거절된다(admin, `docs/dev/admin/design.md`) — 공개 가입으로는 관리자가 될 수 없다 |
   | `DUPLICATE_USERNAME` | 409 | 이미 존재하는 아이디 |
   | `DUPLICATE_EMAIL` | 409 | 이미 사용 중인 이메일(로그인 고도화 2단계 — 비밀번호 재설정이 이메일로 계정을 유일하게 찾아야 해서 추가된 제약, `docs/dev/auth/email-verification/design.md` 참고) |
 
@@ -71,6 +71,7 @@
   | `TOO_MANY_REQUESTS` | 429 | 같은 클라이언트(IP)가 60초 안에 10회를 초과해서 요청(로그인 시도 제한 — IP 레이어, `docs/dev/auth/login/design.md` 참고) |
   | `LOGIN_ATTEMPTS_EXCEEDED` | 429 | 같은 계정이 10분 안에 5회 연속 로그인에 실패해서 잠김(로그인 시도 제한 — 계정 레이어). 맞는 비밀번호를 넣어도 잠금 기간 동안은 거절됨 |
   | `EMAIL_NOT_VERIFIED` | 403 | 비밀번호는 맞지만 이메일 인증을 안 한 계정(로그인 고도화 2단계, `docs/dev/auth/email-verification/design.md` 참고) — 세션이 발급되지 않는다 |
+  | `ACCOUNT_SUSPENDED` | 403 | 관리자가 정지시킨 계정(admin, `docs/dev/admin/design.md` 참고) — 이메일 인증 체크 다음으로 확인하며, 세션이 발급되지 않는다 |
 
 ---
 
