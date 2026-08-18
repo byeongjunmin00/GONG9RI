@@ -24,3 +24,35 @@
   - `./gradlew bootRun`으로 실제 브라우저에서 헤더 검색 버튼 클릭 → 팝업 열림/닫힘, 각진 버튼/카드/그리드 밀도, 페이지 좌우 여백을 육안으로 확인하지는 못했다(이 세션엔 브라우저 프리뷰 도구를 사용하지 않음). Evaluate 단계에서 시각 확인이 필요하다.
   - 헤더 `.site-header__inner`는 `layout.css`에서 `justify-content: space-between`인데, 검색 토글 버튼을 nav와 auth 사이의 4번째 flex 아이템으로 추가해 간격 분배가 기존(로고/네비/auth 3개) 대비 달라진다. `layout.css` 자체(구조/컬럼/브레이크포인트)는 건드리지 않았지만, 이 flex item 개수 변화로 인한 시각적 간격 재배치는 브라우저로 확인이 필요하다.
 - 다음: Evaluate 단계로 진행. 브라우저 시각 검증(팝업 열기/닫기, 각짐 정도, 그리드 밀도, 컨테이너 여백, 콘솔 에러 유무)을 evaluator가 수행 권장.
+
+## Attempt 1 후속 — 2026-08-18 ✅ 브라우저 검증 + 버그 수정
+
+- 시도: `./gradlew bootRun`으로 Browser pane에서 `design-system.html` 직접 확인.
+- 결과: Attempt 1이 미해결로 남긴 우려가 실제로 발생 — 헤더에서 검색 토글 버튼이 로고/네비/auth 사이 어중간한 위치(거의 중앙)에 떠 보임. `justify-content: space-between`에 4번째 flex item이 추가되며 간격 분배가 깨진 것.
+- 조치: `partials/header.html`에서 `<nav>`, 검색 토글 버튼, 두 `.site-header__auth` div를 새 래퍼 `<div class="site-header__right">`로 묶음. `layout.css`에 `.site-header__right { display: flex; align-items: center; gap: var(--space-5); flex-wrap: wrap; }` 신설. 이제 `.site-header__inner`는 로고 + `.site-header__right` 2개 항목만 가져서 `space-between`이 의도대로 "로고 왼쪽 / 나머지 전부 오른쪽"으로 동작함. 모바일 미디어쿼리의 `.site-header__nav { order: 3; width: 100%; }`는 새 부모(`.site-header__right`) 기준으로도 동일하게 동작(자식 재배치이므로 문제 없음).
+- 검증: 재시작 후 스크린샷으로 확인 — 로고(좌) / 검색 아이콘+로그인+회원가입(우) 정상 정렬. 검색 아이콘 클릭 → 헤더 바로 아래 전체 폭 팝업 패널 열림(입력창 포커스 자동, 닫기 버튼 있음) → 재클릭/닫기 버튼으로 정상 닫힘. 버튼/카드 radius 축소, 카드 그리드 gap 축소 육안 확인. 콘솔 에러는 `/api/auth/me` 401(비로그인 상태의 기존 의도된 동작)만 있고 그 외 없음.
+- 결과: `./gradlew test` 재확인 → `BUILD SUCCESSFUL`.
+
+## 병합(merge) 시도 — 2026-08-18 ⚠️ 진행 중 (사람 확인 대기)
+
+- 시도: 사용자 지시로 현재까지의 작업(1단계+2단계, 커밋 `wip(design-system): ...`)을 WIP 커밋한 뒤 `git pull` 실행.
+- 결과: 팀원의 `feat(product/list-enhancements): 상품 카테고리·정렬·참여 진행바 + 메인 페이지 배너 추가`(커밋 `25f94cc`)와 `css/components.css`에서 병합 충돌 발생. 다른 파일(`index.html`, `seller/products/{new,edit}.html` 등)은 자동 병합됨.
+- 분석:
+  - **구조적 충돌**: 내 쪽(검색입력창/찜하기버튼 스타일)과 팀원 쪽(프로모배너/카테고리바 스타일)이 `components.css`의 같은 삽입 지점(파일 끝 부근)에 각자 새 규칙을 추가해서 git이 자동 병합 못 함 — 실제 내용은 겹치지 않아 **둘 다 유지**하면 되는 충돌.
+  - **진짜 문제(의미적 충돌)**: 팀원이 새로 만든 3개 기능이 이번 리브랜드에서 완전히 삭제한 색상 변수(`--color-orange`, `--color-pink`, `--gradient-brand`)를 참조 중 — `.card-progress-label b`/`.card-progress-fill`(카드 참여 진행바, 병합충돌 구간 밖이라 자동병합됐지만 조용히 깨짐), `.promo-bar-slide__text b`/`.promo-bar-cta:hover`(메인 프로모 배너), `.category-pill:hover`/`.category-pill.active`(카테고리 필터바) 총 6곳.
+  - `tokens.css`는 이번 병합에서 충돌 없이 깨끗하게 병합됐고(팀원이 안 건드림), 삭제된 변수들은 실제로 파일에 없음을 `grep`으로 확인.
+- 조치: 병합을 완료하지 않고 사용자에게 6곳 각각의 대체 색상 값을 확인받기 위해 대기 중(`--color-brand`로 통일 제안했으나 프로모배너 2곳은 배경이 어두운 톤이라 재검토 필요하다고 안내). `git status`는 현재 `git merge --abort` 전 unmerged 상태(`components.css`만 conflict, 나머지는 staged).
+- 다음: 사용자 확인 받은 색상 값으로 `components.css` 충돌 구간 수동 해결 → `git add` → merge 커밋 → 전체 재검증(`./gradlew test` + 브라우저 육안 확인, 특히 팀원의 새 기능 3개가 정상 렌더링되는지) → Evaluate.
+
+## 병합 완료 — 2026-08-18 ✅ PASS
+
+- 시도: 사용자가 시각 미리보기(3가지 프로모 배너 강조색 옵션)를 보고 C안(흰색+밑줄) 선택. 이를 반영해 6곳 색상 치환 완료:
+  - `.card-progress-label b`, `.card-progress-fill`, `.category-pill:hover`, `.category-pill.active` → `--color-brand`
+  - `.promo-bar-slide__text b`, `.promo-bar-cta:hover` → `--color-text-on-brand`(흰색) + `text-decoration: underline`(배경이 어두운 톤이라 브랜드 그린은 대비 약함, 흰색+밑줄로 대체)
+  - 겸사겸사 `layout.css`에 남아있던 구 참조 2곳(`.site-header__nav a:hover`, `.site-footer__links a:hover`, 둘 다 `--color-pink`)도 `--color-brand`로 정리(헤더 쪽은 어차피 components.css가 흰색으로 덮어써서 실질 영향 없었지만, 소스 정확성을 위해 정리).
+- 결과:
+  - `grep`으로 `src/main/resources/static/css/` 전체 재확인 → `--color-orange`/`--color-pink`/`--color-coral`/`--color-purple`/`--gradient-brand` 참조 0건.
+  - `./gradlew test` → `BUILD SUCCESSFUL in 1m 6s`.
+  - `git commit`으로 병합 완료(커밋 `b8849b3`).
+  - `./gradlew bootRun` + Browser pane으로 `index.html` 실사용 확인: 헤더(로고/검색버튼/로그인·회원가입 정렬 정상) + 프로모 배너(흰색 밑줄 강조, 자동 슬라이드+점 네비게이션 정상) + 카테고리 필터(전체/식품 등 pill, 클릭 시 활성 상태가 다크 세이지로 정상 전환, 클릭 시 배너도 갱신) 모두 정상 렌더링. 네트워크 요청 확인 — `/api/products?sort=POPULAR&size=1`, `?sort=LATEST`(팀원 신규 API) 200 OK, `/js/search-popup.js` 200 OK. 콘솔 에러는 `/api/auth/me` 401(비로그인 기존 의도된 동작)만 있고 그 외 없음.
+- 다음: Evaluate 단계로 진행 권장(이번 병합 포함 전체 diff 대상).
