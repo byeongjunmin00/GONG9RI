@@ -10,8 +10,9 @@ RUN chmod +x gradlew && ./gradlew --version
 COPY src src
 RUN ./gradlew bootJar --no-daemon
 
-# 2단계: 실행 — JDK 없이 JRE만으로 실행
-FROM eclipse-temurin:17-jre-jammy
+# 2단계: 실행 — 임시로 JDK 이미지 사용 중(jstack으로 반복 OOM 재발 원인 실측 진단,
+# docs/logs/cd/deploy/003-oom-crash.md Attempt 5). 진단 끝나면 JRE로 되돌릴 것.
+FROM eclipse-temurin:17-jdk-jammy
 WORKDIR /app
 COPY --from=build /workspace/build/libs/*.jar app.jar
 
