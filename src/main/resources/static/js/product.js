@@ -552,6 +552,19 @@
     countEl.textContent = current + ' / ' + max + '명';
     infoEl.appendChild(countEl);
 
+    // 팀별 마감일 — 메인 카드의 "마감임박" 배지(activeTeamDeadline)는 대표 팀 하나만 보여주고,
+    // 여기 팀 목록에는 예전부터 마감일 자체가 아예 안 나와 있었다(TeamResponse.deadline은 이미 응답에
+    // 있었는데 화면에 안 그렸을 뿐). "언제까지인지 안 나온다"는 피드백으로 추가.
+    if (team.deadline) {
+      var deadlineDate = new Date(team.deadline);
+      if (!isNaN(deadlineDate.getTime())) {
+        var deadlineEl = document.createElement('span');
+        deadlineEl.className = 'team-item-deadline';
+        deadlineEl.textContent = '마감 ' + deadlineDate.toLocaleString('ko-KR') + '까지';
+        infoEl.appendChild(deadlineEl);
+      }
+    }
+
     li.appendChild(infoEl);
 
     var joinBtn = document.createElement('button');
