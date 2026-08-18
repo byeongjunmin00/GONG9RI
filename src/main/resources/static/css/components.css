@@ -185,6 +185,14 @@
   background: var(--gradient-brand);
 }
 
+.card-progress-percent {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  color: var(--color-coral);
+}
+
 /* ---------- Badge (공구 상태) ---------- */
 .badge {
   display: inline-flex;
@@ -857,6 +865,55 @@
   font-family: var(--font-heading);
   font-size: var(--fs-xl);
   font-weight: 800;
+}
+
+/* ---------- 메인 페이지 검색창 (product/list-search) ---------- */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-full);
+  padding: 4px 4px 4px var(--space-5);
+  margin-bottom: var(--space-4);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.search-bar:focus-within {
+  border-color: var(--color-purple);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+}
+
+.search-bar__input {
+  flex: 1;
+  border: none;
+  background: none;
+  font-size: var(--fs-base);
+  color: var(--color-text);
+  padding: 10px 0;
+}
+
+.search-bar__input:focus {
+  outline: none;
+}
+
+.search-bar__input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.search-bar__btn {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: var(--gradient-brand);
+  color: var(--color-text-on-brand);
+  cursor: pointer;
 }
 
 /* ---------- 메인 페이지 광고 배너 — 슬림 공지 바 (main-page) ----------

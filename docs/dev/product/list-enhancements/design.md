@@ -1,4 +1,4 @@
-# 상품 목록 고도화 — 카테고리·정렬·참여 진행바 (product/list-enhancements) — Design
+# 상품 목록 고도화 — 카테고리·정렬·참여 진행바·검색 (product/list-enhancements) — Design
 
 ## 개요
 
@@ -8,9 +8,10 @@
 
 `docs/api/product.md`가 원천. 핵심만 요약:
 
-- `GET /api/products?category=&sort=&page=&size=`
+- `GET /api/products?category=&sort=&keyword=&page=&size=`
   - `category`: `FOOD`/`LIVING`/`BEAUTY`/`FASHION`/`DIGITAL`/`ETC` — 생략하면 전체.
   - `sort`: `LATEST`(등록일 내림차순) / `POPULAR`(진행 중 팀 중 참여 인원 최다 기준 내림차순) — 생략하면 정렬 없음(회귀 방지, 기존 호출부 동작 유지).
+  - `keyword`: 상품명 또는 판매자명에 포함된 상품만(대소문자 무시). 있으면 목록 캐시를 타지 않는다.
   - 응답 각 항목에 `category`, `activeTeamCurrentCount`, `activeTeamTargetParticipants` 포함.
 - `POST /api/products`/`PUT /api/products/{id}`: `category` 필수(`@NotNull`).
 
@@ -29,6 +30,10 @@
 - `LATEST`: `product.createdAt.desc()`.
 - `POPULAR`: 이 상품의 RECRUITING 팀 중 참여 인원이 가장 많은 팀의 인원수(`MAX(currentCount)`, 상관 서브쿼리)로 내림차순. DB 레벨 정렬이라 페이지네이션 경계가 정확하다(자바에서 후처리 정렬하면 페이지가 어긋남). RECRUITING 팀이 없는 상품은 서브쿼리가 NULL → MySQL이 DESC 정렬에서 NULL을 마지막으로 보내 자연스럽게 뒤로 밀린다.
 - `sort`도 캐시 키에 포함한다. **인기순 정렬 결과는 캐시 TTL(30분)만큼 낡을 수 있다는 걸 의도적으로 허용한다** — 실시간 랭킹이 아니라 주기 갱신 랭킹으로 판단(다수 실서비스도 이런 방식). 아래 진행바 숫자와는 다른 신선도 기준을 적용한다는 점에 유의.
+
+### 검색(keyword)
+- `product.name` 또는 `product.seller.name`(둘 중 하나만 걸려도 됨, OR)에 `containsIgnoreCase`로 매치.
+- **캐시하지 않는다** — `@Cacheable`의 `condition = "#keyword == null || #keyword.isBlank()"`로 검색어가 있으면 아예 캐시 저장/조회 자체를 건너뛴다. 검색어 조합은 사실상 무한해서 캐시 키에 넣으면 대부분 한 번 쓰고 버려지는 엔트리로 캐시가 계속 불어난다 — `ProductAiController`의 챗봇 상품검색 Tool(`findTop10ByNameContainingIgnoreCase`)도 같은 이유로 캐싱하지 않는 기존 선례와 동일한 판단.
 
 ### 참여 진행바(activeTeamCurrentCount/activeTeamTargetParticipants)
 - **캐시에 넣지 않는다.** `ProductService.list()`(캐시됨)는 이 필드를 항상 `null`로 둔 채 반환하고, 별도 public 메서드 `attachActiveTeamProgress(ProductPageResponse)`가 캐시 없이 매번 최신 `group_buy_team` 상태를 조회해 덧붙인다. `ProductController.list()`가 이 두 메서드를 순서대로 호출한다.

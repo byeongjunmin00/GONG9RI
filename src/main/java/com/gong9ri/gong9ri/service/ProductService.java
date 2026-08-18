@@ -59,12 +59,16 @@ public class ProductService {
     // 달리 "정렬 순서"는 30분 단위로 갱신돼도 되는 수준의 신선도로 판단해 그대로 캐싱한다(순위 사이트
     // 다수가 실시간이 아니라 주기 갱신인 것과 같은 이유) — activeTeamCurrentCount처럼 캐시 밖으로
     // 빼지 않는다.
+    // keyword(product/list-search)가 있으면 아예 캐싱하지 않는다(condition) — 검색어는 조합이 사실상
+    // 무한해서 캐시 키를 넣으면 대부분 한 번 쓰고 버려지는 엔트리로 캐시가 계속 불어난다(챗봇 상품검색
+    // Tool의 findTop10ByNameContainingIgnoreCase도 같은 이유로 캐싱 안 함, ProductAiController 참고).
     @Cacheable(cacheNames = CacheConfig.PRODUCT_LIST_CACHE,
+            condition = "#keyword == null || #keyword.isBlank()",
             key = "#page + '-' + #size + '-' + (#category != null ? #category : 'ALL')"
                     + " + '-' + (#sort != null ? #sort : 'NONE')")
-    public ProductPageResponse list(int page, int size, ProductCategory category, ProductSort sort) {
+    public ProductPageResponse list(int page, int size, ProductCategory category, ProductSort sort, String keyword) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<Product> products = productRepository.findAllWithSeller(pageable, category, sort);
+        Page<Product> products = productRepository.findAllWithSeller(pageable, category, sort, keyword);
 
         List<Long> productIds = products.getContent().stream().map(Product::getId).toList();
         Map<Long, Integer> bestPrices = productIds.isEmpty()

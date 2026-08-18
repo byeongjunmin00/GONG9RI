@@ -34,6 +34,23 @@
         <span id="page-alert-text"></span>
       </div>
 
+      <!-- 상품명/판매자명 검색 — ?keyword= 쿼리파라미터로 목록을 다시 불러온다(js/main.js, product/list-search). -->
+      <form id="search-form" class="search-bar" role="search">
+        <input
+          type="search"
+          id="search-input"
+          class="search-bar__input"
+          placeholder="상품명이나 판매자 이름으로 검색해보세요"
+          aria-label="상품 검색"
+        />
+        <button type="submit" class="search-bar__btn" aria-label="검색">
+          <svg viewBox="0 0 20 20" width="18" height="18" fill="none" aria-hidden="true">
+            <circle cx="8.5" cy="8.5" r="6.5" stroke="currentColor" stroke-width="2" />
+            <line x1="13.4" y1="13.4" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+        </button>
+      </form>
+
       <!-- 광고 배너 — 슬림 공지 바(프론트 전용, 백엔드 연동 없음). 자동 순환 + 점 클릭. js/main.js가 제어한다. -->
       <div id="promo-bar" class="promo-bar">
         <div id="promo-bar-track" class="promo-bar-track"></div>

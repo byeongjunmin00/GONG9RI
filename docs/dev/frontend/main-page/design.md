@@ -27,9 +27,13 @@ src/main/resources/static/
 
 `docs/dev/product/list-enhancements/design.md` 참고. 카테고리 pill(전체+6종) 클릭, 정렬 select("최신순"/"인기순") 변경 둘 다 `?category=`/`?sort=` 쿼리파라미터를 URL에 반영(`history.replaceState`)하고 기존 페이지네이션 상태를 초기화한 뒤 목록을 처음부터 다시 불러온다.
 
+### 검색창(`#search-form`)
+
+`docs/dev/product/list-enhancements/design.md` 참고. 상품명 또는 판매자명으로 검색, 제출 시 `?keyword=`를 URL에 반영하고 카테고리/정렬과 동일하게 목록을 처음부터 다시 불러온다.
+
 ### 카드 참여 진행바
 
-`activeTeamCurrentCount`/`activeTeamTargetParticipants`가 응답에 둘 다 있을 때만(RECRUITING 팀이 있을 때만) "N명 참여 중 · M명 달성 시 성사" 진행바를 카드에 그린다.
+`activeTeamCurrentCount`/`activeTeamTargetParticipants`가 응답에 둘 다 있을 때만(RECRUITING 팀이 있을 때만) "N명 참여 중 · M명 달성 시 성사" 진행바 + "N% 달성" 배지(참고 사이트들의 공통 패턴)를 카드에 그린다.
 
 ### 카드 호버(입체감)
 

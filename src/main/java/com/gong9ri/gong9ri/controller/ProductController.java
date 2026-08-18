@@ -35,8 +35,9 @@ public class ProductController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) ProductCategory category,
-            @RequestParam(required = false) ProductSort sort) {
-        ProductPageResponse cached = productService.list(page, size, category, sort);
+            @RequestParam(required = false) ProductSort sort,
+            @RequestParam(required = false) String keyword) {
+        ProductPageResponse cached = productService.list(page, size, category, sort, keyword);
         ProductPageResponse withProgress = productService.attachActiveTeamProgress(cached);
         return ResponseEntity.ok(ApiResponse.success(withProgress));
     }

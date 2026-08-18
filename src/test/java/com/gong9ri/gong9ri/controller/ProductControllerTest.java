@@ -220,6 +220,46 @@ class ProductControllerTest {
     }
 
     @Test
+    @DisplayName("keyword로 상품명 또는 판매자명에 포함된 상품만 검색된다")
+    void list_searchByKeyword_matchesProductNameOrSellerName() throws Exception {
+        // saveMember()는 name을 항상 "테스트유저"로 고정하므로(username과 무관), 판매자명 검색을
+        // 검증하려면 name을 직접 지정해서 저장한다.
+        Member seller = memberRepository.save(
+                new Member("sellerMelon", "encoded-password", "멜론농장", "sellerMelon@test.com", Role.SELLER));
+        saveProduct(seller, "제주 감귤 세트", ProductCategory.FOOD);
+        saveProduct(seller, "완전 무관한 상품", ProductCategory.FOOD);
+
+        mockMvc.perform(get("/api/products").param("keyword", "감귤"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].name").value("제주 감귤 세트"));
+
+        // 판매자명으로도 검색된다.
+        mockMvc.perform(get("/api/products").param("keyword", "멜론농장"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(2));
+    }
+
+    @Test
+    @DisplayName("keyword가 있으면 목록 캐시를 타지 않는다 — 같은 검색어로 연속 조회해도 새로 등록된 상품이 즉시 반영된다")
+    void list_searchByKeyword_bypassesCache() throws Exception {
+        Member seller = saveMember("seller16", Role.SELLER);
+        saveProduct(seller, "캐시테스트상품1", ProductCategory.ETC);
+
+        mockMvc.perform(get("/api/products").param("keyword", "캐시테스트"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1));
+
+        // 같은 page/size/keyword 조합으로 다시 요청 — 목록 캐시를 탔다면(회귀) 방금 추가한 상품이
+        // 이 두 번째 응답에 반영되지 않아야 하는데, 캐시를 안 타므로 실제로 반영돼야 한다.
+        saveProduct(seller, "캐시테스트상품2", ProductCategory.ETC);
+
+        mockMvc.perform(get("/api/products").param("keyword", "캐시테스트"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(2));
+    }
+
+    @Test
     @DisplayName("목록의 진행바 정보는 RECRUITING 팀 중 진행률이 가장 높은 팀을 대표로 보여주고, "
             + "목록 캐시가 이미 채워져 있어도 팀 상태 변화를 즉시 반영한다(캐시하지 않음)")
     void list_activeTeamProgress_showsHighestRatioTeam_andReflectsLiveTeamChanges() throws Exception {

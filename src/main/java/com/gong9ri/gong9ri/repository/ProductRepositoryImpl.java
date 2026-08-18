@@ -33,8 +33,14 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
     }
 
     @Override
-    public Page<Product> findAllWithSeller(Pageable pageable, ProductCategory category, ProductSort sort) {
+    public Page<Product> findAllWithSeller(Pageable pageable, ProductCategory category, ProductSort sort,
+            String keyword) {
         BooleanExpression categoryCondition = category == null ? null : product.category.eq(category);
+        // 검색어(product/list-search) — 상품명 또는 판매자명에 포함되면 매치(대소문자 무시). 둘 중
+        // 하나만 걸려도 되는 OR 조건이라 category(AND)와 별도 변수로 둔다.
+        BooleanExpression keywordCondition = (keyword == null || keyword.isBlank())
+                ? null
+                : product.name.containsIgnoreCase(keyword).or(product.seller.name.containsIgnoreCase(keyword));
 
         List<OrderSpecifier<?>> orders = new ArrayList<>();
         if (sort == ProductSort.LATEST) {
@@ -57,7 +63,7 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
         List<Product> content = queryFactory
                 .selectFrom(product)
                 .join(product.seller).fetchJoin()
-                .where(categoryCondition)
+                .where(categoryCondition, keywordCondition)
                 .orderBy(orders.toArray(new OrderSpecifier<?>[0]))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
@@ -66,7 +72,8 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
         Long total = queryFactory
                 .select(product.count())
                 .from(product)
-                .where(categoryCondition)
+                .join(product.seller)
+                .where(categoryCondition, keywordCondition)
                 .fetchOne();
 
         return new PageImpl<>(content, pageable, Objects.requireNonNullElse(total, 0L));

@@ -15,8 +15,9 @@ public interface ProductRepositoryCustom {
 
     // category가 null이면 필터 조건 없이 전체 조회한다(메인 페이지 "전체" 탭, product/category).
     // sort가 POPULAR면 RECRUITING 팀 중 참여 인원이 가장 많은 팀 기준 내림차순, null이면 정렬 없음
-    // (product/list-sort).
-    Page<Product> findAllWithSeller(Pageable pageable, ProductCategory category, ProductSort sort);
+    // (product/list-sort). keyword가 있으면 상품명 또는 판매자명에 포함된 것만(대소문자 무시,
+    // product/list-search).
+    Page<Product> findAllWithSeller(Pageable pageable, ProductCategory category, ProductSort sort, String keyword);
 
     Optional<Product> findByIdWithSeller(Long id);
 }

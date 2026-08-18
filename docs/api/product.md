@@ -12,6 +12,7 @@
   | size | int | N | 20 | 페이지 크기 |
   | category | String | N | (없음) | `FOOD`/`LIVING`/`BEAUTY`/`FASHION`/`DIGITAL`/`ETC` 중 하나. 생략하면 전체 카테고리(product/category, 메인 페이지 카테고리 바) |
   | sort | String | N | (없음) | `LATEST`(등록일 내림차순) 또는 `POPULAR`(RECRUITING 팀 중 참여 인원이 가장 많은 팀 기준 내림차순, 진행 중인 팀 없는 상품은 맨 뒤). 생략하면 정렬 조건 없음(product/list-sort) |
+  | keyword | String | N | (없음) | 상품명 또는 판매자명에 포함된 상품만(대소문자 무시). 있으면 목록 캐시를 타지 않는다(product/list-search) |
 
 - 응답: `200 OK`
   ```json

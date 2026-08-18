@@ -20,6 +20,9 @@
  *   서버가 캐시 없이 매 요청 최신으로 계산해 내려준다(docs/api/product.md 참고).
  * - 정렬(#sort-select, product/list-sort): "최신순"(LATEST, 기본값)/"인기순"(POPULAR) 중 선택하면
  *   `?sort=`를 URL에 반영하고 카테고리와 동일하게 목록을 처음부터 다시 불러온다.
+ * - 검색(#search-form, product/list-search): 상품명 또는 판매자명 검색. 제출 시 `?keyword=`를 URL에
+ *   반영하고 카테고리/정렬과 동일하게 처음부터 다시 불러온다. 서버는 검색어가 있으면 목록 캐시를
+ *   타지 않는다(docs/api/product.md).
  */
 (function () {
   // 카카오 로그인 role 불일치 안내(?kakaoRoleMismatch=BUYER|SELLER) — 회원가입 페이지의 역할별
@@ -186,8 +189,10 @@
   var loadMoreBtn = document.getElementById('load-more-btn');
   var categoryBarEl = document.getElementById('category-bar');
   var sortSelectEl = document.getElementById('sort-select');
+  var searchFormEl = document.getElementById('search-form');
+  var searchInputEl = document.getElementById('search-input');
 
-  if (!gridEl || !statusEl || !loadMoreBtn || !categoryBarEl || !sortSelectEl) {
+  if (!gridEl || !statusEl || !loadMoreBtn || !categoryBarEl || !sortSelectEl || !searchFormEl || !searchInputEl) {
     return;
   }
 
@@ -198,8 +203,10 @@
     loading: false,
     category: new URLSearchParams(window.location.search).get('category') || null,
     sort: new URLSearchParams(window.location.search).get('sort') || 'LATEST',
+    keyword: new URLSearchParams(window.location.search).get('keyword') || null,
   };
   sortSelectEl.value = state.sort;
+  searchInputEl.value = state.keyword || '';
 
   function formatPrice(value) {
     if (typeof value !== 'number') {
@@ -291,6 +298,8 @@
       return null;
     }
 
+    var percent = Math.min(100, Math.round((current / target) * 100));
+
     var wrapEl = document.createElement('div');
     wrapEl.className = 'card-progress';
 
@@ -306,9 +315,15 @@
     trackEl.className = 'card-progress-track';
     var fillEl = document.createElement('div');
     fillEl.className = 'card-progress-fill';
-    fillEl.style.width = Math.min(100, Math.round((current / target) * 100)) + '%';
+    fillEl.style.width = percent + '%';
     trackEl.appendChild(fillEl);
     wrapEl.appendChild(trackEl);
+
+    // 달성% 배지 — 와디즈/텀블벅 등 실제 크라우드펀딩 사이트에서 흔히 쓰는 강조 표시(사용자 요청).
+    var percentEl = document.createElement('span');
+    percentEl.className = 'card-progress-percent';
+    percentEl.textContent = percent + '% 달성';
+    wrapEl.appendChild(percentEl);
 
     return wrapEl;
   }
@@ -365,6 +380,9 @@
     }
     if (state.sort) {
       params.push('sort=' + encodeURIComponent(state.sort));
+    }
+    if (state.keyword) {
+      params.push('keyword=' + encodeURIComponent(state.keyword));
     }
     var path = params.length > 0 ? PRODUCTS_PATH + '?' + params.join('&') : PRODUCTS_PATH;
 
@@ -455,6 +473,22 @@
     });
     categoryBarEl.appendChild(fragment);
   }
+
+  searchFormEl.addEventListener('submit', function (event) {
+    event.preventDefault();
+    var keyword = searchInputEl.value.trim();
+    state.keyword = keyword || null;
+
+    var url = new URL(window.location.href);
+    if (state.keyword) {
+      url.searchParams.set('keyword', state.keyword);
+    } else {
+      url.searchParams.delete('keyword');
+    }
+    window.history.replaceState(null, '', url.pathname + url.search);
+
+    resetAndReload();
+  });
 
   sortSelectEl.addEventListener('change', function () {
     state.sort = sortSelectEl.value || 'LATEST';
