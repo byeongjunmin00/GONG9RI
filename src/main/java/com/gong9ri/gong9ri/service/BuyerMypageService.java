@@ -7,6 +7,7 @@ import com.gong9ri.gong9ri.dto.BuyerTeamResponse;
 import com.gong9ri.gong9ri.dto.NotificationResponse;
 import com.gong9ri.gong9ri.dto.PurchaseResponse;
 import com.gong9ri.gong9ri.dto.RefundRequestResponse;
+import com.gong9ri.gong9ri.dto.WishlistItemResponse;
 import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.repository.NotificationRepository;
 import com.gong9ri.gong9ri.repository.PaymentRepository;
@@ -26,6 +27,7 @@ public class BuyerMypageService {
     private final TeamParticipationRepository teamParticipationRepository;
     private final NotificationRepository notificationRepository;
     private final RefundRequestRepository refundRequestRepository;
+    private final WishlistService wishlistService;
 
     public List<PurchaseResponse> purchases(MemberUserDetails principal) {
         requireBuyer(principal);
@@ -55,6 +57,11 @@ public class BuyerMypageService {
                 .stream()
                 .map(RefundRequestResponse::from)
                 .toList();
+    }
+
+    // 찜한 상품 목록 — 실제 로직(멱등 추가/제거 포함)은 WishlistService가 소유하고, 여기선 조회만 위임한다.
+    public List<WishlistItemResponse> wishlist(MemberUserDetails principal) {
+        return wishlistService.myWishlist(principal);
     }
 
     private void requireBuyer(MemberUserDetails principal) {

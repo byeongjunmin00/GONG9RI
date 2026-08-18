@@ -25,6 +25,9 @@
  *   참여 취소로만 가능하다(docs/api/refund.md).
  * - 환불 요청 내역 섹션은 GET /api/buyer/mypage/refund-requests로 상태(대기/승인/거절)와 거절 사유를
  *   읽기 전용으로 보여준다.
+ * - 찜한 상품 섹션(product/wishlist)은 GET /api/buyer/mypage/wishlist로 목록을 불러오고, 각 항목에
+ *   "찜 해제" 버튼(DELETE /api/products/{productId}/wishlist)을 둔다 — 메인 페이지 카드의 하트 토글과
+ *   같은 API를 재사용한다.
  * - 서버 응답 문자열(상품명/에러 message 등)은 textContent로만 대입해 XSS를 방지한다.
  */
 (function () {
@@ -43,11 +46,15 @@
   var refundRequestsStatusEl = document.getElementById('refund-requests-status');
   var refundRequestsListEl = document.getElementById('refund-requests-list');
 
+  var wishlistStatusEl = document.getElementById('wishlist-status');
+  var wishlistListEl = document.getElementById('wishlist-list');
+
   if (
     !pageAlertEl || !pageAlertTextEl || !pageAlertLoginLinkEl || !mypageSectionsEl ||
     !purchasesStatusEl || !purchasesListEl ||
     !teamsStatusEl || !teamsListEl ||
-    !refundRequestsStatusEl || !refundRequestsListEl
+    !refundRequestsStatusEl || !refundRequestsListEl ||
+    !wishlistStatusEl || !wishlistListEl
   ) {
     return;
   }
@@ -534,6 +541,87 @@
       });
   }
 
+  // ---------- 찜한 상품 ----------
+
+  function createWishlistItem(item) {
+    var li = document.createElement('li');
+    li.className = 'mypage-list-item';
+
+    var infoEl = document.createElement('div');
+    infoEl.className = 'mypage-list-item__info';
+
+    var titleEl = document.createElement('a');
+    titleEl.className = 'mypage-list-item__title';
+    titleEl.href = '/product.html?id=' + item.productId;
+    titleEl.textContent = item.productName || '';
+    infoEl.appendChild(titleEl);
+
+    var metaEl = document.createElement('span');
+    metaEl.className = 'mypage-list-item__meta';
+    var priceText = formatPrice(item.bestPrice != null ? item.bestPrice : item.basePrice);
+    metaEl.textContent = [item.sellerName, priceText].filter(Boolean).join(' · ');
+    infoEl.appendChild(metaEl);
+
+    li.appendChild(infoEl);
+
+    var actionsEl = document.createElement('div');
+    actionsEl.className = 'mypage-list-item__actions';
+
+    var removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn btn-ghost btn-sm';
+    removeBtn.textContent = '찜 해제';
+    removeBtn.addEventListener('click', function () {
+      removeBtn.disabled = true;
+      window.Api.del('/products/' + item.productId + '/wishlist')
+        .then(function () {
+          loadWishlist();
+        })
+        .catch(function (err) {
+          console.error('[buyer-mypage.js] failed to remove wishlist item:', err);
+          removeBtn.disabled = false;
+        });
+    });
+    actionsEl.appendChild(removeBtn);
+
+    li.appendChild(actionsEl);
+
+    return li;
+  }
+
+  function renderWishlist(items) {
+    clearChildren(wishlistListEl);
+    var fragment = document.createDocumentFragment();
+    items.forEach(function (item) {
+      fragment.appendChild(createWishlistItem(item));
+    });
+    wishlistListEl.appendChild(fragment);
+  }
+
+  function loadWishlist() {
+    showStatus(wishlistStatusEl, '찜한 상품을 불러오는 중입니다...', 'loading');
+    clearChildren(wishlistListEl);
+
+    return window.Api.get('/buyer/mypage/wishlist')
+      .then(function (items) {
+        var list = Array.isArray(items) ? items : [];
+        if (list.length === 0) {
+          showStatus(wishlistStatusEl, '찜한 상품이 없습니다.', 'empty');
+          return;
+        }
+        hideStatus(wishlistStatusEl);
+        renderWishlist(list);
+      })
+      .catch(function (err) {
+        console.error('[buyer-mypage.js] failed to load wishlist:', err);
+        if (handleUnauthorized(err)) {
+          return;
+        }
+        var message = (err && err.message) || '찜한 상품을 불러오지 못했습니다.';
+        showStatus(wishlistStatusEl, message, 'error');
+      });
+  }
+
   function init() {
     // purchases를 먼저 로드해 latestPurchases를 채운 뒤 teams를 로드해야
     // SUCCESS 항목의 결제 매칭(findMatchingPurchase)이 최신 데이터를 사용할 수 있다.
@@ -541,6 +629,7 @@
       loadTeams();
     });
     loadRefundRequests();
+    loadWishlist();
   }
 
   init();

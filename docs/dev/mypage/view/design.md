@@ -2,11 +2,11 @@
 
 ## 개요
 
-구매자는 본인 결제 내역·공구 참여 목록을, 판매자는 본인이 등록한 상품·매출 현황·상품별 공구 참여 현황을 조회한다. 쓰기 동작이 없는 순수 조회/집계 기능이라 신규 엔티티·에러코드는 없다. 목록은 페이지네이션 없이 배열로 반환한다(회원 개인 활동 기준이라 범위가 작아서 의도적 예외 — 공개 상품 카탈로그의 페이지네이션과는 다름).
+구매자는 본인 결제 내역·공구 참여 목록·찜한 상품을, 판매자는 본인이 등록한 상품·매출 현황·상품별 공구 참여 현황을 조회한다. 대부분 쓰기 동작이 없는 순수 조회/집계 기능이라 신규 엔티티·에러코드는 없다 — 유일한 예외는 찜(`GET /api/buyer/mypage/wishlist`)인데, 그 자체의 쓰기(추가/제거)는 `product/wishlist`가 소유하고 여기선 조회만 위임받는다(`docs/dev/product/wishlist/design.md`). 목록은 페이지네이션 없이 배열로 반환한다(회원 개인 활동 기준이라 범위가 작아서 의도적 예외 — 공개 상품 카탈로그의 페이지네이션과는 다름).
 
 ## API / 인터페이스
 
-- `GET /api/buyer/mypage/{purchases,teams}`, `GET /api/seller/mypage/{products,revenue,teams}` — 상세: `docs/api/mypage.md`
+- `GET /api/buyer/mypage/{purchases,teams,refund-requests,wishlist}`, `GET /api/seller/mypage/{products,revenue,teams}` — 상세: `docs/api/mypage.md`, 찜은 `docs/api/wishlist.md`
 
 ## 데이터 모델
 

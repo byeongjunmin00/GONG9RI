@@ -26,6 +26,11 @@
  * - 마감임박 배지: activeTeamDeadline까지 3일(DEADLINE_URGENT_DAYS) 이하로 남았을 때만 카드 이미지에
  *   배지를 그린다(product/list-sort). "마감임박순" 정렬(sort=DEADLINE)과는 별개 기능 — 정렬은 항상
  *   가능하고, 배지는 실제로 임박했을 때만 뜬다.
+ * - 찜 하트(product/wishlist): 로그인한 구매자만 실제로 토글된다(서버 최종 판정, 403은 조용히 무시).
+ *   비로그인 클릭은 로그인 페이지로 이동(redirect 쿼리파라미터로 원래 페이지 복귀). 로그인한 회원
+ *   정보는 js/header-auth.js가 발행하는 'gong9ri:auth-resolved' 이벤트로 재사용한다(다른 페이지들과
+ *   동일 패턴) — 그 시점에 GET /buyer/mypage/wishlist를 한 번 불러와 이미 렌더링된 카드의 하트를
+ *   뒤늦게 채운다.
  */
 (function () {
   // 카카오 로그인 role 불일치 안내(?kakaoRoleMismatch=BUYER|SELLER) — 회원가입 페이지의 역할별
@@ -211,6 +216,66 @@
   sortSelectEl.value = state.sort;
   searchInputEl.value = state.keyword || '';
 
+  // 찜(product/wishlist) — 로그인한 구매자만 실제로 토글 가능하다(서버가 최종 판정). 카드는 이미
+  // 렌더링된 뒤에 로그인 상태가 비동기로 확정되므로(js/header-auth.js의 'gong9ri:auth-resolved'),
+  // 하트 버튼을 productId로 찾아둔 뒤 위시리스트 조회가 끝나면 뒤늦게 채운다.
+  var currentMemberId = null;
+  var wishlistedProductIds = new Set();
+  var heartElsByProductId = {};
+
+  document.addEventListener('gong9ri:auth-resolved', function (event) {
+    var detail = event.detail || {};
+    currentMemberId = detail.loggedIn && detail.member ? detail.member.memberId : null;
+    var role = detail.loggedIn && detail.member ? detail.member.role : null;
+    if (!currentMemberId || role !== 'BUYER') {
+      return;
+    }
+    window.Api.get('/buyer/mypage/wishlist')
+      .then(function (items) {
+        (items || []).forEach(function (item) {
+          wishlistedProductIds.add(item.productId);
+          var heartEl = heartElsByProductId[item.productId];
+          if (heartEl) {
+            heartEl.classList.add('active');
+          }
+        });
+      })
+      .catch(function () {
+        // 조용히 무시 — 하트가 전부 빈 상태로 남을 뿐, 카드 렌더링 자체를 막지 않는다.
+      });
+  });
+
+  function toggleWishlist(productId, heartEl) {
+    if (!currentMemberId) {
+      window.location.href =
+        '/login.html?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+      return;
+    }
+
+    var wasActive = heartEl.classList.contains('active');
+    heartEl.disabled = true;
+
+    var request = wasActive
+      ? window.Api.del('/products/' + productId + '/wishlist')
+      : window.Api.post('/products/' + productId + '/wishlist', {});
+
+    request
+      .then(function () {
+        heartEl.classList.toggle('active', !wasActive);
+        if (wasActive) {
+          wishlistedProductIds.delete(productId);
+        } else {
+          wishlistedProductIds.add(productId);
+        }
+      })
+      .catch(function () {
+        // 예: 판매자 계정으로 시도해 403 — 별도 에러 배너 없이 조용히 무시하고 하트 상태를 그대로 둔다.
+      })
+      .then(function () {
+        heartEl.disabled = false;
+      });
+  }
+
   function formatPrice(value) {
     if (typeof value !== 'number') {
       return '';
@@ -254,6 +319,24 @@
     if (deadlineBadgeEl) {
       imageEl.appendChild(deadlineBadgeEl);
     }
+
+    // 찜 하트 — 카드 링크(<a>) 안에 있어 클릭 시 상세 페이지로 이동하지 않게 이벤트 전파를 막는다.
+    var heartEl = document.createElement('button');
+    heartEl.type = 'button';
+    heartEl.className = 'card-wishlist-btn';
+    heartEl.setAttribute('aria-label', '찜하기');
+    heartEl.innerHTML =
+      '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 21s-7.5-4.6-10.2-9.1C.1 8.8 1.4 5 5 4.2c2.1-.5 4.1.4 5.2 2.1a.9.9 0 0 0 1.6 0C13 4.6 15 3.7 17.1 4.2c3.5.8 4.9 4.6 3.1 7.7C19.5 16.4 12 21 12 21z"/></svg>';
+    heartEl.addEventListener('click', function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleWishlist(product.productId, heartEl);
+    });
+    if (wishlistedProductIds.has(product.productId)) {
+      heartEl.classList.add('active');
+    }
+    heartElsByProductId[product.productId] = heartEl;
+    imageEl.appendChild(heartEl);
 
     link.appendChild(imageEl);
 

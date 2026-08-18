@@ -107,6 +107,43 @@
   left: var(--space-3);
 }
 
+/* ---------- 찜 하트 (product/wishlist) ---------- */
+.card-wishlist-btn {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.card-wishlist-btn svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.card-wishlist-btn:hover {
+  transform: scale(1.08);
+}
+
+.card-wishlist-btn.active {
+  color: var(--color-pink);
+}
+
+.card-wishlist-btn.active svg {
+  fill: currentColor;
+  stroke: currentColor;
+}
+
 .card-body {
   display: flex;
   flex-direction: column;
