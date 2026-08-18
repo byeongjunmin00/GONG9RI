@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>관리자 대시보드 — GONG9RI</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&display=swap"
+    rel="stylesheet"
+  />
+  <link
+    rel="stylesheet"
+    as="style"
+    crossorigin
+    href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"
+  />
+
+  <!-- 서브디렉토리(/admin/)에 있는 페이지라 CSS/JS/partial 참조는 반드시 절대경로로 쓴다. -->
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/layout.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+</head>
+<body>
+  <div data-include="header"></div>
+
+  <main>
+    <section class="section container">
+      <div class="section__head">
+        <h1><span class="text-gradient">관리자 대시보드</span></h1>
+      </div>
+
+      <!-- 관리자 아님/비로그인 안내(js/admin-guard.js가 리다이렉트하지만, API 호출 자체가 403이면 여기도 표시). -->
+      <div id="page-alert" class="form-alert form-alert--error" role="alert" hidden>
+        <span id="page-alert-text"></span>
+      </div>
+
+      <nav style="display:flex; gap: var(--space-3); margin-bottom: var(--space-5);">
+        <a href="/admin/dashboard.html" class="btn btn-primary btn-sm">대시보드</a>
+        <a href="/admin/members.html" class="btn btn-secondary btn-sm">회원 관리</a>
+        <a href="/admin/products.html" class="btn btn-secondary btn-sm">상품 현황</a>
+        <a href="/admin/refunds.html" class="btn btn-secondary btn-sm">환불 요청 현황</a>
+      </nav>
+
+      <div id="dashboard-status" class="product-status">불러오는 중...</div>
+
+      <!-- 요약 카드 — seller/mypage.html의 .revenue-cards 패턴 재사용. js/admin-dashboard.js가 채운다. -->
+      <div id="summary-cards" class="revenue-cards" hidden>
+        <div class="revenue-card">
+          <span class="revenue-card__label">전체 회원</span>
+          <span id="summary-total-members" class="revenue-card__value"></span>
+        </div>
+        <div class="revenue-card">
+          <span class="revenue-card__label">구매자</span>
+          <span id="summary-total-buyers" class="revenue-card__value"></span>
+        </div>
+        <div class="revenue-card">
+          <span class="revenue-card__label">판매자</span>
+          <span id="summary-total-sellers" class="revenue-card__value"></span>
+        </div>
+        <div class="revenue-card">
+          <span class="revenue-card__label">전체 상품</span>
+          <span id="summary-total-products" class="revenue-card__value"></span>
+        </div>
+        <div class="revenue-card">
+          <span class="revenue-card__label">전체 결제 건수</span>
+          <span id="summary-total-payments" class="revenue-card__value"></span>
+        </div>
+        <div class="revenue-card">
+          <span class="revenue-card__label">대기 중 환불 요청</span>
+          <span id="summary-pending-refunds" class="revenue-card__value"></span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div data-include="footer"></div>
+
+  <script src="/js/include.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/header-auth.js"></script>
+  <script src="/js/admin-guard.js"></script>
+  <script src="/js/admin-dashboard.js"></script>
+</body>
+</html>

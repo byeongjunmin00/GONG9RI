@@ -1,12 +1,16 @@
 package com.gong9ri.gong9ri.repository;
 
 import com.gong9ri.gong9ri.entity.Member;
+import com.gong9ri.gong9ri.entity.Role;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface MemberRepository extends JpaRepository<Member, Long> {
 
     boolean existsByUsername(String username);
+
+    // 관리자 대시보드(product/admin) 요약 카드용.
+    long countByRole(Role role);
 
     boolean existsByEmail(String email);
 

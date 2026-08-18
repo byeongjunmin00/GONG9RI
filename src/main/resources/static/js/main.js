@@ -20,6 +20,19 @@
  *   서버가 캐시 없이 매 요청 최신으로 계산해 내려준다(docs/api/product.md 참고).
  * - 정렬(#sort-select, product/list-sort): "최신순"(LATEST, 기본값)/"인기순"(POPULAR) 중 선택하면
  *   `?sort=`를 URL에 반영하고 카테고리와 동일하게 목록을 처음부터 다시 불러온다.
+ * - 검색(#search-form, product/list-search): 상품명 또는 판매자명 검색. 제출 시 `?keyword=`를 URL에
+ *   반영하고 카테고리/정렬과 동일하게 처음부터 다시 불러온다. 서버는 검색어가 있으면 목록 캐시를
+ *   타지 않는다(docs/api/product.md).
+ * - 마감임박 배지: activeTeamDeadline까지 3일(DEADLINE_URGENT_DAYS) 이하로 남았을 때만 카드 이미지에
+ *   배지를 그린다(product/list-sort). "마감임박순" 정렬(sort=DEADLINE)과는 별개 기능 — 정렬은 항상
+ *   가능하고, 배지는 실제로 임박했을 때만 뜬다.
+ * - 오픈예정 배지(product/product-launch): openAt이 미래 시각인 상품 카드에 "오픈예정" 배지를
+ *   그린다(마감임박 배지와는 구조적으로 동시에 뜨지 않음 — 오픈 전 상품은 팀을 가질 수 없다).
+ * - 찜 하트(product/wishlist): 로그인한 구매자만 실제로 토글된다(서버 최종 판정, 403은 조용히 무시).
+ *   비로그인 클릭은 로그인 페이지로 이동(redirect 쿼리파라미터로 원래 페이지 복귀). 로그인한 회원
+ *   정보는 js/header-auth.js가 발행하는 'gong9ri:auth-resolved' 이벤트로 재사용한다(다른 페이지들과
+ *   동일 패턴) — 그 시점에 GET /buyer/mypage/wishlist를 한 번 불러와 이미 렌더링된 카드의 하트를
+ *   뒤늦게 채운다.
  */
 (function () {
   // 카카오 로그인 role 불일치 안내(?kakaoRoleMismatch=BUYER|SELLER) — 회원가입 페이지의 역할별
@@ -186,8 +199,11 @@
   var loadMoreBtn = document.getElementById('load-more-btn');
   var categoryBarEl = document.getElementById('category-bar');
   var sortSelectEl = document.getElementById('sort-select');
+  var searchFormEl = document.getElementById('search-form');
+  var searchInputEl = document.getElementById('search-input');
+  var searchTrendsEl = document.getElementById('search-trends');
 
-  if (!gridEl || !statusEl || !loadMoreBtn || !categoryBarEl || !sortSelectEl) {
+  if (!gridEl || !statusEl || !loadMoreBtn || !categoryBarEl || !sortSelectEl || !searchFormEl || !searchInputEl) {
     return;
   }
 
@@ -198,8 +214,90 @@
     loading: false,
     category: new URLSearchParams(window.location.search).get('category') || null,
     sort: new URLSearchParams(window.location.search).get('sort') || 'LATEST',
+    keyword: new URLSearchParams(window.location.search).get('keyword') || null,
   };
   sortSelectEl.value = state.sort;
+  searchInputEl.value = state.keyword || '';
+
+  // 찜(product/wishlist) — 로그인한 구매자만 실제로 토글 가능하다(서버가 최종 판정). 카드는 이미
+  // 렌더링된 뒤에 로그인 상태가 비동기로 확정되므로(js/header-auth.js의 'gong9ri:auth-resolved'),
+  // 하트 버튼을 productId로 찾아둔 뒤 위시리스트 조회가 끝나면 뒤늦게 채운다.
+  var currentMemberId = null;
+  var wishlistedProductIds = new Set();
+  var heartElsByProductId = {};
+
+  document.addEventListener('gong9ri:auth-resolved', function (event) {
+    var detail = event.detail || {};
+    currentMemberId = detail.loggedIn && detail.member ? detail.member.memberId : null;
+    var role = detail.loggedIn && detail.member ? detail.member.role : null;
+    if (!currentMemberId || role !== 'BUYER') {
+      return;
+    }
+    window.Api.get('/buyer/mypage/wishlist')
+      .then(function (items) {
+        (items || []).forEach(function (item) {
+          wishlistedProductIds.add(item.productId);
+          var heartEl = heartElsByProductId[item.productId];
+          if (heartEl) {
+            heartEl.classList.add('active');
+          }
+        });
+      })
+      .catch(function () {
+        // 조용히 무시 — 하트가 전부 빈 상태로 남을 뿐, 카드 렌더링 자체를 막지 않는다.
+      });
+  });
+
+  function toggleWishlist(productId, heartEl) {
+    if (!currentMemberId) {
+      window.location.href =
+        '/login.html?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+      return;
+    }
+
+    var wasActive = heartEl.classList.contains('active');
+    heartEl.disabled = true;
+
+    var request = wasActive
+      ? window.Api.del('/products/' + productId + '/wishlist')
+      : window.Api.post('/products/' + productId + '/wishlist', {});
+
+    request
+      .then(function () {
+        heartEl.classList.toggle('active', !wasActive);
+        if (wasActive) {
+          wishlistedProductIds.delete(productId);
+        } else {
+          wishlistedProductIds.add(productId);
+        }
+      })
+      .catch(function (err) {
+        // 찜은 구매자 전용(WishlistService.requireBuyer) — 판매자 계정으로 시도하면 403이 온다.
+        // 예전엔 여기서 조용히 무시해서 "하트가 눌러지지 않는다"는 걸 사용자가 오류로 착각했다.
+        if (err && err.status === 403) {
+          showPageNotice('구매자 계정으로 로그인해야 찜할 수 있어요.', 'error');
+        }
+      })
+      .then(function () {
+        heartEl.disabled = false;
+      });
+  }
+
+  /**
+   * 페이지 상단 공용 안내 배너(#page-alert) — 원래 카카오 로그인 role 불일치 안내(showKakaoRoleMismatchBanner)
+   * 전용이었는데, 찜 403 같은 "조용히 무시하면 사용자가 오류로 착각하는" 케이스에도 재사용한다.
+   */
+  function showPageNotice(text, variant) {
+    var pageAlertEl = document.getElementById('page-alert');
+    var pageAlertTextEl = document.getElementById('page-alert-text');
+    if (!pageAlertEl || !pageAlertTextEl) {
+      return;
+    }
+    pageAlertEl.hidden = false;
+    pageAlertEl.className = 'form-alert form-alert--' + (variant || 'success');
+    pageAlertTextEl.textContent = text;
+    pageAlertEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 
   function formatPrice(value) {
     if (typeof value !== 'number') {
@@ -220,6 +318,8 @@
    * 상세 페이지(product.html)로 이동한다. 라우팅 방식은 쿼리스트링(?id=)이다
    * (정적 리소스 서빙 구조상 /products/{id} 경로 세그먼트 매핑이 없어서다. frontend/product-detail design.md 참고).
    */
+  var DEADLINE_URGENT_DAYS = 3;
+
   function createProductCard(product) {
     var link = document.createElement('a');
     link.className = 'card';
@@ -234,15 +334,64 @@
       imgEl.alt = product.name || '';
       imageEl.appendChild(imgEl);
     }
+
+    // 마감임박 배지(product/list-sort) — 대표 팀(진행바와 같은 팀) 마감까지 3일 이하로 남았을 때만
+    // 노출한다. 모든 카드에 "N일 남음"을 항상 보여주면 정보 과잉이라, 실제로 급한 것만 강조한다
+    // (와디즈/텀블벅 등 참고 사이트도 "마감임박"을 상시 카운터가 아니라 별도 태그로 씀).
+    // 오픈예정(product/product-launch) — openAt이 미래인 상품은 아직 RECRUITING 팀을 가질 수 없어
+    // (TeamService.create()가 서버에서 거절) 마감임박 배지와 동시에 뜨는 경우가 구조적으로 없다.
+    var openAtBadgeEl = createOpenAtBadge(product.openAt);
+    if (openAtBadgeEl) {
+      imageEl.appendChild(openAtBadgeEl);
+    } else {
+      var deadlineBadgeEl = createDeadlineBadge(product.activeTeamDeadline);
+      if (deadlineBadgeEl) {
+        imageEl.appendChild(deadlineBadgeEl);
+      }
+    }
+
+    // 찜 하트 — 카드 링크(<a>) 안에 있어 클릭 시 상세 페이지로 이동하지 않게 이벤트 전파를 막는다.
+    var heartEl = document.createElement('button');
+    heartEl.type = 'button';
+    heartEl.className = 'card-wishlist-btn';
+    heartEl.setAttribute('aria-label', '찜하기');
+    heartEl.innerHTML =
+      '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 21s-7.5-4.6-10.2-9.1C.1 8.8 1.4 5 5 4.2c2.1-.5 4.1.4 5.2 2.1a.9.9 0 0 0 1.6 0C13 4.6 15 3.7 17.1 4.2c3.5.8 4.9 4.6 3.1 7.7C19.5 16.4 12 21 12 21z"/></svg>';
+    heartEl.addEventListener('click', function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleWishlist(product.productId, heartEl);
+    });
+    if (wishlistedProductIds.has(product.productId)) {
+      heartEl.classList.add('active');
+    }
+    heartElsByProductId[product.productId] = heartEl;
+    imageEl.appendChild(heartEl);
+
     link.appendChild(imageEl);
 
     var bodyEl = document.createElement('div');
     bodyEl.className = 'card-body';
 
+    var sellerRowEl = document.createElement('div');
+    sellerRowEl.className = 'card-seller-row';
+
     var sellerEl = document.createElement('span');
     sellerEl.className = 'card-seller';
     sellerEl.textContent = product.sellerName || '';
-    bodyEl.appendChild(sellerEl);
+    sellerRowEl.appendChild(sellerEl);
+
+    // 판매자 신뢰 배지(product/seller-trust) — 이 판매자의 리뷰 평균 평점·개수가 기준을 넘을 때만
+    // 노출한다(ProductService.isTrustedSeller). 새 평판 시스템을 별도로 만들지 않고 이미 있는 리뷰
+    // 데이터로만 판단해, 근거 없는 "인기 판매자" 같은 막연한 배지보다 신뢰할 수 있는 신호로 삼는다.
+    if (product.sellerTrustedBadge) {
+      var trustEl = document.createElement('span');
+      trustEl.className = 'card-seller-trust';
+      trustEl.textContent = '신뢰 판매자';
+      sellerRowEl.appendChild(trustEl);
+    }
+
+    bodyEl.appendChild(sellerRowEl);
 
     var titleEl = document.createElement('h3');
     titleEl.className = 'card-title';
@@ -284,12 +433,57 @@
    * activeTeamCurrentCount/activeTeamTargetParticipants가 둘 다 없으면(RECRUITING 팀 없음) null을
    * 반환해 진행바 자체를 렌더링하지 않는다.
    */
+  /**
+   * @param {string} openAtIso  ProductSummaryResponse.openAt(ISO 문자열) 또는 null
+   * @returns {?HTMLElement} 미래 시각이면 "오픈예정" 배지, 아니면(이미 공개됨) null
+   */
+  function createOpenAtBadge(openAtIso) {
+    if (!openAtIso) {
+      return null;
+    }
+    var openAt = new Date(openAtIso);
+    if (isNaN(openAt.getTime()) || openAt.getTime() <= Date.now()) {
+      return null;
+    }
+
+    var badgeEl = document.createElement('span');
+    badgeEl.className = 'badge badge-upcoming';
+    badgeEl.textContent = '오픈예정';
+    return badgeEl;
+  }
+
+  /**
+   * @param {string} deadlineIso  ProductSummaryResponse.activeTeamDeadline(ISO 문자열) 또는 null
+   * @returns {?HTMLElement} 마감까지 DEADLINE_URGENT_DAYS일 이하로 남았을 때만 배지 엘리먼트, 아니면 null
+   */
+  function createDeadlineBadge(deadlineIso) {
+    if (!deadlineIso) {
+      return null;
+    }
+    var deadline = new Date(deadlineIso);
+    if (isNaN(deadline.getTime())) {
+      return null;
+    }
+    var msRemaining = deadline.getTime() - Date.now();
+    var daysRemaining = Math.ceil(msRemaining / (1000 * 60 * 60 * 24));
+    if (daysRemaining > DEADLINE_URGENT_DAYS) {
+      return null;
+    }
+
+    var badgeEl = document.createElement('span');
+    badgeEl.className = 'badge badge-urgent';
+    badgeEl.textContent = daysRemaining <= 0 ? '오늘 마감' : daysRemaining + '일 남음';
+    return badgeEl;
+  }
+
   function createProgressBar(product) {
     var current = product.activeTeamCurrentCount;
     var target = product.activeTeamTargetParticipants;
     if (typeof current !== 'number' || typeof target !== 'number' || target <= 0) {
       return null;
     }
+
+    var percent = Math.min(100, Math.round((current / target) * 100));
 
     var wrapEl = document.createElement('div');
     wrapEl.className = 'card-progress';
@@ -306,9 +500,15 @@
     trackEl.className = 'card-progress-track';
     var fillEl = document.createElement('div');
     fillEl.className = 'card-progress-fill';
-    fillEl.style.width = Math.min(100, Math.round((current / target) * 100)) + '%';
+    fillEl.style.width = percent + '%';
     trackEl.appendChild(fillEl);
     wrapEl.appendChild(trackEl);
+
+    // 달성% 배지 — 와디즈/텀블벅 등 실제 크라우드펀딩 사이트에서 흔히 쓰는 강조 표시(사용자 요청).
+    var percentEl = document.createElement('span');
+    percentEl.className = 'card-progress-percent';
+    percentEl.textContent = percent + '% 달성';
+    wrapEl.appendChild(percentEl);
 
     return wrapEl;
   }
@@ -365,6 +565,9 @@
     }
     if (state.sort) {
       params.push('sort=' + encodeURIComponent(state.sort));
+    }
+    if (state.keyword) {
+      params.push('keyword=' + encodeURIComponent(state.keyword));
     }
     var path = params.length > 0 ? PRODUCTS_PATH + '?' + params.join('&') : PRODUCTS_PATH;
 
@@ -456,6 +659,132 @@
     categoryBarEl.appendChild(fragment);
   }
 
+  function submitSearch(keyword) {
+    state.keyword = keyword || null;
+
+    var url = new URL(window.location.href);
+    if (state.keyword) {
+      url.searchParams.set('keyword', state.keyword);
+    } else {
+      url.searchParams.delete('keyword');
+    }
+    window.history.replaceState(null, '', url.pathname + url.search);
+
+    resetAndReload();
+    // 방금 검색한 키워드가 곧바로 집계에 반영되므로("실시간"), 검색할 때마다 순위를 다시 불러온다.
+    loadSearchTrends();
+  }
+
+  searchFormEl.addEventListener('submit', function (event) {
+    event.preventDefault();
+    submitSearch(searchInputEl.value.trim());
+  });
+
+  // 실시간 인기 검색어(product/search-trends) — 한 번에 다 늘어놓지 않고, 순위 하나씩 자동으로
+  // 바뀌는 티커로 보여준다(promo-bar의 자동 순환 배너와 같은 패턴). 새로 목록을 불러올 때마다
+  // 이전 타이머를 반드시 정리해야 타이머가 중첩돼 점점 빨리 바뀌는 버그가 안 생긴다.
+  var SEARCH_TRENDS_ROTATE_MS = 2200;
+  var SEARCH_TRENDS_FADE_MS = 220; // components.css .search-trends__current의 transition 시간과 맞춤
+  var searchTrendsTimer = null;
+  var searchTrendsFadeTimeout = null;
+  var searchTrendsLabelEl = null;
+  var searchTrendsCurrentEl = null;
+  var searchTrendsRankEl = null;
+  var searchTrendsKeywordEl = null;
+
+  function stopSearchTrendsRotate() {
+    if (searchTrendsTimer) {
+      window.clearInterval(searchTrendsTimer);
+      searchTrendsTimer = null;
+    }
+    if (searchTrendsFadeTimeout) {
+      window.clearTimeout(searchTrendsFadeTimeout);
+      searchTrendsFadeTimeout = null;
+    }
+  }
+
+  /**
+   * keyword는 다른 방문자가 검색창에 직접 입력한 값이라(Redis에 그대로 저장), 반드시 textContent로만
+   * 넣는다 — innerHTML로 조립하면 저장형 XSS가 된다.
+   */
+  function renderSearchTrends(keywords) {
+    if (!searchTrendsEl) {
+      return;
+    }
+    stopSearchTrendsRotate();
+    searchTrendsEl.innerHTML = '';
+    searchTrendsLabelEl = null;
+    searchTrendsCurrentEl = null;
+    searchTrendsRankEl = null;
+    searchTrendsKeywordEl = null;
+
+    if (!keywords || !keywords.length) {
+      searchTrendsEl.hidden = true;
+      return;
+    }
+
+    searchTrendsLabelEl = document.createElement('span');
+    searchTrendsLabelEl.className = 'search-trends__label';
+    searchTrendsLabelEl.textContent = '실시간 인기 검색어';
+    searchTrendsEl.appendChild(searchTrendsLabelEl);
+
+    searchTrendsCurrentEl = document.createElement('button');
+    searchTrendsCurrentEl.type = 'button';
+    searchTrendsCurrentEl.className = 'search-trends__current';
+
+    searchTrendsRankEl = document.createElement('b');
+    searchTrendsKeywordEl = document.createElement('span');
+    searchTrendsCurrentEl.appendChild(searchTrendsRankEl);
+    searchTrendsCurrentEl.appendChild(searchTrendsKeywordEl);
+
+    searchTrendsCurrentEl.addEventListener('click', function () {
+      var keyword = keywords[searchTrendsIndex];
+      searchInputEl.value = keyword;
+      submitSearch(keyword);
+    });
+    searchTrendsEl.appendChild(searchTrendsCurrentEl);
+
+    var searchTrendsIndex = 0;
+    var prefersReducedMotion =
+      window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function showCurrent() {
+      searchTrendsRankEl.textContent = String(searchTrendsIndex + 1);
+      searchTrendsKeywordEl.textContent = keywords[searchTrendsIndex];
+    }
+
+    showCurrent();
+
+    if (keywords.length > 1 && !prefersReducedMotion) {
+      searchTrendsTimer = window.setInterval(function () {
+        // 먼저 fade-out(opacity 0)만 걸고, 실제로 안 보이게 된 다음(transition 시간만큼 기다린 뒤)
+        // 텍스트를 바꾸고 다시 fade-in한다 — 안 그러면 글자가 바뀌는 순간이 그대로 보여버린다.
+        searchTrendsCurrentEl.classList.add('is-swapping');
+        searchTrendsFadeTimeout = window.setTimeout(function () {
+          searchTrendsIndex = (searchTrendsIndex + 1) % keywords.length;
+          showCurrent();
+          searchTrendsCurrentEl.classList.remove('is-swapping');
+          searchTrendsFadeTimeout = null;
+        }, SEARCH_TRENDS_FADE_MS);
+      }, SEARCH_TRENDS_ROTATE_MS);
+    }
+
+    searchTrendsEl.hidden = false;
+  }
+
+  function loadSearchTrends() {
+    if (!searchTrendsEl || !window.Api || typeof window.Api.get !== 'function') {
+      return;
+    }
+    window.Api.get('/products/search-trends?limit=5')
+      .then(function (data) {
+        renderSearchTrends(data && data.keywords);
+      })
+      .catch(function () {
+        // 조용히 무시 — 인기 검색어는 보조 UI라 실패해도 검색 자체엔 영향 없다(서버도 fail-open).
+      });
+  }
+
   sortSelectEl.addEventListener('change', function () {
     state.sort = sortSelectEl.value || 'LATEST';
 
@@ -468,4 +797,5 @@
 
   renderCategoryBar();
   fetchProducts(0);
+  loadSearchTrends();
 })();

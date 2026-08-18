@@ -57,6 +57,15 @@ public class Member {
     @Column(unique = true, length = 100)
     private String kakaoId;
 
+    // 관리자(admin) 계정 정지 — 기존 row 있는 테이블에 NOT NULL 컬럼을 추가하는 마이그레이션이라
+    // @ColumnDefault로 SQL DEFAULT false를 만들어 기존 row도 안전하게 처리한다(emailVerified와 동일
+    // 패턴). true면 비밀번호가 맞아도 로그인 거절(ACCOUNT_SUSPENDED) — docs/dev/admin/design.md.
+    // 하드 삭제 대신 이걸 기본 관리 수단으로 쓴다(FK로 참조하는 테이블이 많아 삭제는 활동 기록이
+    // 하나도 없을 때만 허용).
+    @Column(nullable = false)
+    @ColumnDefault("false")
+    private boolean suspended;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -80,6 +89,14 @@ public class Member {
 
     public void changePassword(String encodedPassword) {
         this.password = encodedPassword;
+    }
+
+    public void suspend() {
+        this.suspended = true;
+    }
+
+    public void unsuspend() {
+        this.suspended = false;
     }
 
     // 정보수정(마이페이지) — 이름은 항상 갱신하고, 이메일은 바뀐 경우에만 emailVerified를 다시

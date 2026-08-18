@@ -18,6 +18,7 @@ import com.gong9ri.gong9ri.entity.Member;
 import com.gong9ri.gong9ri.entity.Payment;
 import com.gong9ri.gong9ri.entity.PriceTier;
 import com.gong9ri.gong9ri.entity.Product;
+import com.gong9ri.gong9ri.entity.ProductCategory;
 import com.gong9ri.gong9ri.entity.RefundRequest;
 import com.gong9ri.gong9ri.entity.RefundRequestStatus;
 import com.gong9ri.gong9ri.entity.Role;
@@ -97,6 +98,11 @@ class TeamControllerTest {
                 new Product(seller, "제주 감귤 5kg", "설명", 25000, maxParticipants, null, autoRefundOnCancel));
     }
 
+    private Product saveNotYetOpenProduct(Member seller, int maxParticipants) {
+        return productRepository.save(new Product(seller, "오픈예정상품", "설명", 25000, maxParticipants, null, false,
+                ProductCategory.ETC, LocalDateTime.now().plusDays(3)));
+    }
+
     private void savePriceTiers(Product product, int... minCounts) {
         for (int minCount : minCounts) {
             priceTierRepository.save(new PriceTier(product, minCount, 25000 - minCount * 100));
@@ -172,6 +178,22 @@ class TeamControllerTest {
         assertTrue(saved.getMaxParticipants() == 5);
         assertTrue(saved.getDeadline().isAfter(LocalDateTime.now().plusDays(6)));
         assertTrue(saved.getDeadline().isBefore(LocalDateTime.now().plusDays(8)));
+    }
+
+    @Test
+    @DisplayName("오픈예정(openAt이 미래)인 상품에 팀을 신설하려 하면 409 PRODUCT_NOT_YET_OPEN")
+    void create_productNotYetOpen() throws Exception {
+        Member seller = saveMember("teamSeller12", Role.SELLER);
+        Product product = saveNotYetOpenProduct(seller, 10);
+        savePriceTiers(product, 2, 5, 10);
+        Member buyer = saveMember("teamBuyer4", Role.BUYER);
+
+        mockMvc.perform(post("/api/products/" + product.getId() + "/teams")
+                        .with(asUser(buyer))
+                        .contentType("application/json")
+                        .content(toJson(Map.of("targetParticipants", 5))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PRODUCT_NOT_YET_OPEN"));
     }
 
     @Test

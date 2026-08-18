@@ -2,9 +2,11 @@ package com.gong9ri.gong9ri.dto;
 
 import com.gong9ri.gong9ri.entity.ProductCategory;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public record ProductRegisterRequest(
@@ -18,6 +20,9 @@ public record ProductRegisterRequest(
         // false로 취급한다(docs/dev/ongoing/team-leave-and-refund-request.md).
         Boolean autoRefundOnCancel,
         // 메인 페이지 카테고리 필터용(product/category). 필수 — 등록/수정 폼에서 항상 선택하게 한다.
-        @NotNull ProductCategory category
+        @NotNull ProductCategory category,
+        // 오픈예정(product/product-launch) — 생략(null)하면 기존과 동일하게 등록 즉시 공개. 값이 있으면
+        // 미래 시각이어야 한다(과거 시각을 "오픈예정"이라고 등록하는 건 의미가 없다).
+        @Future LocalDateTime openAt
 ) {
 }

@@ -541,6 +541,46 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("role=ADMIN으로 공개 회원가입을 시도하면 400과 VALIDATION_FAILED를 반환한다")
+    void signup_adminRole_validationFailed() throws Exception {
+        Map<String, Object> request = Map.of(
+                "username", "gonguri-wannabe-admin",
+                "password", "password123",
+                "name", "홍길동",
+                "email", "gonguri-wannabe-admin@test.com",
+                "role", "ADMIN"
+        );
+
+        mockMvc.perform(post("/api/auth/signup")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+
+        assertTrue(memberRepository.findByUsername("gonguri-wannabe-admin").isEmpty());
+    }
+
+    @Test
+    @DisplayName("관리자가 정지시킨 계정으로 로그인하면 403과 ACCOUNT_SUSPENDED를 반환한다")
+    void login_suspendedAccount_isBlocked() throws Exception {
+        signup("gonguri-suspended", "password123");
+        memberRepository.findByUsername("gonguri-suspended").ifPresent(member -> {
+            member.suspend();
+            memberRepository.save(member);
+        });
+
+        Map<String, Object> request = Map.of("username", "gonguri-suspended", "password", "password123");
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("ACCOUNT_SUSPENDED"));
+    }
+
+    @Test
     @DisplayName("유효한 인증 토큰으로 GET /verify-email을 호출하면 인증이 완료되고 이후 로그인할 수 있다")
     void verifyEmail_success() throws Exception {
         signupWithoutVerifying("gonguri-verify1", "password123");

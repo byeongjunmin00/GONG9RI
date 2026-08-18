@@ -11,7 +11,8 @@
   | page | int | N | 0 | 페이지 번호 (0-based) |
   | size | int | N | 20 | 페이지 크기 |
   | category | String | N | (없음) | `FOOD`/`LIVING`/`BEAUTY`/`FASHION`/`DIGITAL`/`ETC` 중 하나. 생략하면 전체 카테고리(product/category, 메인 페이지 카테고리 바) |
-  | sort | String | N | (없음) | `LATEST`(등록일 내림차순) 또는 `POPULAR`(RECRUITING 팀 중 참여 인원이 가장 많은 팀 기준 내림차순, 진행 중인 팀 없는 상품은 맨 뒤). 생략하면 정렬 조건 없음(product/list-sort) |
+  | sort | String | N | (없음) | `LATEST`(등록일 내림차순) / `POPULAR`(RECRUITING 팀 중 참여 인원이 가장 많은 팀 기준 내림차순) / `DEADLINE`(RECRUITING 팀 중 가장 이른 마감일 기준 오름차순). `POPULAR`/`DEADLINE` 둘 다 진행 중인 팀 없는 상품은 맨 뒤. 생략하면 정렬 조건 없음(product/list-sort) |
+  | keyword | String | N | (없음) | 상품명 또는 판매자명에 포함된 상품만(대소문자 무시). 있으면 목록 캐시를 타지 않는다(product/list-search). 있으면 실시간 인기 검색어 집계에도 반영된다(product/search-trends) |
 
 - 응답: `200 OK`
   ```json
@@ -28,7 +29,10 @@
         "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg",
         "category": "FOOD",
         "activeTeamCurrentCount": 8,
-        "activeTeamTargetParticipants": 10
+        "activeTeamTargetParticipants": 10,
+        "activeTeamDeadline": "2026-08-20T10:00:00",
+        "openAt": null,
+        "sellerTrustedBadge": true
       }
     ],
     "page": 0,
@@ -37,10 +41,36 @@
   }
   ```
 
-  > `activeTeamCurrentCount`/`activeTeamTargetParticipants`: 메인 페이지 카드 진행바용(product/list-progress).
-  > 이 상품의 RECRUITING 팀 중 진행률(currentCount/maxParticipants)이 가장 높은 팀의 스냅샷 — 진행 중인
-  > 팀이 하나도 없으면 둘 다 `null`(프론트는 이때 진행바를 숨긴다). 팀 상태는 자주 바뀌는 값이라 목록
-  > 캐시(30분 TTL)에 포함시키지 않고 매 요청마다 최신 값을 조회한다.
+  > `activeTeamCurrentCount`/`activeTeamTargetParticipants`/`activeTeamDeadline`: 메인 페이지 카드 진행바·
+  > 마감임박 배지용(product/list-progress, product/list-sort). 이 상품의 RECRUITING 팀 중 진행률
+  > (currentCount/maxParticipants)이 가장 높은 팀의 스냅샷 — 진행 중인 팀이 하나도 없으면 셋 다 `null`
+  > (프론트는 이때 진행바·배지를 숨긴다). 팀 상태는 자주 바뀌는 값이라 목록 캐시(30분 TTL)에 포함시키지
+  > 않고 매 요청마다 최신 값을 조회한다. `activeTeamDeadline`은 이 팀(진행률 최고 팀)의 마감일이며,
+  > `sort=DEADLINE`이 고르는 "가장 이른 마감일의 팀"과는 다른 팀일 수 있다(선택 기준이 다름).
+
+  > `sellerTrustedBadge`: 판매자 신뢰 배지(product/seller-trust). 이 판매자의 전체 상품에 달린 리뷰
+  > 평균 평점이 4.5 이상이고 리뷰 개수가 3개 이상이면 `true`. 목록 캐시(30분 TTL)에 그대로 포함된다.
+
+---
+
+## GET /api/products/search-trends — 실시간 인기 검색어 조회
+
+> `GET /api/products/{productId}`보다 리터럴 경로가 먼저 매칭되므로 경로 충돌 없음(product/search-trends).
+
+- 요청: 쿼리 파라미터
+  | 파라미터 | 타입 | 필수 | 기본값 | 설명 |
+  |----------|------|------|--------|------|
+  | limit | int | N | 5 | 반환할 검색어 개수(상위 N개) |
+
+- 응답: `200 OK`
+  ```json
+  {
+    "keywords": ["감귤", "보조배터리", "텀블러"]
+  }
+  ```
+
+  > 오늘(자정 기준) 하루 동안 `GET /api/products?keyword=` 검색에 사용된 키워드를 빈도순으로 정렬한
+  > 목록. 검색 횟수는 노출하지 않고 순위만 노출한다. Redis 장애 시 빈 배열을 반환한다(fail-open).
 
 ---
 
@@ -67,12 +97,20 @@
     "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg",
     "autoRefundOnCancel": false,
     "kakaoJsKey": "abcd1234...",
-    "category": "FOOD"
+    "category": "FOOD",
+    "openAt": null,
+    "sellerTrustedBadge": true
   }
   ```
 
   > `category`: 메인 페이지 카테고리 필터용 고정 값(`FOOD`/`LIVING`/`BEAUTY`/`FASHION`/`DIGITAL`/`ETC`,
   > product/category). 등록/수정 시 필수 선택.
+
+  > `openAt`: 오픈예정(product/product-launch) 시각. `null`이면 이미 공개된 상품. 미래 시각이면 그
+  > 전까지 혼자구매·신규 팀 신설이 `409 PRODUCT_NOT_YET_OPEN`으로 거절된다(`docs/api/payment.md`,
+  > `docs/api/team.md`).
+
+  > `sellerTrustedBadge`: 목록 응답과 동일 기준(product/seller-trust).
 
   > `autoRefundOnCancel`: 참여 취소(`docs/api/team.md`의 `POST /api/teams/{teamId}/leave`)로 자동
   > 생성되는 환불 요청을 판매자 승인 없이 즉시 처리할지 여부(`docs/api/refund.md`). 솔로 구매 직접
@@ -104,6 +142,7 @@
   | imageUrl | String | N | 상품 이미지 URL (없으면 프론트에서 그라디언트 placeholder 표시) |
   | autoRefundOnCancel | boolean | N | 참여 취소로 생긴 환불 요청을 승인 절차 없이 즉시 처리할지 여부. 생략하면 `false`(`docs/api/refund.md`) |
   | category | String | Y | `FOOD`/`LIVING`/`BEAUTY`/`FASHION`/`DIGITAL`/`ETC` 중 하나(product/category) |
+  | openAt | String(ISO datetime) | N | 오픈예정 시각(product/product-launch). 생략하면 즉시 공개. 값을 넣으면 미래 시각이어야 한다(과거는 `VALIDATION_FAILED`) |
 
 - 응답: `201 Created`
   ```json
@@ -119,7 +158,8 @@
     ],
     "createdAt": "2026-07-24T10:00:00",
     "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg",
-    "category": "FOOD"
+    "category": "FOOD",
+    "openAt": null
   }
   ```
 

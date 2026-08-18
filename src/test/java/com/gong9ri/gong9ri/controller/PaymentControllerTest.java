@@ -19,6 +19,7 @@ import com.gong9ri.gong9ri.entity.Member;
 import com.gong9ri.gong9ri.entity.Payment;
 import com.gong9ri.gong9ri.entity.PriceTier;
 import com.gong9ri.gong9ri.entity.Product;
+import com.gong9ri.gong9ri.entity.ProductCategory;
 import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.entity.TeamParticipation;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
@@ -243,6 +244,22 @@ class PaymentControllerTest {
                         .content(toJson(Map.of("productId", 999999L))))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("PRODUCT_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("오픈예정(openAt이 미래)인 상품을 결제하려 하면 409 PRODUCT_NOT_YET_OPEN")
+    void create_productNotYetOpen() throws Exception {
+        Member seller = saveMember("paySeller5", Role.SELLER);
+        Product product = productRepository.save(new Product(seller, "오픈예정상품", "설명", 25000, 10, null, false,
+                ProductCategory.ETC, LocalDateTime.now().plusDays(3)));
+        Member buyer = saveMember("payBuyer7", Role.BUYER);
+
+        mockMvc.perform(post("/api/payments")
+                        .with(asUser(buyer))
+                        .contentType("application/json")
+                        .content(toJson(Map.of("productId", product.getId()))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PRODUCT_NOT_YET_OPEN"));
     }
 
     @Test

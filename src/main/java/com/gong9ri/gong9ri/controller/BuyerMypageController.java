@@ -6,6 +6,7 @@ import com.gong9ri.gong9ri.dto.BuyerTeamResponse;
 import com.gong9ri.gong9ri.dto.NotificationResponse;
 import com.gong9ri.gong9ri.dto.PurchaseResponse;
 import com.gong9ri.gong9ri.dto.RefundRequestResponse;
+import com.gong9ri.gong9ri.dto.WishlistItemResponse;
 import com.gong9ri.gong9ri.service.BuyerMypageService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -44,5 +45,11 @@ public class BuyerMypageController {
     public ResponseEntity<ApiResponse<List<RefundRequestResponse>>> refundRequests(
             @AuthenticationPrincipal MemberUserDetails principal) {
         return ResponseEntity.ok(ApiResponse.success(buyerMypageService.refundRequests(principal)));
+    }
+
+    @GetMapping("/wishlist")
+    public ResponseEntity<ApiResponse<List<WishlistItemResponse>>> wishlist(
+            @AuthenticationPrincipal MemberUserDetails principal) {
+        return ResponseEntity.ok(ApiResponse.success(buyerMypageService.wishlist(principal)));
     }
 }

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>관리자 로그인 — GONG9RI</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&display=swap"
+    rel="stylesheet"
+  />
+  <link
+    rel="stylesheet"
+    as="style"
+    crossorigin
+    href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"
+  />
+
+  <!-- 서브디렉토리(/admin/)에 있는 페이지라 CSS/JS/partial 참조는 반드시 절대경로로 쓴다. -->
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/layout.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+</head>
+<body>
+  <div data-include="header"></div>
+
+  <main>
+    <section class="section container">
+      <div style="max-width: 420px; margin: 0 auto;">
+        <div class="section__head" style="text-align: center;">
+          <h1><span class="text-gradient">관리자 로그인</span></h1>
+          <p class="text-muted" style="margin-top: var(--space-2);">관리자 계정으로만 접근할 수 있어요.</p>
+        </div>
+
+        <!-- 로그인 실패 안내. js/admin-login.js가 텍스트와 표시 여부를 제어한다. -->
+        <div id="form-alert" class="form-alert" role="alert" hidden>
+          <span id="form-alert-text"></span>
+        </div>
+
+        <form id="login-form" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="username">아이디</label>
+            <input
+              class="form-input"
+              type="text"
+              id="username"
+              name="username"
+              autocomplete="username"
+              placeholder="아이디를 입력하세요"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="password">비밀번호</label>
+            <input
+              class="form-input"
+              type="password"
+              id="password"
+              name="password"
+              autocomplete="current-password"
+              placeholder="비밀번호를 입력하세요"
+            />
+          </div>
+
+          <button type="submit" id="login-submit" class="btn btn-primary btn-block">로그인</button>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <div data-include="footer"></div>
+
+  <script src="/js/include.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/header-auth.js"></script>
+  <script src="/js/admin-login.js"></script>
+</body>
+</html>

@@ -33,6 +33,11 @@ public class MemberService {
 
     @Transactional
     public MemberResponse signup(MemberSignupRequest request) {
+        // 관리자는 공개 가입으로 절대 만들 수 없다 — 안 그러면 누구나 {"role":"ADMIN"}으로 회원가입해
+        // 관리자가 될 수 있다. 최초 관리자 계정은 배포 후 DB에 직접 심는다(docs/dev/admin/design.md).
+        if (request.role() == Role.ADMIN) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+        }
         if (memberRepository.existsByUsername(request.username())) {
             throw new BusinessException(ErrorCode.DUPLICATE_USERNAME);
         }

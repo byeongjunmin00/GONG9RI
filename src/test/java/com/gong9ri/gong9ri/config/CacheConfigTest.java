@@ -1,6 +1,7 @@
 package com.gong9ri.gong9ri.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.gong9ri.gong9ri.dto.PriceTierResponse;
@@ -9,6 +10,7 @@ import com.gong9ri.gong9ri.dto.ProductResponse;
 import com.gong9ri.gong9ri.dto.ProductSummaryResponse;
 import com.gong9ri.gong9ri.entity.ProductCategory;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -50,13 +52,42 @@ class CacheConfigTest {
 
         ProductSummaryResponse summary = new ProductSummaryResponse(
                 1L, "제주 감귤 5kg", 25000, 15000, 10, "테스트판매자", LocalDateTime.now(), null, ProductCategory.FOOD,
-                null, null);
+                null, null, null, null, false);
         ProductPageResponse original = new ProductPageResponse(List.of(summary), 0, 20, 1L);
 
         ByteBuffer serialized = valueSerializer.write(original);
         Object deserialized = valueSerializer.read(serialized);
 
         assertEquals(original, deserialized);
+    }
+
+    @Test
+    @DisplayName("sellerTrustedBadge 필드가 없는(배포 전에 캐시된) 옛 JSON도 예외 없이 역직렬화된다 — "
+            + "실제 프로덕션에서 primitive boolean 때문에 발생했던 500 재발 방지")
+    void productListCache_deserializesOldJsonMissingNewField_withoutThrowing() {
+        CacheConfig cacheConfig = new CacheConfig();
+        RedisCacheManager.RedisCacheManagerBuilder builder =
+                RedisCacheManager.RedisCacheManagerBuilder.fromConnectionFactory(new LettuceConnectionFactory());
+        cacheConfig.productListCacheCustomizer().customize(builder);
+        RedisSerializationContext.SerializationPair<Object> valueSerializer = builder
+                .getCacheConfigurationFor(CacheConfig.PRODUCT_LIST_CACHE).get().getValueSerializationPair();
+
+        // sellerTrustedBadge 필드를 통째로 뺀 JSON — product/seller-trust 배포 이전에 이미 캐시돼 있던
+        // 항목을 그대로 흉내낸다. 필드가 boolean(primitive)이었을 때는 이 상황에서
+        // MismatchedInputException("Cannot map `null` into type `boolean`")이 터져 GET /api/products가
+        // 500을 냈다(2026-08-18 실제 프로덕션 로그로 확인).
+        String oldJson = "{\"content\":[{"
+                + "\"productId\":1,\"name\":\"제주 감귤 5kg\",\"basePrice\":25000,\"bestPrice\":15000,"
+                + "\"maxParticipants\":10,\"sellerName\":\"테스트판매자\",\"createdAt\":\"2026-08-10T05:53:47.456061\","
+                + "\"imageUrl\":null,\"category\":\"FOOD\",\"activeTeamCurrentCount\":null,"
+                + "\"activeTeamTargetParticipants\":null,\"activeTeamDeadline\":null,\"openAt\":null"
+                + "}],\"page\":0,\"size\":20,\"totalElements\":1}";
+        ByteBuffer serialized = ByteBuffer.wrap(oldJson.getBytes(StandardCharsets.UTF_8));
+
+        Object deserialized = valueSerializer.read(serialized);
+
+        ProductPageResponse page = (ProductPageResponse) deserialized;
+        assertNull(page.content().get(0).sellerTrustedBadge());
     }
 
     @Test
@@ -78,7 +109,7 @@ class CacheConfigTest {
         ProductResponse original = new ProductResponse(
                 1L, 2L, "테스트판매자", "제주 감귤 5kg", "직접 재배한 감귤", 25000, 10,
                 List.of(new PriceTierResponse(2, 22000), new PriceTierResponse(10, 15000)),
-                LocalDateTime.now(), null, false, "dummy-test-kakao-js-key", ProductCategory.FOOD);
+                LocalDateTime.now(), null, false, "dummy-test-kakao-js-key", ProductCategory.FOOD, null, false);
 
         ByteBuffer serialized = valueSerializer.write(original);
         Object deserialized = valueSerializer.read(serialized);

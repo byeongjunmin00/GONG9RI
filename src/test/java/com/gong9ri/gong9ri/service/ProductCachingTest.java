@@ -82,7 +82,7 @@ class ProductCachingTest {
 
     private ProductRegisterRequest registerRequest(String name, Integer basePrice) {
         return new ProductRegisterRequest(name, "설명", basePrice, 10,
-                List.of(new PriceTierRequest(2, basePrice - 1000)), null, null, ProductCategory.FOOD);
+                List.of(new PriceTierRequest(2, basePrice - 1000)), null, null, ProductCategory.FOOD, null);
     }
 
     @Test
@@ -92,18 +92,18 @@ class ProductCachingTest {
         Member seller = saveMember("listCacheSeller1", Role.SELLER);
         seedDummyProducts(seller, DUMMY_PRODUCT_COUNT);
 
-        ProductPageResponse first = productService.list(LIST_PAGE, size, null, null);
+        ProductPageResponse first = productService.list(LIST_PAGE, size, null, null, null);
         assertEquals(DUMMY_PRODUCT_COUNT, first.totalElements());
 
         // 캐시 무효화 경로(register/update/delete)를 거치지 않고 레포지토리에 직접 상품을 꽂아 넣는다 —
         // 캐시가 진짜로 이전 값을 들고 있는지 증명하기 위한 대조군.
         saveProduct(seller, "무효화안된새상품", 99000);
 
-        ProductPageResponse second = productService.list(LIST_PAGE, size, null, null);
+        ProductPageResponse second = productService.list(LIST_PAGE, size, null, null, null);
 
         assertEquals(first, second);
         assertNotEquals(DUMMY_PRODUCT_COUNT + 1, second.totalElements());
-        verify(productRepository, times(1)).findAllWithSeller(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
+        verify(productRepository, times(1)).findAllWithSeller(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
     }
 
     @Test
@@ -117,7 +117,7 @@ class ProductCachingTest {
 
         // 무효화 경로(update)를 거치지 않고 엔티티를 직접 변경해 저장한다.
         Product directlyModified = productRepository.findById(product.getId()).orElseThrow();
-        directlyModified.update("무효화안된이름", "설명", 77000, 10, null, false, ProductCategory.FOOD);
+        directlyModified.update("무효화안된이름", "설명", 77000, 10, null, false, ProductCategory.FOOD, null);
         productRepository.save(directlyModified);
 
         ProductResponse second = productService.detail(product.getId());
@@ -134,19 +134,19 @@ class ProductCachingTest {
         Member seller = saveMember("registerCacheSeller1", Role.SELLER);
         seedDummyProducts(seller, DUMMY_PRODUCT_COUNT);
 
-        ProductPageResponse before = productService.list(LIST_PAGE, size, null, null);
+        ProductPageResponse before = productService.list(LIST_PAGE, size, null, null, null);
         assertEquals(DUMMY_PRODUCT_COUNT, before.totalElements());
 
         productService.register(asPrincipal(seller), registerRequest("신규등록상품", 30000));
 
-        ProductPageResponse after = productService.list(LIST_PAGE, size, null, null);
+        ProductPageResponse after = productService.list(LIST_PAGE, size, null, null, null);
         assertNotEquals(before, after);
         assertEquals(DUMMY_PRODUCT_COUNT + 1, after.totalElements());
         assertTrue(after.content().stream()
                 .map(ProductSummaryResponse::name)
                 .anyMatch("신규등록상품"::equals));
 
-        verify(productRepository, times(2)).findAllWithSeller(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
+        verify(productRepository, times(2)).findAllWithSeller(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
     }
 
     @Test
@@ -158,13 +158,13 @@ class ProductCachingTest {
         Product target = saveProduct(seller, "수정전이름", 15000);
 
         ProductResponse detailBefore = productService.detail(target.getId());
-        ProductPageResponse listBefore = productService.list(LIST_PAGE, size, null, null);
+        ProductPageResponse listBefore = productService.list(LIST_PAGE, size, null, null, null);
         assertEquals("수정전이름", detailBefore.name());
 
         productService.update(asPrincipal(seller), target.getId(), registerRequest("수정후이름", 40000));
 
         ProductResponse detailAfter = productService.detail(target.getId());
-        ProductPageResponse listAfter = productService.list(LIST_PAGE, size, null, null);
+        ProductPageResponse listAfter = productService.list(LIST_PAGE, size, null, null, null);
 
         assertNotEquals(detailBefore, detailAfter);
         assertEquals("수정후이름", detailAfter.name());
@@ -181,7 +181,7 @@ class ProductCachingTest {
         // findByIdWithSeller는 3번 호출된다: detailBefore(캐시 미스) + update() 내부의
         // findProductWithSeller(소유자 검증용, 캐시와 무관한 평범한 조회) + detailAfter(무효화 후 캐시 미스).
         verify(productRepository, times(3)).findByIdWithSeller(target.getId());
-        verify(productRepository, times(2)).findAllWithSeller(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
+        verify(productRepository, times(2)).findAllWithSeller(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
     }
 
     @Test
@@ -192,7 +192,7 @@ class ProductCachingTest {
         seedDummyProducts(seller, DUMMY_PRODUCT_COUNT);
         Product target = saveProduct(seller, "삭제될상품", 12000);
 
-        ProductPageResponse listBefore = productService.list(LIST_PAGE, size, null, null);
+        ProductPageResponse listBefore = productService.list(LIST_PAGE, size, null, null, null);
         assertTrue(listBefore.content().stream()
                 .map(ProductSummaryResponse::name)
                 .anyMatch("삭제될상품"::equals));
@@ -200,7 +200,7 @@ class ProductCachingTest {
 
         productService.delete(asPrincipal(seller), target.getId());
 
-        ProductPageResponse listAfter = productService.list(LIST_PAGE, size, null, null);
+        ProductPageResponse listAfter = productService.list(LIST_PAGE, size, null, null, null);
         assertFalse(listAfter.content().stream()
                 .map(ProductSummaryResponse::name)
                 .anyMatch("삭제될상품"::equals));
@@ -210,6 +210,6 @@ class ProductCachingTest {
                 () -> productService.detail(target.getId()));
         assertEquals(ErrorCode.PRODUCT_NOT_FOUND, exception.getErrorCode());
 
-        verify(productRepository, times(2)).findAllWithSeller(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
+        verify(productRepository, times(2)).findAllWithSeller(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
     }
 }

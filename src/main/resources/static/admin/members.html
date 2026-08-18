@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>회원 관리 — GONG9RI 관리자</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&display=swap"
+    rel="stylesheet"
+  />
+  <link
+    rel="stylesheet"
+    as="style"
+    crossorigin
+    href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"
+  />
+
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/layout.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+</head>
+<body>
+  <div data-include="header"></div>
+
+  <main>
+    <section class="section container">
+      <div class="section__head">
+        <h1><span class="text-gradient">회원 관리</span></h1>
+        <p class="text-muted" style="margin-top: var(--space-2);">
+          정지는 언제든 되돌릴 수 있어요. 삭제는 상품·결제·리뷰 등 활동 기록이 하나도 없는 계정만 가능합니다.
+        </p>
+      </div>
+
+      <div id="page-alert" class="form-alert form-alert--error" role="alert" hidden>
+        <span id="page-alert-text"></span>
+      </div>
+
+      <nav style="display:flex; gap: var(--space-3); margin-bottom: var(--space-5);">
+        <a href="/admin/dashboard.html" class="btn btn-secondary btn-sm">대시보드</a>
+        <a href="/admin/members.html" class="btn btn-primary btn-sm">회원 관리</a>
+        <a href="/admin/products.html" class="btn btn-secondary btn-sm">상품 현황</a>
+        <a href="/admin/refunds.html" class="btn btn-secondary btn-sm">환불 요청 현황</a>
+      </nav>
+
+      <div id="members-status" class="product-status">불러오는 중...</div>
+      <ul id="members-list" class="mypage-list"></ul>
+
+      <button type="button" id="load-more-btn" class="btn btn-secondary btn-block" style="margin-top: var(--space-4);" hidden>더 보기</button>
+    </section>
+  </main>
+
+  <div data-include="footer"></div>
+
+  <script src="/js/include.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/header-auth.js"></script>
+  <script src="/js/admin-guard.js"></script>
+  <script src="/js/admin-members.js"></script>
+</body>
+</html>

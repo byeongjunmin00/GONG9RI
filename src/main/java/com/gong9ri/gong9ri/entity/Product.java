@@ -72,6 +72,13 @@ public class Product {
     @ColumnDefault("'ETC'")
     private ProductCategory category;
 
+    // 오픈예정(product/product-launch) — null이면 기존과 동일하게 등록 즉시 공개(하위 호환, 기존 row는
+    // 전부 null). 미래 시각이면 그 시각 전까지는 목록/상세에 노출은 되지만(둘러보기는 가능) 혼자구매·
+    // 신규 팀 신설은 서버가 거절한다(PRODUCT_NOT_YET_OPEN) — "예정"이라는 걸 미리 알리고 기대하게 하는
+    // 게 목적이라 아예 숨기지 않는다(와디즈 "오픈예정" 탭도 노출은 하되 구매만 막는 방식).
+    @Column
+    private LocalDateTime openAt;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -92,6 +99,11 @@ public class Product {
 
     public Product(Member seller, String name, String description, Integer basePrice, Integer maxParticipants,
             String imageUrl, boolean autoRefundOnCancel, ProductCategory category) {
+        this(seller, name, description, basePrice, maxParticipants, imageUrl, autoRefundOnCancel, category, null);
+    }
+
+    public Product(Member seller, String name, String description, Integer basePrice, Integer maxParticipants,
+            String imageUrl, boolean autoRefundOnCancel, ProductCategory category, LocalDateTime openAt) {
         this.seller = seller;
         this.name = name;
         this.description = description;
@@ -100,10 +112,11 @@ public class Product {
         this.imageUrl = imageUrl;
         this.autoRefundOnCancel = autoRefundOnCancel;
         this.category = category;
+        this.openAt = openAt;
     }
 
     public void update(String name, String description, Integer basePrice, Integer maxParticipants,
-            String imageUrl, boolean autoRefundOnCancel, ProductCategory category) {
+            String imageUrl, boolean autoRefundOnCancel, ProductCategory category, LocalDateTime openAt) {
         this.name = name;
         this.description = description;
         this.basePrice = basePrice;
@@ -111,5 +124,12 @@ public class Product {
         this.imageUrl = imageUrl;
         this.autoRefundOnCancel = autoRefundOnCancel;
         this.category = category;
+        this.openAt = openAt;
+    }
+
+    // 아직 공개 전(오픈예정 시각이 미래)인지 — PaymentService.create()/TeamService.create()가 이걸로
+    // 혼자구매·신규 팀 신설을 거절한다(PRODUCT_NOT_YET_OPEN).
+    public boolean isNotYetOpen() {
+        return openAt != null && openAt.isAfter(LocalDateTime.now());
     }
 }

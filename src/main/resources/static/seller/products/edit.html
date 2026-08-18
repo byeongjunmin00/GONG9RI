@@ -85,11 +85,10 @@
             <label class="form-label" for="basePrice">정가</label>
             <input
               class="form-input"
-              type="number"
+              type="text"
+              inputmode="numeric"
               id="basePrice"
               name="basePrice"
-              min="0"
-              step="1"
               placeholder="1인 구매 시 가격"
             />
           </div>
@@ -133,6 +132,13 @@
 
             <!-- 가격 구간 클라이언트 가드레일 검증 에러(오름차순/중복/범위). 최종 판정은 서버 응답이다. -->
             <p id="price-tiers-error" class="form-error" role="alert" hidden></p>
+          </div>
+
+          <!-- 오픈예정(product/product-launch) — 비워두면 즉시 공개. 값을 넣으면 미래 시각이어야 한다. -->
+          <div class="form-group">
+            <label class="form-label" for="openAt">오픈예정 시각 (선택)</label>
+            <input class="form-input" type="datetime-local" id="openAt" name="openAt" />
+            <p class="form-hint">비워두면 즉시 공개됩니다. 미래 시각을 넣으면 그 전까지 목록에는 "오픈예정"으로 노출되고 구매는 막힙니다.</p>
           </div>
 
           <!-- 참여 취소(공구팀)로 생기는 환불 요청을 승인 절차 없이 즉시 처리할지 여부(상품 단위 설정).

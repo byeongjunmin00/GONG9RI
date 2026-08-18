@@ -8,6 +8,7 @@ public enum ErrorCode {
     DUPLICATE_USERNAME(HttpStatus.CONFLICT, "이미 존재하는 아이디입니다."),
     LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "아이디 또는 비밀번호가 일치하지 않습니다."),
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 상품입니다."),
+    PRODUCT_NOT_YET_OPEN(HttpStatus.CONFLICT, "아직 공개되지 않은 상품입니다."),
     FORBIDDEN(HttpStatus.FORBIDDEN, "접근 권한이 없습니다."),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다."),
     TEAM_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 공구팀입니다."),
@@ -42,7 +43,11 @@ public enum ErrorCode {
     PAYMENT_NOT_REFUNDABLE(HttpStatus.CONFLICT, "환불할 수 없는 결제 상태입니다."),
     INQUIRY_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 문의입니다."),
     INQUIRY_ALREADY_ANSWERED(HttpStatus.CONFLICT, "이미 답변이 등록된 문의는 수정/삭제할 수 없습니다."),
-    ANSWER_NOT_FOUND(HttpStatus.NOT_FOUND, "등록된 답변이 없습니다.");
+    ANSWER_NOT_FOUND(HttpStatus.NOT_FOUND, "등록된 답변이 없습니다."),
+    ACCOUNT_SUSPENDED(HttpStatus.FORBIDDEN, "정지된 계정입니다. 문의는 관리자에게 해주세요."),
+    MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 회원입니다."),
+    MEMBER_HAS_ACTIVITY(HttpStatus.CONFLICT,
+            "상품·결제·리뷰 등 활동 기록이 있는 회원은 삭제할 수 없습니다. 정지 처리를 이용해주세요.");
 
     private final HttpStatus httpStatus;
     private final String message;

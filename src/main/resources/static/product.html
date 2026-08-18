@@ -48,7 +48,10 @@
         <div id="product-image" class="card-image product-detail-image"></div>
 
         <div class="section__head">
-          <span id="product-seller" class="card-seller"></span>
+          <div class="card-seller-row">
+            <span id="product-seller" class="card-seller"></span>
+            <span id="product-seller-trust" class="card-seller-trust" hidden>신뢰 판매자</span>
+          </div>
           <h1 id="product-name"></h1>
         </div>
 
@@ -87,6 +90,9 @@
             이 사실을 확인했습니다.
           </label>
         </div>
+
+        <!-- 오픈예정(product/product-launch) — openAt이 미래인 상품만 보여준다. js/product.js가 제어한다. -->
+        <div id="open-at-notice" class="form-alert" role="status" hidden></div>
 
         <div class="product-actions">
           <button type="button" id="buy-alone-btn" class="btn btn-secondary">혼자 구매하기</button>

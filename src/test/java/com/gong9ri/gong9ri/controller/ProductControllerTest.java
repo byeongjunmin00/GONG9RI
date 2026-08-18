@@ -1,5 +1,6 @@
 package com.gong9ri.gong9ri.controller;
 
+import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -14,12 +15,16 @@ import com.gong9ri.gong9ri.entity.Member;
 import com.gong9ri.gong9ri.entity.PriceTier;
 import com.gong9ri.gong9ri.entity.Product;
 import com.gong9ri.gong9ri.entity.ProductCategory;
+import com.gong9ri.gong9ri.entity.Review;
 import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.MemberRepository;
 import com.gong9ri.gong9ri.repository.PriceTierRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
+import com.gong9ri.gong9ri.repository.ReviewRepository;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
@@ -27,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
@@ -55,6 +61,12 @@ class ProductControllerTest {
 
     @Autowired
     private GroupBuyTeamRepository groupBuyTeamRepository;
+
+    @Autowired
+    private ReviewRepository reviewRepository;
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
 
     private Member saveMember(String username, Role role) {
         Member member = new Member(username, "encoded-password", "테스트유저", username + "@test.com", role);
@@ -206,6 +218,49 @@ class ProductControllerTest {
     }
 
     @Test
+    @DisplayName("openAt에 미래 시각을 넣어 등록하면 201이고 응답에 그대로 반영된다")
+    void register_withFutureOpenAt_success() throws Exception {
+        Member seller = saveMember("seller18", Role.SELLER);
+        String futureOpenAt = LocalDateTime.now().plusDays(3).withNano(0).toString();
+        Map<String, Object> body = Map.of(
+                "name", "오픈예정테스트상품",
+                "basePrice", 10000,
+                "maxParticipants", 5,
+                "priceTiers", List.of(Map.of("minCount", 2, "price", 9000)),
+                "category", "ETC",
+                "openAt", futureOpenAt
+        );
+
+        mockMvc.perform(post("/api/products")
+                        .with(asUser(seller))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.openAt").value(futureOpenAt));
+    }
+
+    @Test
+    @DisplayName("openAt에 과거 시각을 넣어 등록하면 400 VALIDATION_FAILED")
+    void register_withPastOpenAt_validationFailed() throws Exception {
+        Member seller = saveMember("seller19", Role.SELLER);
+        Map<String, Object> body = Map.of(
+                "name", "잘못된오픈예정상품",
+                "basePrice", 10000,
+                "maxParticipants", 5,
+                "priceTiers", List.of(Map.of("minCount", 2, "price", 9000)),
+                "category", "ETC",
+                "openAt", LocalDateTime.now().minusDays(1).toString()
+        );
+
+        mockMvc.perform(post("/api/products")
+                        .with(asUser(seller))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    }
+
+    @Test
     @DisplayName("category 쿼리파라미터로 목록을 필터링하면 그 카테고리 상품만 반환된다")
     void list_filterByCategory_returnsOnlyMatchingCategory() throws Exception {
         Member seller = saveMember("seller13", Role.SELLER);
@@ -217,6 +272,46 @@ class ProductControllerTest {
                 .andExpect(jsonPath("$.data.content.length()").value(1))
                 .andExpect(jsonPath("$.data.content[0].name").value("식품상품"))
                 .andExpect(jsonPath("$.data.content[0].category").value("FOOD"));
+    }
+
+    @Test
+    @DisplayName("keyword로 상품명 또는 판매자명에 포함된 상품만 검색된다")
+    void list_searchByKeyword_matchesProductNameOrSellerName() throws Exception {
+        // saveMember()는 name을 항상 "테스트유저"로 고정하므로(username과 무관), 판매자명 검색을
+        // 검증하려면 name을 직접 지정해서 저장한다.
+        Member seller = memberRepository.save(
+                new Member("sellerMelon", "encoded-password", "멜론농장", "sellerMelon@test.com", Role.SELLER));
+        saveProduct(seller, "제주 감귤 세트", ProductCategory.FOOD);
+        saveProduct(seller, "완전 무관한 상품", ProductCategory.FOOD);
+
+        mockMvc.perform(get("/api/products").param("keyword", "감귤"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].name").value("제주 감귤 세트"));
+
+        // 판매자명으로도 검색된다.
+        mockMvc.perform(get("/api/products").param("keyword", "멜론농장"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(2));
+    }
+
+    @Test
+    @DisplayName("keyword가 있으면 목록 캐시를 타지 않는다 — 같은 검색어로 연속 조회해도 새로 등록된 상품이 즉시 반영된다")
+    void list_searchByKeyword_bypassesCache() throws Exception {
+        Member seller = saveMember("seller16", Role.SELLER);
+        saveProduct(seller, "캐시테스트상품1", ProductCategory.ETC);
+
+        mockMvc.perform(get("/api/products").param("keyword", "캐시테스트"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1));
+
+        // 같은 page/size/keyword 조합으로 다시 요청 — 목록 캐시를 탔다면(회귀) 방금 추가한 상품이
+        // 이 두 번째 응답에 반영되지 않아야 하는데, 캐시를 안 타므로 실제로 반영돼야 한다.
+        saveProduct(seller, "캐시테스트상품2", ProductCategory.ETC);
+
+        mockMvc.perform(get("/api/products").param("keyword", "캐시테스트"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(2));
     }
 
     @Test
@@ -274,6 +369,31 @@ class ProductControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content[0].name").value("인기순테스트-인기"))
                 .andExpect(jsonPath("$.data.content[1].name").value("인기순테스트-비인기"));
+    }
+
+    @Test
+    @DisplayName("sort=DEADLINE이면 RECRUITING 팀 중 가장 이른 마감일 기준으로 오름차순 정렬되고, "
+            + "진행 중인 팀이 없는 상품은 맨 뒤로 밀린다")
+    void list_sortDeadline_ordersByNearestDeadline_andPushesNoTeamProductsLast() throws Exception {
+        int size = 203; // 다른 테스트와 캐시 키가 겹치지 않게 이 테스트 전용 size 사용
+        Member seller = saveMember("seller17", Role.SELLER);
+        Member leaderA = saveMember("leaderDeadlineA", Role.BUYER);
+        Member leaderB = saveMember("leaderDeadlineB", Role.BUYER);
+        Product noTeamProduct = saveProduct(seller, "마감임박테스트-팀없음", ProductCategory.DIGITAL);
+        Product soonProduct = saveProduct(seller, "마감임박테스트-임박", ProductCategory.DIGITAL);
+        Product laterProduct = saveProduct(seller, "마감임박테스트-여유", ProductCategory.DIGITAL);
+
+        groupBuyTeamRepository.save(new GroupBuyTeam(laterProduct, leaderB, 5, LocalDateTime.now().plusDays(10)));
+        groupBuyTeamRepository.save(new GroupBuyTeam(soonProduct, leaderA, 5, LocalDateTime.now().plusDays(1)));
+
+        mockMvc.perform(get("/api/products")
+                        .param("category", "DIGITAL")
+                        .param("size", String.valueOf(size))
+                        .param("sort", "DEADLINE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].name").value("마감임박테스트-임박"))
+                .andExpect(jsonPath("$.data.content[1].name").value("마감임박테스트-여유"))
+                .andExpect(jsonPath("$.data.content[2].name").value("마감임박테스트-팀없음"));
     }
 
     @Test
@@ -350,5 +470,81 @@ class ProductControllerTest {
                         .with(asUser(otherSeller)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("판매자 평균 평점 4.5 이상·리뷰 3개 이상이면 상품 상세에 sellerTrustedBadge=true")
+    void detail_sellerTrustedBadge_true_whenRatingAndCountMeetThreshold() throws Exception {
+        Member seller = saveMember("seller20", Role.SELLER);
+        Product product = saveProduct(seller);
+        for (int i = 0; i < 3; i++) {
+            Member buyer = saveMember("trustedReviewer" + i, Role.BUYER);
+            reviewRepository.save(new Review(product, buyer, 5, "좋아요"));
+        }
+
+        mockMvc.perform(get("/api/products/" + product.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sellerTrustedBadge").value(true));
+    }
+
+    @Test
+    @DisplayName("리뷰가 3개 미만이면 평점이 만점이어도 sellerTrustedBadge=false")
+    void detail_sellerTrustedBadge_false_whenReviewCountBelowThreshold() throws Exception {
+        Member seller = saveMember("seller21", Role.SELLER);
+        Product product = saveProduct(seller);
+        for (int i = 0; i < 2; i++) {
+            Member buyer = saveMember("underReviewer" + i, Role.BUYER);
+            reviewRepository.save(new Review(product, buyer, 5, "좋아요"));
+        }
+
+        mockMvc.perform(get("/api/products/" + product.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sellerTrustedBadge").value(false));
+    }
+
+    @Test
+    @DisplayName("리뷰가 하나도 없으면 sellerTrustedBadge=false")
+    void detail_sellerTrustedBadge_false_whenNoReviews() throws Exception {
+        Member seller = saveMember("seller22", Role.SELLER);
+        Product product = saveProduct(seller);
+
+        mockMvc.perform(get("/api/products/" + product.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sellerTrustedBadge").value(false));
+    }
+
+    @Test
+    @DisplayName("목록 조회 응답에도 sellerTrustedBadge가 포함된다")
+    void list_includesSellerTrustedBadge() throws Exception {
+        int size = 204; // 다른 테스트와 캐시 키가 겹치지 않게 이 테스트 전용 size 사용
+        Member seller = saveMember("seller23", Role.SELLER);
+        Product product = saveProduct(seller, "신뢰배지목록테스트상품", ProductCategory.ETC);
+        for (int i = 0; i < 3; i++) {
+            Member buyer = saveMember("listTrustReviewer" + i, Role.BUYER);
+            reviewRepository.save(new Review(product, buyer, 5, "좋아요"));
+        }
+
+        mockMvc.perform(get("/api/products").param("category", "ETC").param("size", String.valueOf(size)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].sellerTrustedBadge").value(true));
+    }
+
+    @Test
+    @DisplayName("keyword로 검색하면 실시간 인기 검색어 집계에 반영되고, 해당 엔드포인트에서 조회된다")
+    void list_withKeyword_recordsSearchTrend_andSearchTrendsEndpointReturnsIt() throws Exception {
+        // /api/products/{productId}가 아니라 /api/products/search-trends(리터럴 경로)가 우선 매칭되는지도
+        // 같이 확인한다 — Long 파싱 실패로 400이 나면 라우팅 우선순위가 깨진 것.
+        String keyword = "검색어트렌드테스트" + System.nanoTime();
+        try {
+            mockMvc.perform(get("/api/products").param("keyword", keyword))
+                    .andExpect(status().isOk());
+
+            mockMvc.perform(get("/api/products/search-trends").param("limit", "50"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.keywords", hasItem(keyword)));
+        } finally {
+            String todayKey = "search-trend:" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+            redisTemplate.opsForZSet().remove(todayKey, keyword);
+        }
     }
 }

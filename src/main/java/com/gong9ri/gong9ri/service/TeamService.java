@@ -70,6 +70,9 @@ public class TeamService {
         requireBuyer(principal);
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND));
+        if (product.isNotYetOpen()) {
+            throw new BusinessException(ErrorCode.PRODUCT_NOT_YET_OPEN);
+        }
         Member leader = principal.getMember();
 
         Integer targetParticipants = request.targetParticipants();

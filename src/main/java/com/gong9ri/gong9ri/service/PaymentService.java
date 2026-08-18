@@ -61,6 +61,9 @@ public class PaymentService {
 
         Product product = productRepository.findById(request.productId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND));
+        if (product.isNotYetOpen()) {
+            throw new BusinessException(ErrorCode.PRODUCT_NOT_YET_OPEN);
+        }
 
         GroupBuyTeam team = null;
         Integer amount = product.getBasePrice();

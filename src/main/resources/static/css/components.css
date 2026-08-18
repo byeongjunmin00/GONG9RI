@@ -116,6 +116,43 @@
   right: var(--space-3);
 }
 
+/* ---------- 찜 하트 (product/wishlist) — 팀원 작업, 실제 API 연동됨 ---------- */
+.card-wishlist-btn {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.card-wishlist-btn svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.card-wishlist-btn:hover {
+  transform: scale(1.08);
+}
+
+.card-wishlist-btn.active {
+  color: var(--color-brand);
+}
+
+.card-wishlist-btn.active svg {
+  fill: currentColor;
+  stroke: currentColor;
+}
+
 .card-body {
   display: flex;
   flex-direction: column;
@@ -123,9 +160,41 @@
   padding: var(--space-4);
 }
 
+.card-seller-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .card-seller {
   font-size: var(--fs-xs);
   color: var(--color-text-muted);
+}
+
+/* ---------- 판매자 신뢰 배지 (product/seller-trust) ---------- */
+.card-seller-trust {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 800;
+  background: rgba(68, 89, 64, 0.12);
+  color: var(--color-brand);
+  white-space: nowrap;
+}
+
+/* display: inline-flex를 선언하고 있어 네이티브 [hidden]이 무시될 수 있으므로 명시적으로
+   보정한다(.chat-widget[hidden] 등과 동일한 패턴) — 이게 없으면 product.js가
+   sellerTrustEl.hidden = true로 숨겨도 화면엔 계속 보인다(실제로 프로덕션에서 이 상태로 배포돼
+   모든 상품 상세 페이지에 배지가 항상 떠 있었음). */
+.card-seller-trust[hidden] {
+  display: none;
+}
+
+.card-seller-trust::before {
+  content: '\2713';
 }
 
 .card-title {
@@ -191,6 +260,14 @@
   background: var(--color-brand);
 }
 
+.card-progress-percent {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  color: var(--color-brand);
+}
+
 /* ---------- Badge (공구 상태) ---------- */
 .badge {
   display: inline-flex;
@@ -217,6 +294,16 @@
 .badge-failed {
   background-color: var(--color-danger-bg);
   color: var(--color-danger);
+}
+
+.badge-urgent {
+  background-color: var(--color-danger);
+  color: var(--color-text-on-brand);
+}
+
+.badge-upcoming {
+  background-color: var(--color-text);
+  color: var(--color-text-on-brand);
 }
 
 .badge-leader {
@@ -490,6 +577,11 @@
 
 .team-item-count {
   font-weight: 700;
+}
+
+.team-item-deadline {
+  font-size: var(--fs-xs);
+  color: var(--color-text-muted);
 }
 
 /* ---------- Team participants panel (참여자 목록 펼치기) ---------- */
@@ -1083,6 +1175,102 @@
   border-color: var(--color-brand);
   background-color: var(--color-brand);
   color: var(--color-text-on-brand);
+}
+
+/* ---------- 메인 페이지 검색창 (product/list-search) — 팀원 작업, 실제 API 연동됨 ---------- */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-full);
+  padding: 4px 4px 4px var(--space-5);
+  margin-bottom: var(--space-4);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.search-bar:focus-within {
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 3px rgba(68, 89, 64, 0.15);
+}
+
+.search-bar__input {
+  flex: 1;
+  border: none;
+  background: none;
+  font-size: var(--fs-base);
+  color: var(--color-text);
+  padding: 10px 0;
+}
+
+.search-bar__input:focus {
+  outline: none;
+}
+
+.search-bar__input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.search-bar__btn {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-brand);
+  color: var(--color-text-on-brand);
+  cursor: pointer;
+}
+
+/* ---------- 실시간 인기 검색어 (product/search-trends) ---------- */
+.search-trends {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: calc(var(--space-2) * -1);
+  margin-bottom: var(--space-5);
+}
+
+.search-trends__label {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+/* 한 번에 하나씩, 순위가 자동으로 바뀌는 티커(promo-bar 자동 순환과 같은 패턴) —
+   .is-swapping이 붙는 순간 opacity 0으로 내려갔다가, JS가 다음 프레임에 떼어내면서
+   opacity 1로 되돌아오는 크로스페이드. */
+.search-trends__current {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: none;
+  padding: 2px 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+  opacity: 1;
+  transition: opacity 0.25s ease, color 0.15s ease;
+}
+
+.search-trends__current.is-swapping {
+  opacity: 0;
+}
+
+.search-trends__current:hover {
+  color: var(--color-brand);
+}
+
+.search-trends__current b {
+  color: var(--color-brand);
+  font-weight: 800;
 }
 
 /* ---------- 메인 페이지 광고 배너 — 슬림 공지 바 (main-page) ----------

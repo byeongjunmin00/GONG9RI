@@ -31,6 +31,7 @@
   var basePriceInput = document.getElementById('basePrice');
   var maxParticipantsInput = document.getElementById('maxParticipants');
   var imageUrlInput = document.getElementById('imageUrl');
+  var openAtInput = document.getElementById('openAt');
 
   var priceTierRowsEl = document.getElementById('price-tier-rows');
   var addPriceTierBtn = document.getElementById('add-price-tier-btn');
@@ -42,10 +43,52 @@
   if (
     !formAlertEl || !formAlertTextEl || !formAlertLoginLinkEl || !editStatusEl ||
     !form || !nameInput || !categorySelect || !descriptionInput || !basePriceInput || !maxParticipantsInput || !imageUrlInput ||
+    !openAtInput ||
     !priceTierRowsEl || !addPriceTierBtn || !priceTiersErrorEl || !autoRefundOnCancelInput || !submitBtn
   ) {
     return;
   }
+
+  /**
+   * <input type="datetime-local">의 값(초 없는 "YYYY-MM-DDTHH:mm")을 서버 LocalDateTime
+   * 역직렬화가 받는 초 단위 ISO 문자열로 보정한다. 비어있으면 null(오픈예정 없음, 즉시 공개).
+   */
+  function toOpenAtPayload(value) {
+    if (!value) {
+      return null;
+    }
+    return value.length === 16 ? value + ':00' : value;
+  }
+
+  function getPriceDigits(inputEl) {
+    return inputEl.value.replace(/[^\d]/g, '');
+  }
+
+  function formatPriceInputValue(digitsOnly) {
+    if (!digitsOnly) {
+      return '';
+    }
+    return Number(digitsOnly).toLocaleString('ko-KR') + '원';
+  }
+
+  /**
+   * 가격 입력칸을 "333,333원"처럼 천단위 콤마+원 접미사로 표시한다. type="number"는 브라우저가
+   * 콤마 같은 비숫자 문자를 아예 못 넣게 해서 이 포맷팅이 불가능해 type="text"로 바꾼다. 실제 제출
+   * 값은 getPriceDigits()로 콤마/원을 뗀 순수 숫자만 꺼내 쓴다(collectPriceTiers/submit 핸들러).
+   */
+  function attachPriceFormatting(inputEl) {
+    inputEl.type = 'text';
+    inputEl.setAttribute('inputmode', 'numeric');
+    inputEl.addEventListener('input', function () {
+      var digitsOnly = getPriceDigits(inputEl);
+      inputEl.value = formatPriceInputValue(digitsOnly);
+      // 끝에서 입력/삭제하는 흐름 기준 근사치 — 커서를 "원" 접미사 바로 앞으로 되돌린다.
+      var caretPos = digitsOnly ? inputEl.value.length - 1 : 0;
+      inputEl.setSelectionRange(caretPos, caretPos);
+    });
+  }
+
+  attachPriceFormatting(basePriceInput);
 
   // init()에서 확정되면 이후 제출 핸들러가 참조한다.
   var currentProductId = null;
@@ -144,13 +187,11 @@
     priceLabel.textContent = '1인당 가격';
     var priceInput = document.createElement('input');
     priceInput.className = 'form-input';
-    priceInput.type = 'number';
-    priceInput.min = '0';
-    priceInput.step = '1';
-    priceInput.placeholder = '예: 18000';
+    priceInput.placeholder = '예: 18,000원';
     priceInput.setAttribute('data-field', 'price');
+    attachPriceFormatting(priceInput);
     if (typeof initialPrice === 'number') {
-      priceInput.value = String(initialPrice);
+      priceInput.value = formatPriceInputValue(String(initialPrice));
     }
     priceGroup.appendChild(priceLabel);
     priceGroup.appendChild(priceInput);
@@ -197,7 +238,7 @@
       var minCountInput = rows[i].querySelector('[data-field="minCount"]');
       var priceInput = rows[i].querySelector('[data-field="price"]');
       var minCountRaw = minCountInput ? minCountInput.value.trim() : '';
-      var priceRaw = priceInput ? priceInput.value.trim() : '';
+      var priceRaw = priceInput ? getPriceDigits(priceInput) : '';
 
       if (!minCountRaw || !priceRaw) {
         return { tiers: null, message: '가격 구간의 최소 인원과 가격을 모두 입력해주세요.' };
@@ -255,10 +296,12 @@
     nameInput.value = product.name || '';
     categorySelect.value = product.category || 'ETC';
     descriptionInput.value = product.description || '';
-    basePriceInput.value = typeof product.basePrice === 'number' ? String(product.basePrice) : '';
+    basePriceInput.value =
+      typeof product.basePrice === 'number' ? formatPriceInputValue(String(product.basePrice)) : '';
     maxParticipantsInput.value =
       typeof product.maxParticipants === 'number' ? String(product.maxParticipants) : '';
     imageUrlInput.value = product.imageUrl || '';
+    openAtInput.value = product.openAt ? product.openAt.slice(0, 16) : '';
     autoRefundOnCancelInput.checked = Boolean(product.autoRefundOnCancel);
 
     var tiers = Array.isArray(product.priceTiers) ? product.priceTiers : [];
@@ -317,7 +360,7 @@
 
     var name = nameInput.value.trim();
     var description = descriptionInput.value.trim();
-    var basePriceRaw = basePriceInput.value.trim();
+    var basePriceRaw = getPriceDigits(basePriceInput);
     var maxParticipantsRaw = maxParticipantsInput.value.trim();
     var imageUrl = imageUrlInput.value.trim();
 
@@ -358,6 +401,7 @@
       imageUrl: imageUrl || null,
       autoRefundOnCancel: autoRefundOnCancelInput.checked,
       category: categorySelect.value,
+      openAt: toOpenAtPayload(openAtInput.value),
     })
       .then(function () {
         window.location.href = '/seller/mypage.html';

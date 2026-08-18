@@ -6,8 +6,10 @@ import com.gong9ri.gong9ri.dto.ProductPageResponse;
 import com.gong9ri.gong9ri.dto.ProductRegisterRequest;
 import com.gong9ri.gong9ri.dto.ProductResponse;
 import com.gong9ri.gong9ri.dto.ProductSort;
+import com.gong9ri.gong9ri.dto.SearchTrendResponse;
 import com.gong9ri.gong9ri.entity.ProductCategory;
 import com.gong9ri.gong9ri.service.ProductService;
+import com.gong9ri.gong9ri.service.SearchTrendService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -29,14 +31,24 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProductController {
 
     private final ProductService productService;
+    private final SearchTrendService searchTrendService;
+
+    // 정확한 리터럴 경로("search-trends")가 아래 "/{productId}"보다 우선 매칭된다(Spring의 경로
+    // 매칭 우선순위 — 변수 세그먼트보다 리터럴 세그먼트가 더 구체적이라 선언 순서와 무관하게 항상 이긴다).
+    @GetMapping("/search-trends")
+    public ResponseEntity<ApiResponse<SearchTrendResponse>> searchTrends(
+            @RequestParam(defaultValue = "5") int limit) {
+        return ResponseEntity.ok(ApiResponse.success(SearchTrendResponse.of(searchTrendService.topTrends(limit))));
+    }
 
     @GetMapping
     public ResponseEntity<ApiResponse<ProductPageResponse>> list(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) ProductCategory category,
-            @RequestParam(required = false) ProductSort sort) {
-        ProductPageResponse cached = productService.list(page, size, category, sort);
+            @RequestParam(required = false) ProductSort sort,
+            @RequestParam(required = false) String keyword) {
+        ProductPageResponse cached = productService.list(page, size, category, sort, keyword);
         ProductPageResponse withProgress = productService.attachActiveTeamProgress(cached);
         return ResponseEntity.ok(ApiResponse.success(withProgress));
     }

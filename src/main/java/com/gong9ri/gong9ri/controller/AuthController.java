@@ -112,6 +112,11 @@ public class AuthController {
                     candidate.getMember().getId(), request.username());
             throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
         }
+        if (candidate.getMember().isSuspended()) {
+            log.warn("정지된 계정 로그인 거절: memberId={}, username={}",
+                    candidate.getMember().getId(), request.username());
+            throw new BusinessException(ErrorCode.ACCOUNT_SUSPENDED);
+        }
 
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authentication);

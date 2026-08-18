@@ -6,11 +6,18 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 public interface SellerRevenueSummaryRepository
         extends JpaRepository<SellerRevenueSummary, Long>, SellerRevenueSummaryRepositoryCustom {
 
     Optional<SellerRevenueSummary> findBySellerId(Long sellerId);
+
+    // 관리자 회원 삭제 — 다른 테이블이 참조하지 않는 leaf 데이터라 회원 삭제 시 함께 지운다(product/admin).
+    // 삭제가 허용되는 회원은 이미 Product.existsBySeller_Id가 false라 이 요약 행이 있을 수 없지만,
+    // 방어적으로 같이 정리한다.
+    @Transactional
+    void deleteBySellerId(Long sellerId);
 
     // payment/create 트랜잭션 안에서 호출한다 — 요약 행이 없으면 이 결제 값으로 새로 만들고(그 판매자의
     // "첫 결제"), 있으면 원자적으로 증가시킨다(upsert, docs/dev/mypage/view/changes/004-upsert-fix.md).
