@@ -132,6 +132,14 @@
             <p id="price-tiers-error" class="form-error" role="alert" hidden></p>
           </div>
 
+          <!-- 오픈예정(product/product-launch) — 비워두면 기존과 동일하게 등록 즉시 공개. 값을 넣으면
+               미래 시각이어야 하고, 그 전까지는 구매·팀 신설이 서버에서 거절된다. -->
+          <div class="form-group">
+            <label class="form-label" for="openAt">오픈예정 시각 (선택)</label>
+            <input class="form-input" type="datetime-local" id="openAt" name="openAt" />
+            <p class="form-hint">비워두면 등록 즉시 공개됩니다. 미래 시각을 넣으면 그 전까지 목록에는 "오픈예정"으로 노출되고 구매는 막힙니다.</p>
+          </div>
+
           <!-- 참여 취소(공구팀)로 생기는 환불 요청을 승인 절차 없이 즉시 처리할지 여부(상품 단위 설정).
                솔로 구매 직접 환불 요청에는 영향 없음(항상 판매자 승인 필요). -->
           <label class="refund-notice-checkbox">

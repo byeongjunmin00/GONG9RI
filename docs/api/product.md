@@ -30,7 +30,8 @@
         "category": "FOOD",
         "activeTeamCurrentCount": 8,
         "activeTeamTargetParticipants": 10,
-        "activeTeamDeadline": "2026-08-20T10:00:00"
+        "activeTeamDeadline": "2026-08-20T10:00:00",
+        "openAt": null
       }
     ],
     "page": 0,
@@ -71,12 +72,17 @@
     "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg",
     "autoRefundOnCancel": false,
     "kakaoJsKey": "abcd1234...",
-    "category": "FOOD"
+    "category": "FOOD",
+    "openAt": null
   }
   ```
 
   > `category`: 메인 페이지 카테고리 필터용 고정 값(`FOOD`/`LIVING`/`BEAUTY`/`FASHION`/`DIGITAL`/`ETC`,
   > product/category). 등록/수정 시 필수 선택.
+
+  > `openAt`: 오픈예정(product/product-launch) 시각. `null`이면 이미 공개된 상품. 미래 시각이면 그
+  > 전까지 혼자구매·신규 팀 신설이 `409 PRODUCT_NOT_YET_OPEN`으로 거절된다(`docs/api/payment.md`,
+  > `docs/api/team.md`).
 
   > `autoRefundOnCancel`: 참여 취소(`docs/api/team.md`의 `POST /api/teams/{teamId}/leave`)로 자동
   > 생성되는 환불 요청을 판매자 승인 없이 즉시 처리할지 여부(`docs/api/refund.md`). 솔로 구매 직접
@@ -108,6 +114,7 @@
   | imageUrl | String | N | 상품 이미지 URL (없으면 프론트에서 그라디언트 placeholder 표시) |
   | autoRefundOnCancel | boolean | N | 참여 취소로 생긴 환불 요청을 승인 절차 없이 즉시 처리할지 여부. 생략하면 `false`(`docs/api/refund.md`) |
   | category | String | Y | `FOOD`/`LIVING`/`BEAUTY`/`FASHION`/`DIGITAL`/`ETC` 중 하나(product/category) |
+  | openAt | String(ISO datetime) | N | 오픈예정 시각(product/product-launch). 생략하면 즉시 공개. 값을 넣으면 미래 시각이어야 한다(과거는 `VALIDATION_FAILED`) |
 
 - 응답: `201 Created`
   ```json
@@ -123,7 +130,8 @@
     ],
     "createdAt": "2026-07-24T10:00:00",
     "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg",
-    "category": "FOOD"
+    "category": "FOOD",
+    "openAt": null
   }
   ```
 

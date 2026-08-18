@@ -31,6 +31,7 @@
   var basePriceInput = document.getElementById('basePrice');
   var maxParticipantsInput = document.getElementById('maxParticipants');
   var imageUrlInput = document.getElementById('imageUrl');
+  var openAtInput = document.getElementById('openAt');
 
   var priceTierRowsEl = document.getElementById('price-tier-rows');
   var addPriceTierBtn = document.getElementById('add-price-tier-btn');
@@ -42,9 +43,21 @@
   if (
     !formAlertEl || !formAlertTextEl || !formAlertLoginLinkEl || !editStatusEl ||
     !form || !nameInput || !categorySelect || !descriptionInput || !basePriceInput || !maxParticipantsInput || !imageUrlInput ||
+    !openAtInput ||
     !priceTierRowsEl || !addPriceTierBtn || !priceTiersErrorEl || !autoRefundOnCancelInput || !submitBtn
   ) {
     return;
+  }
+
+  /**
+   * <input type="datetime-local">의 값(초 없는 "YYYY-MM-DDTHH:mm")을 서버 LocalDateTime
+   * 역직렬화가 받는 초 단위 ISO 문자열로 보정한다. 비어있으면 null(오픈예정 없음, 즉시 공개).
+   */
+  function toOpenAtPayload(value) {
+    if (!value) {
+      return null;
+    }
+    return value.length === 16 ? value + ':00' : value;
   }
 
   // init()에서 확정되면 이후 제출 핸들러가 참조한다.
@@ -259,6 +272,7 @@
     maxParticipantsInput.value =
       typeof product.maxParticipants === 'number' ? String(product.maxParticipants) : '';
     imageUrlInput.value = product.imageUrl || '';
+    openAtInput.value = product.openAt ? product.openAt.slice(0, 16) : '';
     autoRefundOnCancelInput.checked = Boolean(product.autoRefundOnCancel);
 
     var tiers = Array.isArray(product.priceTiers) ? product.priceTiers : [];
@@ -358,6 +372,7 @@
       imageUrl: imageUrl || null,
       autoRefundOnCancel: autoRefundOnCancelInput.checked,
       category: categorySelect.value,
+      openAt: toOpenAtPayload(openAtInput.value),
     })
       .then(function () {
         window.location.href = '/seller/mypage.html';

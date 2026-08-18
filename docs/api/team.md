@@ -68,6 +68,7 @@
   | 코드 | HTTP | 설명 |
   |------|------|------|
   | `PRODUCT_NOT_FOUND` | 404 | 존재하지 않는 상품 |
+  | `PRODUCT_NOT_YET_OPEN` | 409 | 오픈예정 시각이 아직 안 지난 상품(product/product-launch) |
   | `FORBIDDEN` | 403 | 판매자 계정으로 시도 |
   | `UNAUTHORIZED` | 401 | 미인증 |
   | `VALIDATION_FAILED` | 400 | `targetParticipants` 누락 |

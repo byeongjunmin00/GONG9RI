@@ -263,6 +263,11 @@
   color: var(--color-text-on-brand);
 }
 
+.badge-upcoming {
+  background-color: var(--color-text);
+  color: var(--color-text-on-brand);
+}
+
 .badge-leader {
   background-color: rgba(139, 92, 246, 0.12);
   color: var(--color-purple);

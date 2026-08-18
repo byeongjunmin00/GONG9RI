@@ -139,7 +139,7 @@ public class ProductService {
 
         Product product = new Product(seller, request.name(), request.description(),
                 request.basePrice(), request.maxParticipants(), request.imageUrl(),
-                Boolean.TRUE.equals(request.autoRefundOnCancel()), request.category());
+                Boolean.TRUE.equals(request.autoRefundOnCancel()), request.category(), request.openAt());
         Product saved = productRepository.save(product);
 
         List<PriceTier> priceTiers = savePriceTiers(saved, request.priceTiers());
@@ -160,7 +160,8 @@ public class ProductService {
         requireOwner(principal, product);
 
         product.update(request.name(), request.description(), request.basePrice(), request.maxParticipants(),
-                request.imageUrl(), Boolean.TRUE.equals(request.autoRefundOnCancel()), request.category());
+                request.imageUrl(), Boolean.TRUE.equals(request.autoRefundOnCancel()), request.category(),
+                request.openAt());
         priceTierRepository.deleteByProductId(productId);
         List<PriceTier> priceTiers = savePriceTiers(product, request.priceTiers());
 

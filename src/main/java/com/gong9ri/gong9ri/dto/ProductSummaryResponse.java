@@ -26,7 +26,10 @@ public record ProductSummaryResponse(
         // 최고 팀)의 마감일. 별도 팀을 다시 골라 뽑지 않고 이미 선택된 대표 팀의 값을 그대로 재사용한다
         // (마감임박순 *정렬*은 이것과 무관하게 별도로 가장 이른 마감일의 팀을 DB에서 직접 고른다 —
         // ProductRepositoryImpl 참고, 정렬 기준과 카드 표시 기준이 다를 수 있음은 POPULAR와 동일한 설계).
-        LocalDateTime activeTeamDeadline
+        LocalDateTime activeTeamDeadline,
+        // 오픈예정(product/product-launch) — null이면 이미 공개된 상품. 미래 시각이면 카드에 "오픈예정"
+        // 배지를 띄우고 혼자구매·신규 팀 신설 버튼을 비활성화한다(최종 판정은 서버, PRODUCT_NOT_YET_OPEN).
+        LocalDateTime openAt
 ) {
     public static ProductSummaryResponse of(Product product, Integer bestPrice) {
         return new ProductSummaryResponse(
@@ -41,13 +44,14 @@ public record ProductSummaryResponse(
                 product.getCategory(),
                 null,
                 null,
-                null
+                null,
+                product.getOpenAt()
         );
     }
 
     public ProductSummaryResponse withActiveTeamProgress(Integer currentCount, Integer targetParticipants,
             LocalDateTime deadline) {
         return new ProductSummaryResponse(productId, name, basePrice, bestPrice, maxParticipants, sellerName,
-                createdAt, imageUrl, category, currentCount, targetParticipants, deadline);
+                createdAt, imageUrl, category, currentCount, targetParticipants, deadline, openAt);
     }
 }

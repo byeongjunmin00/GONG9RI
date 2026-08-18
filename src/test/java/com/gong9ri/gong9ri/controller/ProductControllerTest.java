@@ -206,6 +206,49 @@ class ProductControllerTest {
     }
 
     @Test
+    @DisplayName("openAt에 미래 시각을 넣어 등록하면 201이고 응답에 그대로 반영된다")
+    void register_withFutureOpenAt_success() throws Exception {
+        Member seller = saveMember("seller18", Role.SELLER);
+        String futureOpenAt = LocalDateTime.now().plusDays(3).withNano(0).toString();
+        Map<String, Object> body = Map.of(
+                "name", "오픈예정테스트상품",
+                "basePrice", 10000,
+                "maxParticipants", 5,
+                "priceTiers", List.of(Map.of("minCount", 2, "price", 9000)),
+                "category", "ETC",
+                "openAt", futureOpenAt
+        );
+
+        mockMvc.perform(post("/api/products")
+                        .with(asUser(seller))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.openAt").value(futureOpenAt));
+    }
+
+    @Test
+    @DisplayName("openAt에 과거 시각을 넣어 등록하면 400 VALIDATION_FAILED")
+    void register_withPastOpenAt_validationFailed() throws Exception {
+        Member seller = saveMember("seller19", Role.SELLER);
+        Map<String, Object> body = Map.of(
+                "name", "잘못된오픈예정상품",
+                "basePrice", 10000,
+                "maxParticipants", 5,
+                "priceTiers", List.of(Map.of("minCount", 2, "price", 9000)),
+                "category", "ETC",
+                "openAt", LocalDateTime.now().minusDays(1).toString()
+        );
+
+        mockMvc.perform(post("/api/products")
+                        .with(asUser(seller))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    }
+
+    @Test
     @DisplayName("category 쿼리파라미터로 목록을 필터링하면 그 카테고리 상품만 반환된다")
     void list_filterByCategory_returnsOnlyMatchingCategory() throws Exception {
         Member seller = saveMember("seller13", Role.SELLER);

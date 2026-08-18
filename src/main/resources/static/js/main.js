@@ -26,6 +26,8 @@
  * - 마감임박 배지: activeTeamDeadline까지 3일(DEADLINE_URGENT_DAYS) 이하로 남았을 때만 카드 이미지에
  *   배지를 그린다(product/list-sort). "마감임박순" 정렬(sort=DEADLINE)과는 별개 기능 — 정렬은 항상
  *   가능하고, 배지는 실제로 임박했을 때만 뜬다.
+ * - 오픈예정 배지(product/product-launch): openAt이 미래 시각인 상품 카드에 "오픈예정" 배지를
+ *   그린다(마감임박 배지와는 구조적으로 동시에 뜨지 않음 — 오픈 전 상품은 팀을 가질 수 없다).
  * - 찜 하트(product/wishlist): 로그인한 구매자만 실제로 토글된다(서버 최종 판정, 403은 조용히 무시).
  *   비로그인 클릭은 로그인 페이지로 이동(redirect 쿼리파라미터로 원래 페이지 복귀). 로그인한 회원
  *   정보는 js/header-auth.js가 발행하는 'gong9ri:auth-resolved' 이벤트로 재사용한다(다른 페이지들과
@@ -315,9 +317,16 @@
     // 마감임박 배지(product/list-sort) — 대표 팀(진행바와 같은 팀) 마감까지 3일 이하로 남았을 때만
     // 노출한다. 모든 카드에 "N일 남음"을 항상 보여주면 정보 과잉이라, 실제로 급한 것만 강조한다
     // (와디즈/텀블벅 등 참고 사이트도 "마감임박"을 상시 카운터가 아니라 별도 태그로 씀).
-    var deadlineBadgeEl = createDeadlineBadge(product.activeTeamDeadline);
-    if (deadlineBadgeEl) {
-      imageEl.appendChild(deadlineBadgeEl);
+    // 오픈예정(product/product-launch) — openAt이 미래인 상품은 아직 RECRUITING 팀을 가질 수 없어
+    // (TeamService.create()가 서버에서 거절) 마감임박 배지와 동시에 뜨는 경우가 구조적으로 없다.
+    var openAtBadgeEl = createOpenAtBadge(product.openAt);
+    if (openAtBadgeEl) {
+      imageEl.appendChild(openAtBadgeEl);
+    } else {
+      var deadlineBadgeEl = createDeadlineBadge(product.activeTeamDeadline);
+      if (deadlineBadgeEl) {
+        imageEl.appendChild(deadlineBadgeEl);
+      }
     }
 
     // 찜 하트 — 카드 링크(<a>) 안에 있어 클릭 시 상세 페이지로 이동하지 않게 이벤트 전파를 막는다.
@@ -388,6 +397,25 @@
    * activeTeamCurrentCount/activeTeamTargetParticipants가 둘 다 없으면(RECRUITING 팀 없음) null을
    * 반환해 진행바 자체를 렌더링하지 않는다.
    */
+  /**
+   * @param {string} openAtIso  ProductSummaryResponse.openAt(ISO 문자열) 또는 null
+   * @returns {?HTMLElement} 미래 시각이면 "오픈예정" 배지, 아니면(이미 공개됨) null
+   */
+  function createOpenAtBadge(openAtIso) {
+    if (!openAtIso) {
+      return null;
+    }
+    var openAt = new Date(openAtIso);
+    if (isNaN(openAt.getTime()) || openAt.getTime() <= Date.now()) {
+      return null;
+    }
+
+    var badgeEl = document.createElement('span');
+    badgeEl.className = 'badge badge-upcoming';
+    badgeEl.textContent = '오픈예정';
+    return badgeEl;
+  }
+
   /**
    * @param {string} deadlineIso  ProductSummaryResponse.activeTeamDeadline(ISO 문자열) 또는 null
    * @returns {?HTMLElement} 마감까지 DEADLINE_URGENT_DAYS일 이하로 남았을 때만 배지 엘리먼트, 아니면 null

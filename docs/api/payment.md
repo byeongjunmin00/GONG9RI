@@ -53,6 +53,7 @@
   |------|------|------|
   | `VALIDATION_FAILED` | 400 | 필드 유효성 실패 |
   | `PRODUCT_NOT_FOUND` | 404 | 존재하지 않는 상품 |
+  | `PRODUCT_NOT_YET_OPEN` | 409 | 오픈예정 시각이 아직 안 지난 상품(product/product-launch) |
   | `TEAM_NOT_FOUND` | 404 | 존재하지 않는 팀 |
   | `TEAM_FULL` | 409 | 정원 초과 (동시 요청 경합 시) |
   | `FORBIDDEN` | 403 | 판매자 계정으로 결제 시도 (구매자만 결제 가능) |

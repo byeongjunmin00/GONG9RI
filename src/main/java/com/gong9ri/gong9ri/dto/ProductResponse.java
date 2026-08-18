@@ -25,7 +25,11 @@ public record ProductResponse(
         // 패턴(도메인 화이트리스트로 보호되는 공개 가능한 값이라 별도 인증 없이 내려줘도 무방).
         String kakaoJsKey,
         // 메인 페이지 카테고리 필터용(product/category). 판매자 등록/수정 폼 프리필에도 쓰인다.
-        ProductCategory category
+        ProductCategory category,
+        // 오픈예정(product/product-launch) — null이면 이미 공개된 상품(하위 호환 기본값). 미래 시각이면
+        // 그 전까지 혼자구매·신규 팀 신설이 서버에서 거절된다(PRODUCT_NOT_YET_OPEN). 판매자 등록/수정
+        // 폼 프리필에도 쓰인다.
+        LocalDateTime openAt
 ) {
     public static ProductResponse of(Product product, List<PriceTier> priceTiers, String kakaoJsKey) {
         return new ProductResponse(
@@ -41,7 +45,8 @@ public record ProductResponse(
                 product.getImageUrl(),
                 product.isAutoRefundOnCancel(),
                 kakaoJsKey,
-                product.getCategory()
+                product.getCategory(),
+                product.getOpenAt()
         );
     }
 }

@@ -57,6 +57,7 @@
   var targetParticipantsOptionsEl = document.getElementById('target-participants-options');
   var refundNoticeCheckboxEl = document.getElementById('refund-notice-checkbox');
 
+  var openAtNoticeEl = document.getElementById('open-at-notice');
   var buyAloneBtn = document.getElementById('buy-alone-btn');
   var createTeamBtn = document.getElementById('create-team-btn');
   var kakaoShareBtn = document.getElementById('kakao-share-btn');
@@ -87,7 +88,7 @@
     !sellerEl || !nameEl || !descriptionEl || !descriptionStatusEl || !basePriceEl || !maxParticipantsEl ||
     !priceTiersTableEl || !priceTiersBodyEl || !targetParticipantsFieldEl || !targetParticipantsOptionsEl ||
     !refundNoticeCheckboxEl ||
-    !buyAloneBtn || !createTeamBtn || !kakaoShareBtn ||
+    !openAtNoticeEl || !buyAloneBtn || !createTeamBtn || !kakaoShareBtn ||
     !teamStatusEl || !teamListEl ||
     !reviewAverageEl || !reviewsStatusEl || !reviewsListEl || !reviewFormEl || !reviewFormAlertEl ||
     !reviewRatingEl || !reviewContentEl || !reviewSubmitBtn ||
@@ -112,6 +113,10 @@
   // 이 상품의 판매자 id. renderProduct에서 채워진다 — currentMemberId와 비교해 답변 등록/수정/삭제
   // UI 노출 여부를 결정한다(design.md 결정).
   var currentSellerId = null;
+  // 오픈예정(product/product-launch) — product.openAt이 미래 시각이면 true. renderProduct에서 채워진다.
+  // true면 "혼자 구매하기"를 비활성화하고, "신규 팀 신설하기"는 기존 게이트(목표인원+환불동의)와
+  // 함께 updateCreateTeamButtonState()에서 판단한다.
+  var productNotYetOpen = false;
 
   function formatPrice(value) {
     if (typeof value !== 'number') {
@@ -250,6 +255,8 @@
       imageEl.appendChild(imgEl);
     }
 
+    updateOpenAtNotice(product.openAt);
+
     currentSellerId = typeof product.sellerId === 'number' ? product.sellerId : null;
 
     sellerEl.textContent = product.sellerName || '';
@@ -366,7 +373,30 @@
   }
 
   function updateCreateTeamButtonState() {
-    createTeamBtn.disabled = selectedTargetParticipants === null || !refundNoticeAccepted();
+    createTeamBtn.disabled = productNotYetOpen || selectedTargetParticipants === null || !refundNoticeAccepted();
+  }
+
+  /**
+   * 오픈예정(product/product-launch) 안내 — product.openAt이 미래면 배너를 띄우고 구매/신설 버튼을
+   * 막는다. 실제 최종 판정은 항상 서버(PRODUCT_NOT_YET_OPEN)이고, 이건 UX 보조일 뿐이다 — 예를 들어
+   * 페이지를 열어둔 채로 오픈 시각이 지나도 새로고침 전까진 여기서 다시 활성화하지 않는다(그 경우
+   * 서버가 정상 처리하므로 기능상 문제는 없음, 다음 새로고침에서 배너가 사라짐).
+   */
+  function updateOpenAtNotice(openAtIso) {
+    var openAt = openAtIso ? new Date(openAtIso) : null;
+    productNotYetOpen = !!(openAt && !isNaN(openAt.getTime()) && openAt.getTime() > Date.now());
+
+    if (!productNotYetOpen) {
+      openAtNoticeEl.hidden = true;
+      buyAloneBtn.disabled = false;
+      return;
+    }
+
+    openAtNoticeEl.hidden = false;
+    openAtNoticeEl.className = 'form-alert form-alert--error';
+    openAtNoticeEl.textContent =
+      '오픈예정 상품입니다(' + openAt.toLocaleString('ko-KR') + ' 공개 예정). 그 전까지는 구매·팀 신설이 불가합니다.';
+    buyAloneBtn.disabled = true;
   }
 
   /**
