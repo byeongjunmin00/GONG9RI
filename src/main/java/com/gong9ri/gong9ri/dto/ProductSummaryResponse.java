@@ -29,9 +29,13 @@ public record ProductSummaryResponse(
         LocalDateTime activeTeamDeadline,
         // 오픈예정(product/product-launch) — null이면 이미 공개된 상품. 미래 시각이면 카드에 "오픈예정"
         // 배지를 띄우고 혼자구매·신규 팀 신설 버튼을 비활성화한다(최종 판정은 서버, PRODUCT_NOT_YET_OPEN).
-        LocalDateTime openAt
+        LocalDateTime openAt,
+        // 판매자 신뢰 배지(product/seller-trust) — 이 판매자의 전체 상품에 달린 리뷰 평균 평점·개수가
+        // 기준(ProductService.TRUSTED_SELLER_*)을 넘으면 true. 새 평판 시스템을 따로 만들지 않고 이미
+        // 있는 리뷰 데이터로만 계산한다.
+        boolean sellerTrustedBadge
 ) {
-    public static ProductSummaryResponse of(Product product, Integer bestPrice) {
+    public static ProductSummaryResponse of(Product product, Integer bestPrice, boolean sellerTrustedBadge) {
         return new ProductSummaryResponse(
                 product.getId(),
                 product.getName(),
@@ -45,13 +49,14 @@ public record ProductSummaryResponse(
                 null,
                 null,
                 null,
-                product.getOpenAt()
+                product.getOpenAt(),
+                sellerTrustedBadge
         );
     }
 
     public ProductSummaryResponse withActiveTeamProgress(Integer currentCount, Integer targetParticipants,
             LocalDateTime deadline) {
         return new ProductSummaryResponse(productId, name, basePrice, bestPrice, maxParticipants, sellerName,
-                createdAt, imageUrl, category, currentCount, targetParticipants, deadline, openAt);
+                createdAt, imageUrl, category, currentCount, targetParticipants, deadline, openAt, sellerTrustedBadge);
     }
 }

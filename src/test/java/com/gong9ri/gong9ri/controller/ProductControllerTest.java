@@ -14,11 +14,13 @@ import com.gong9ri.gong9ri.entity.Member;
 import com.gong9ri.gong9ri.entity.PriceTier;
 import com.gong9ri.gong9ri.entity.Product;
 import com.gong9ri.gong9ri.entity.ProductCategory;
+import com.gong9ri.gong9ri.entity.Review;
 import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.MemberRepository;
 import com.gong9ri.gong9ri.repository.PriceTierRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
+import com.gong9ri.gong9ri.repository.ReviewRepository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +57,9 @@ class ProductControllerTest {
 
     @Autowired
     private GroupBuyTeamRepository groupBuyTeamRepository;
+
+    @Autowired
+    private ReviewRepository reviewRepository;
 
     private Member saveMember(String username, Role role) {
         Member member = new Member(username, "encoded-password", "테스트유저", username + "@test.com", role);
@@ -458,5 +463,62 @@ class ProductControllerTest {
                         .with(asUser(otherSeller)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("판매자 평균 평점 4.5 이상·리뷰 3개 이상이면 상품 상세에 sellerTrustedBadge=true")
+    void detail_sellerTrustedBadge_true_whenRatingAndCountMeetThreshold() throws Exception {
+        Member seller = saveMember("seller20", Role.SELLER);
+        Product product = saveProduct(seller);
+        for (int i = 0; i < 3; i++) {
+            Member buyer = saveMember("trustedReviewer" + i, Role.BUYER);
+            reviewRepository.save(new Review(product, buyer, 5, "좋아요"));
+        }
+
+        mockMvc.perform(get("/api/products/" + product.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sellerTrustedBadge").value(true));
+    }
+
+    @Test
+    @DisplayName("리뷰가 3개 미만이면 평점이 만점이어도 sellerTrustedBadge=false")
+    void detail_sellerTrustedBadge_false_whenReviewCountBelowThreshold() throws Exception {
+        Member seller = saveMember("seller21", Role.SELLER);
+        Product product = saveProduct(seller);
+        for (int i = 0; i < 2; i++) {
+            Member buyer = saveMember("underReviewer" + i, Role.BUYER);
+            reviewRepository.save(new Review(product, buyer, 5, "좋아요"));
+        }
+
+        mockMvc.perform(get("/api/products/" + product.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sellerTrustedBadge").value(false));
+    }
+
+    @Test
+    @DisplayName("리뷰가 하나도 없으면 sellerTrustedBadge=false")
+    void detail_sellerTrustedBadge_false_whenNoReviews() throws Exception {
+        Member seller = saveMember("seller22", Role.SELLER);
+        Product product = saveProduct(seller);
+
+        mockMvc.perform(get("/api/products/" + product.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sellerTrustedBadge").value(false));
+    }
+
+    @Test
+    @DisplayName("목록 조회 응답에도 sellerTrustedBadge가 포함된다")
+    void list_includesSellerTrustedBadge() throws Exception {
+        int size = 204; // 다른 테스트와 캐시 키가 겹치지 않게 이 테스트 전용 size 사용
+        Member seller = saveMember("seller23", Role.SELLER);
+        Product product = saveProduct(seller, "신뢰배지목록테스트상품", ProductCategory.ETC);
+        for (int i = 0; i < 3; i++) {
+            Member buyer = saveMember("listTrustReviewer" + i, Role.BUYER);
+            reviewRepository.save(new Review(product, buyer, 5, "좋아요"));
+        }
+
+        mockMvc.perform(get("/api/products").param("category", "ETC").param("size", String.valueOf(size)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].sellerTrustedBadge").value(true));
     }
 }

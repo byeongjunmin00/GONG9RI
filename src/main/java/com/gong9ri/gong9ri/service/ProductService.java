@@ -21,6 +21,8 @@ import com.gong9ri.gong9ri.repository.BestPriceProjection;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.PriceTierRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
+import com.gong9ri.gong9ri.repository.ReviewRepository;
+import com.gong9ri.gong9ri.repository.SellerRatingProjection;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -45,9 +47,15 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final PriceTierRepository priceTierRepository;
     private final GroupBuyTeamRepository groupBuyTeamRepository;
+    private final ReviewRepository reviewRepository;
 
     @Value("${kakao.js-key}")
     private String kakaoJsKey;
+
+    // 판매자 신뢰 배지(product/seller-trust) 기준 — 실측 근거 없는 초기값, 운영하며 조정 예정.
+    // 평균 평점만 보면 리뷰 1~2개짜리 판매자도 배지를 달 수 있어 최소 리뷰 개수도 함께 요구한다.
+    private static final double TRUSTED_SELLER_MIN_RATING = 4.5;
+    private static final long TRUSTED_SELLER_MIN_REVIEW_COUNT = 3L;
 
     // 조회 빈도가 높고 등록/수정/삭제 전까지 안 변해 캐싱 효과가 크다 (docs/policy/caching.md).
     // 정렬 조건(ORDER BY)이 없어 새 상품이 어느 페이지에 들어갈지 특정할 수 없으므로,
@@ -76,9 +84,32 @@ public class ProductService {
                 : priceTierRepository.findBestPricesByProductIds(productIds).stream()
                         .collect(Collectors.toMap(BestPriceProjection::getProductId, BestPriceProjection::getBestPrice));
 
+        List<Long> sellerIds = products.getContent().stream().map(product -> product.getSeller().getId()).distinct().toList();
+        Map<Long, Boolean> trustedSellers = trustedSellerMap(sellerIds);
+
         Page<ProductSummaryResponse> mapped = products.map(
-                product -> ProductSummaryResponse.of(product, bestPrices.get(product.getId())));
+                product -> ProductSummaryResponse.of(product, bestPrices.get(product.getId()),
+                        trustedSellers.getOrDefault(product.getSeller().getId(), false)));
         return ProductPageResponse.of(mapped);
+    }
+
+    // 판매자 신뢰 배지(product/seller-trust) — 여러 상품의 판매자 신뢰 여부를 한 번의 집계 쿼리로 계산한다
+    // (product/list-progress의 bestPrices와 동일한 N+1 회피 패턴). 목록/상세 캐시(PRODUCT_LIST_CACHE·
+    // PRODUCT_DETAIL_CACHE) 안에 그대로 포함시켜 최대 TTL(30분)만큼 낡을 수 있음을 감수한다 — 리뷰 평균은
+    // 팀 진행률처럼 사용자가 실시간으로 지켜보는 값이 아니라 판단 기준용 참고 지표라 activeTeamCurrentCount
+    // 만큼 신선할 필요는 없다고 판단(POPULAR 정렬과 같은 이유).
+    private Map<Long, Boolean> trustedSellerMap(List<Long> sellerIds) {
+        if (sellerIds.isEmpty()) {
+            return Map.of();
+        }
+        return reviewRepository.findSellerRatingSummaries(sellerIds).stream()
+                .collect(Collectors.toMap(SellerRatingProjection::getSellerId, this::isTrustedSeller));
+    }
+
+    private boolean isTrustedSeller(SellerRatingProjection rating) {
+        return rating.getAverageRating() != null
+                && rating.getAverageRating() >= TRUSTED_SELLER_MIN_RATING
+                && rating.getReviewCount() >= TRUSTED_SELLER_MIN_REVIEW_COUNT;
     }
 
     /**
@@ -126,7 +157,9 @@ public class ProductService {
     public ProductResponse detail(Long productId) {
         Product product = findProductWithSeller(productId);
         List<PriceTier> priceTiers = priceTierRepository.findByProductIdOrderByMinCountAsc(productId);
-        return ProductResponse.of(product, priceTiers, kakaoJsKey);
+        boolean trusted = trustedSellerMap(List.of(product.getSeller().getId()))
+                .getOrDefault(product.getSeller().getId(), false);
+        return ProductResponse.of(product, priceTiers, kakaoJsKey, trusted);
     }
 
     // 신규 상품이 어느 페이지에 들어갈지 특정할 수 없어(ORDER BY 없음) 목록 캐시를 전체 무효화한다.
@@ -144,7 +177,8 @@ public class ProductService {
 
         List<PriceTier> priceTiers = savePriceTiers(saved, request.priceTiers());
         log.info("상품 등록 완료: productId={}, sellerId={}", saved.getId(), seller.getId());
-        return ProductResponse.of(saved, priceTiers, kakaoJsKey);
+        boolean trusted = trustedSellerMap(List.of(seller.getId())).getOrDefault(seller.getId(), false);
+        return ProductResponse.of(saved, priceTiers, kakaoJsKey, trusted);
     }
 
     // 이름/가격 등이 바뀌면 이 상품이 포함된 목록 페이지가 달라질 수 있어(어느 페이지인지 특정 불가) 목록 캐시도
@@ -166,7 +200,9 @@ public class ProductService {
         List<PriceTier> priceTiers = savePriceTiers(product, request.priceTiers());
 
         log.info("상품 수정 완료: productId={}", productId);
-        return ProductResponse.of(product, priceTiers, kakaoJsKey);
+        Long sellerId = product.getSeller().getId();
+        boolean trusted = trustedSellerMap(List.of(sellerId)).getOrDefault(sellerId, false);
+        return ProductResponse.of(product, priceTiers, kakaoJsKey, trusted);
     }
 
     // update와 동일한 이유로 상세(해당 productId)·목록(전체) 캐시를 함께 무효화한다.

@@ -31,7 +31,8 @@
         "activeTeamCurrentCount": 8,
         "activeTeamTargetParticipants": 10,
         "activeTeamDeadline": "2026-08-20T10:00:00",
-        "openAt": null
+        "openAt": null,
+        "sellerTrustedBadge": true
       }
     ],
     "page": 0,
@@ -46,6 +47,9 @@
   > (프론트는 이때 진행바·배지를 숨긴다). 팀 상태는 자주 바뀌는 값이라 목록 캐시(30분 TTL)에 포함시키지
   > 않고 매 요청마다 최신 값을 조회한다. `activeTeamDeadline`은 이 팀(진행률 최고 팀)의 마감일이며,
   > `sort=DEADLINE`이 고르는 "가장 이른 마감일의 팀"과는 다른 팀일 수 있다(선택 기준이 다름).
+
+  > `sellerTrustedBadge`: 판매자 신뢰 배지(product/seller-trust). 이 판매자의 전체 상품에 달린 리뷰
+  > 평균 평점이 4.5 이상이고 리뷰 개수가 3개 이상이면 `true`. 목록 캐시(30분 TTL)에 그대로 포함된다.
 
 ---
 
@@ -73,7 +77,8 @@
     "autoRefundOnCancel": false,
     "kakaoJsKey": "abcd1234...",
     "category": "FOOD",
-    "openAt": null
+    "openAt": null,
+    "sellerTrustedBadge": true
   }
   ```
 
@@ -83,6 +88,8 @@
   > `openAt`: 오픈예정(product/product-launch) 시각. `null`이면 이미 공개된 상품. 미래 시각이면 그
   > 전까지 혼자구매·신규 팀 신설이 `409 PRODUCT_NOT_YET_OPEN`으로 거절된다(`docs/api/payment.md`,
   > `docs/api/team.md`).
+
+  > `sellerTrustedBadge`: 목록 응답과 동일 기준(product/seller-trust).
 
   > `autoRefundOnCancel`: 참여 취소(`docs/api/team.md`의 `POST /api/teams/{teamId}/leave`)로 자동
   > 생성되는 환불 요청을 판매자 승인 없이 즉시 처리할지 여부(`docs/api/refund.md`). 솔로 구매 직접

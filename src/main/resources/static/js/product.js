@@ -46,6 +46,7 @@
   var imageEl = document.getElementById('product-image');
 
   var sellerEl = document.getElementById('product-seller');
+  var sellerTrustEl = document.getElementById('product-seller-trust');
   var nameEl = document.getElementById('product-name');
   var descriptionEl = document.getElementById('product-description');
   var descriptionStatusEl = document.getElementById('product-description-status');
@@ -260,6 +261,7 @@
     currentSellerId = typeof product.sellerId === 'number' ? product.sellerId : null;
 
     sellerEl.textContent = product.sellerName || '';
+    sellerTrustEl.hidden = !product.sellerTrustedBadge;
     nameEl.textContent = product.name || '';
     if (product.description) {
       descriptionEl.hidden = false;

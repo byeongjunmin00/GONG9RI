@@ -29,9 +29,12 @@ public record ProductResponse(
         // 오픈예정(product/product-launch) — null이면 이미 공개된 상품(하위 호환 기본값). 미래 시각이면
         // 그 전까지 혼자구매·신규 팀 신설이 서버에서 거절된다(PRODUCT_NOT_YET_OPEN). 판매자 등록/수정
         // 폼 프리필에도 쓰인다.
-        LocalDateTime openAt
+        LocalDateTime openAt,
+        // 판매자 신뢰 배지(product/seller-trust) — ProductSummaryResponse와 동일 기준.
+        boolean sellerTrustedBadge
 ) {
-    public static ProductResponse of(Product product, List<PriceTier> priceTiers, String kakaoJsKey) {
+    public static ProductResponse of(Product product, List<PriceTier> priceTiers, String kakaoJsKey,
+            boolean sellerTrustedBadge) {
         return new ProductResponse(
                 product.getId(),
                 product.getSeller().getId(),
@@ -46,7 +49,8 @@ public record ProductResponse(
                 product.isAutoRefundOnCancel(),
                 kakaoJsKey,
                 product.getCategory(),
-                product.getOpenAt()
+                product.getOpenAt(),
+                sellerTrustedBadge
         );
     }
 }

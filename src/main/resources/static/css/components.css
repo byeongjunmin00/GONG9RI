@@ -151,9 +151,33 @@
   padding: var(--space-4);
 }
 
+.card-seller-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .card-seller {
   font-size: var(--fs-xs);
   color: var(--color-text-muted);
+}
+
+/* ---------- 판매자 신뢰 배지 (product/seller-trust) ---------- */
+.card-seller-trust {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 800;
+  background: rgba(139, 92, 246, 0.12);
+  color: var(--color-purple);
+  white-space: nowrap;
+}
+
+.card-seller-trust::before {
+  content: '\2713';
 }
 
 .card-title {

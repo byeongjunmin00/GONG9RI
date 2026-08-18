@@ -352,10 +352,25 @@
     var bodyEl = document.createElement('div');
     bodyEl.className = 'card-body';
 
+    var sellerRowEl = document.createElement('div');
+    sellerRowEl.className = 'card-seller-row';
+
     var sellerEl = document.createElement('span');
     sellerEl.className = 'card-seller';
     sellerEl.textContent = product.sellerName || '';
-    bodyEl.appendChild(sellerEl);
+    sellerRowEl.appendChild(sellerEl);
+
+    // 판매자 신뢰 배지(product/seller-trust) — 이 판매자의 리뷰 평균 평점·개수가 기준을 넘을 때만
+    // 노출한다(ProductService.isTrustedSeller). 새 평판 시스템을 별도로 만들지 않고 이미 있는 리뷰
+    // 데이터로만 판단해, 근거 없는 "인기 판매자" 같은 막연한 배지보다 신뢰할 수 있는 신호로 삼는다.
+    if (product.sellerTrustedBadge) {
+      var trustEl = document.createElement('span');
+      trustEl.className = 'card-seller-trust';
+      trustEl.textContent = '신뢰 판매자';
+      sellerRowEl.appendChild(trustEl);
+    }
+
+    bodyEl.appendChild(sellerRowEl);
 
     var titleEl = document.createElement('h3');
     titleEl.className = 'card-title';
