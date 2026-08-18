@@ -30,8 +30,10 @@ public record ProductResponse(
         // 그 전까지 혼자구매·신규 팀 신설이 서버에서 거절된다(PRODUCT_NOT_YET_OPEN). 판매자 등록/수정
         // 폼 프리필에도 쓰인다.
         LocalDateTime openAt,
-        // 판매자 신뢰 배지(product/seller-trust) — ProductSummaryResponse와 동일 기준.
-        boolean sellerTrustedBadge
+        // 판매자 신뢰 배지(product/seller-trust) — ProductSummaryResponse와 동일 기준. boolean이 아니라
+        // Boolean이어야 하는 이유도 동일(ProductSummaryResponse.sellerTrustedBadge 필드 주석 참고 —
+        // 이 필드 추가 이전에 캐시된 상세 응답을 배포 직후 읽으면 primitive는 역직렬화 시 500을 낸다).
+        Boolean sellerTrustedBadge
 ) {
     public static ProductResponse of(Product product, List<PriceTier> priceTiers, String kakaoJsKey,
             boolean sellerTrustedBadge) {

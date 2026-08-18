@@ -33,7 +33,16 @@ public record ProductSummaryResponse(
         // 판매자 신뢰 배지(product/seller-trust) — 이 판매자의 전체 상품에 달린 리뷰 평균 평점·개수가
         // 기준(ProductService.TRUSTED_SELLER_*)을 넘으면 true. 새 평판 시스템을 따로 만들지 않고 이미
         // 있는 리뷰 데이터로만 계산한다.
-        boolean sellerTrustedBadge
+        //
+        // 반드시 boolean이 아니라 Boolean(boxed)이어야 한다 — 이 필드는 목록 캐시(PRODUCT_LIST_CACHE,
+        // Redis+JSON, 30분 TTL)에 그대로 실려 저장된다. 이 필드를 추가하기 "전"에 이미 캐시돼 있던
+        // 항목을 배포 직후 읽으면, 그 JSON엔 이 필드 자체가 없다 — primitive boolean이면 Jackson이
+        // FAIL_ON_NULL_FOR_PRIMITIVES 때문에 MismatchedInputException을 던져 GET /api/products가
+        // 그대로 500이 나버린다(실제로 프로덕션에서 재현됨, docs/logs 참고). Boolean이면 그냥 null로
+        // 채워져 조용히 지나간다. openAt/activeTeamCurrentCount 등 이후에 추가된 캐시 필드가 전부
+        // 참조형(Integer/LocalDateTime)인 것도 같은 이유 — 이 캐시에 새 필드를 추가할 땐 항상 boxed
+        // 타입을 써야 한다.
+        Boolean sellerTrustedBadge
 ) {
     public static ProductSummaryResponse of(Product product, Integer bestPrice, boolean sellerTrustedBadge) {
         return new ProductSummaryResponse(
