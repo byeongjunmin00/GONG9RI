@@ -2,6 +2,7 @@ package com.gong9ri.gong9ri.dto;
 
 import com.gong9ri.gong9ri.entity.PriceTier;
 import com.gong9ri.gong9ri.entity.Product;
+import com.gong9ri.gong9ri.entity.ProductCategory;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -22,7 +23,9 @@ public record ProductResponse(
         // 카카오톡 공유하기(docs/dev/share/kakao-share/design.md)용 — 브라우저에서 Kakao.init(...)에
         // 그대로 쓰인다. portoneStoreId/portoneChannelKey를 PaymentResponse에 실어 내려주는 것과 동일한
         // 패턴(도메인 화이트리스트로 보호되는 공개 가능한 값이라 별도 인증 없이 내려줘도 무방).
-        String kakaoJsKey
+        String kakaoJsKey,
+        // 메인 페이지 카테고리 필터용(product/category). 판매자 등록/수정 폼 프리필에도 쓰인다.
+        ProductCategory category
 ) {
     public static ProductResponse of(Product product, List<PriceTier> priceTiers, String kakaoJsKey) {
         return new ProductResponse(
@@ -37,7 +40,8 @@ public record ProductResponse(
                 product.getCreatedAt(),
                 product.getImageUrl(),
                 product.isAutoRefundOnCancel(),
-                kakaoJsKey
+                kakaoJsKey,
+                product.getCategory()
         );
     }
 }

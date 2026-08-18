@@ -8,12 +8,17 @@ import com.gong9ri.gong9ri.dto.PriceTierRequest;
 import com.gong9ri.gong9ri.dto.ProductPageResponse;
 import com.gong9ri.gong9ri.dto.ProductRegisterRequest;
 import com.gong9ri.gong9ri.dto.ProductResponse;
+import com.gong9ri.gong9ri.dto.ProductSort;
 import com.gong9ri.gong9ri.dto.ProductSummaryResponse;
+import com.gong9ri.gong9ri.entity.GroupBuyTeam;
 import com.gong9ri.gong9ri.entity.Member;
 import com.gong9ri.gong9ri.entity.PriceTier;
 import com.gong9ri.gong9ri.entity.Product;
+import com.gong9ri.gong9ri.entity.ProductCategory;
 import com.gong9ri.gong9ri.entity.Role;
+import com.gong9ri.gong9ri.entity.TeamStatus;
 import com.gong9ri.gong9ri.repository.BestPriceProjection;
+import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.PriceTierRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
 import java.util.List;
@@ -39,6 +44,7 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final PriceTierRepository priceTierRepository;
+    private final GroupBuyTeamRepository groupBuyTeamRepository;
 
     @Value("${kakao.js-key}")
     private String kakaoJsKey;
@@ -46,10 +52,19 @@ public class ProductService {
     // 조회 빈도가 높고 등록/수정/삭제 전까지 안 변해 캐싱 효과가 크다 (docs/policy/caching.md).
     // 정렬 조건(ORDER BY)이 없어 새 상품이 어느 페이지에 들어갈지 특정할 수 없으므로,
     // 무효화는 특정 키가 아니라 이 캐시 전체를 대상으로 한다(register/update/delete).
-    @Cacheable(cacheNames = CacheConfig.PRODUCT_LIST_CACHE, key = "#page + '-' + #size")
-    public ProductPageResponse list(int page, int size) {
+    // 캐시 키에 category를 포함해야 한다 — 안 그러면 카테고리로 필터링된 결과가 "전체" 조회 캐시를
+    // 덮어써버리거나(반대의 경우도 마찬가지) 서로 다른 카테고리 결과가 같은 캐시 엔트리를 공유하게 된다.
+    // sort=POPULAR도 캐시 키에 포함한다 — 인기순 순위는 팀 참가마다 바뀌는 값이라 이 페이지 자체가
+    // 최대 TTL(30분)만큼 낡을 수 있는데, activeTeamCurrentCount(카드 진행바 숫자, 사실을 보여줌)와
+    // 달리 "정렬 순서"는 30분 단위로 갱신돼도 되는 수준의 신선도로 판단해 그대로 캐싱한다(순위 사이트
+    // 다수가 실시간이 아니라 주기 갱신인 것과 같은 이유) — activeTeamCurrentCount처럼 캐시 밖으로
+    // 빼지 않는다.
+    @Cacheable(cacheNames = CacheConfig.PRODUCT_LIST_CACHE,
+            key = "#page + '-' + #size + '-' + (#category != null ? #category : 'ALL')"
+                    + " + '-' + (#sort != null ? #sort : 'NONE')")
+    public ProductPageResponse list(int page, int size, ProductCategory category, ProductSort sort) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<Product> products = productRepository.findAllWithSeller(pageable);
+        Page<Product> products = productRepository.findAllWithSeller(pageable, category, sort);
 
         List<Long> productIds = products.getContent().stream().map(Product::getId).toList();
         Map<Long, Integer> bestPrices = productIds.isEmpty()
@@ -60,6 +75,45 @@ public class ProductService {
         Page<ProductSummaryResponse> mapped = products.map(
                 product -> ProductSummaryResponse.of(product, bestPrices.get(product.getId())));
         return ProductPageResponse.of(mapped);
+    }
+
+    /**
+     * 메인 페이지 카드 진행바(product/list-progress) — {@link #list}가 반환한(캐시됐을 수 있는) 페이지를
+     * 받아, 각 상품의 RECRUITING 팀 중 진행률(currentCount/maxParticipants)이 가장 높은 팀의 스냅샷을
+     * 얹어 새 응답을 만든다. 팀 상태는 자주 바뀌는 값이라 캐시하지 않고 항상 이 메서드를 호출한 시점의
+     * 최신 값을 조회한다({@link ProductSummaryResponse} 필드 주석 참고) — {@code list}와 별도 public
+     * 메서드로 분리한 이유도, 같은 클래스 안에서 {@code list}를 호출하면(self-invocation) Spring의
+     * {@code @Cacheable} 프록시를 우회해버리는 문제를 피하기 위함이다(호출자가 두 메서드를 각자 호출).
+     */
+    public ProductPageResponse attachActiveTeamProgress(ProductPageResponse page) {
+        List<Long> productIds = page.content().stream().map(ProductSummaryResponse::productId).toList();
+        if (productIds.isEmpty()) {
+            return page;
+        }
+
+        List<GroupBuyTeam> recruitingTeams =
+                groupBuyTeamRepository.findByProductIdInAndStatus(productIds, TeamStatus.RECRUITING);
+
+        Map<Long, GroupBuyTeam> bestTeamByProductId = recruitingTeams.stream()
+                .collect(Collectors.toMap(
+                        team -> team.getProduct().getId(),
+                        team -> team,
+                        (teamA, teamB) -> progressRatio(teamA) >= progressRatio(teamB) ? teamA : teamB));
+
+        List<ProductSummaryResponse> enriched = page.content().stream()
+                .map(summary -> {
+                    GroupBuyTeam bestTeam = bestTeamByProductId.get(summary.productId());
+                    return bestTeam == null
+                            ? summary
+                            : summary.withActiveTeamProgress(bestTeam.getCurrentCount(), bestTeam.getMaxParticipants());
+                })
+                .toList();
+
+        return new ProductPageResponse(enriched, page.page(), page.size(), page.totalElements());
+    }
+
+    private double progressRatio(GroupBuyTeam team) {
+        return team.getMaxParticipants() == 0 ? 0 : (double) team.getCurrentCount() / team.getMaxParticipants();
     }
 
     // 상품 상세도 등록/수정/삭제 전까지 안 변해 productId 기준으로 캐싱한다 (docs/policy/caching.md).
@@ -80,7 +134,7 @@ public class ProductService {
 
         Product product = new Product(seller, request.name(), request.description(),
                 request.basePrice(), request.maxParticipants(), request.imageUrl(),
-                Boolean.TRUE.equals(request.autoRefundOnCancel()));
+                Boolean.TRUE.equals(request.autoRefundOnCancel()), request.category());
         Product saved = productRepository.save(product);
 
         List<PriceTier> priceTiers = savePriceTiers(saved, request.priceTiers());
@@ -101,7 +155,7 @@ public class ProductService {
         requireOwner(principal, product);
 
         product.update(request.name(), request.description(), request.basePrice(), request.maxParticipants(),
-                request.imageUrl(), Boolean.TRUE.equals(request.autoRefundOnCancel()));
+                request.imageUrl(), Boolean.TRUE.equals(request.autoRefundOnCancel()), request.category());
         priceTierRepository.deleteByProductId(productId);
         List<PriceTier> priceTiers = savePriceTiers(product, request.priceTiers());
 

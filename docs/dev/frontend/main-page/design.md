@@ -8,13 +8,32 @@ GONG9RI의 첫 화면(`/`)이다. 공통 디자인 시스템(`docs/dev/frontend/
 
 ```
 src/main/resources/static/
-├── index.html               # 메인 페이지 마크업 (헤더/푸터 include + 히어로 문구 + 상품 카드 그리드 + "더 보기" 버튼)
+├── index.html               # 메인 페이지 마크업 (헤더/푸터 include + 프로모션 바 + 카테고리/정렬 + 상품 카드 그리드 + "더 보기" 버튼)
 └── js/
-    └── main.js               # `Api.get('/products')` 호출 → 카드 렌더링, 로딩/빈 목록/에러 상태 처리, "더 보기" 페이지네이션
+    └── main.js               # 프로모션 바 캐러셀, 카테고리/정렬 상태 관리, `Api.get('/products')` 호출 → 카드(+진행바) 렌더링, 페이지네이션
 ```
 
-- `css/components.css`에 `.product-status`(로딩/빈 목록/에러 공통 안내), `.load-more-wrap`, `.btn[hidden] { display: none; }`(버튼에 `hidden` 속성이 항상 적용되도록 하는 specificity 보정 규칙) 추가.
+- `css/components.css`에 `.product-status`(로딩/빈 목록/에러 공통 안내), `.load-more-wrap`, `.btn[hidden] { display: none; }`(버튼에 `hidden` 속성이 항상 적용되도록 하는 specificity 보정 규칙), `.promo-bar*`(프로모션 바), `.category-bar*`/`.sort-select`(카테고리·정렬), `.card-progress*`(카드 진행바) 추가.
 - 신규 CSS 파일 없음 — `css/tokens.css`, `base.css`, `layout.css`, `components.css`, `js/api.js`, `js/include.js`, `partials/header.html`, `partials/footer.html`을 그대로 재사용.
+
+### 프로모션 바(`#promo-bar`)
+
+친구 피드백(큰 그라디언트 히어로 대신 한 줄짜리 공지 바 스타일)을 반영해 만든 슬림 배너. 문구 3개를 4초 간격으로 opacity 페이드 전환하고(`prefers-reduced-motion: reduce`면 자동 전환 안 함), 점 클릭으로 수동 전환도 가능하다. **각 슬라이드는 실제로 이동 가능한 링크를 갖는다**(죽은 링크 금지):
+- 1번(인기 상품): `GET /api/products?sort=POPULAR&size=1`로 실제 인기순 1위 상품을 조회해 상품명·참여 인원을 채우고 그 상품 상세로 링크한다. 진행 중인 팀이 있는 상품이 하나도 없으면(요청 실패 포함) 기본 문구(그리드로 스크롤)를 그대로 유지한다 — 실제로 없는 이벤트/상품을 지어내지 않는다.
+- 2번(신규 가입): 실제 카카오 로그인/가입 흐름(`/api/auth/kakao/login`)으로 바로 연결.
+- 3번(공구 둘러보기): `#product-grid`로 스크롤.
+
+### 카테고리 바 + 정렬(`#category-bar`, `#sort-select`)
+
+`docs/dev/product/list-enhancements/design.md` 참고. 카테고리 pill(전체+6종) 클릭, 정렬 select("최신순"/"인기순") 변경 둘 다 `?category=`/`?sort=` 쿼리파라미터를 URL에 반영(`history.replaceState`)하고 기존 페이지네이션 상태를 초기화한 뒤 목록을 처음부터 다시 불러온다.
+
+### 카드 참여 진행바
+
+`activeTeamCurrentCount`/`activeTeamTargetParticipants`가 응답에 둘 다 있을 때만(RECRUITING 팀이 있을 때만) "N명 참여 중 · M명 달성 시 성사" 진행바를 카드에 그린다.
+
+### 카드 호버(입체감)
+
+`transform: translateY(-8px) scale(1.015)` + `box-shadow: var(--shadow-lg)`(기존 `translateY(-4px)`+`shadow-md`보다 강화) — 사용자 피드백으로 상승 폭·확대·그림자를 전부 키움.
 
 ## 데이터 연동
 
@@ -33,6 +52,6 @@ src/main/resources/static/
 
 ## 관련 코드 위치
 
-- `src/main/resources/static/index.html`, `src/main/resources/static/js/main.js` — 신규
-- `src/main/resources/static/css/components.css` — `.product-status`/`.load-more-wrap`/`.btn[hidden]` 규칙 추가
-- 경위: `docs/dev/frontend/main-page/changes/001-main-page.md`, 실행 로그: `docs/logs/frontend/main-page/001-main-page.md`
+- `src/main/resources/static/index.html`, `src/main/resources/static/js/main.js`
+- `src/main/resources/static/css/components.css`
+- 경위: `docs/dev/frontend/main-page/changes/001-main-page.md`(최초 구현), `002-promo-category-sort-progress.md`(배너/카테고리/정렬/진행바), 실행 로그: `docs/logs/frontend/main-page/001-main-page.md`

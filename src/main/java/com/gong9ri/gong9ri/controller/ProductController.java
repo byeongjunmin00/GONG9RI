@@ -5,6 +5,8 @@ import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.dto.ProductPageResponse;
 import com.gong9ri.gong9ri.dto.ProductRegisterRequest;
 import com.gong9ri.gong9ri.dto.ProductResponse;
+import com.gong9ri.gong9ri.dto.ProductSort;
+import com.gong9ri.gong9ri.entity.ProductCategory;
 import com.gong9ri.gong9ri.service.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -31,8 +33,12 @@ public class ProductController {
     @GetMapping
     public ResponseEntity<ApiResponse<ProductPageResponse>> list(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(ApiResponse.success(productService.list(page, size)));
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) ProductCategory category,
+            @RequestParam(required = false) ProductSort sort) {
+        ProductPageResponse cached = productService.list(page, size, category, sort);
+        ProductPageResponse withProgress = productService.attachActiveTeamProgress(cached);
+        return ResponseEntity.ok(ApiResponse.success(withProgress));
     }
 
     @GetMapping("/{productId}")

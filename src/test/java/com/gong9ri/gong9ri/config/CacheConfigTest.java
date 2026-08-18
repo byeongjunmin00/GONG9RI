@@ -7,6 +7,7 @@ import com.gong9ri.gong9ri.dto.PriceTierResponse;
 import com.gong9ri.gong9ri.dto.ProductPageResponse;
 import com.gong9ri.gong9ri.dto.ProductResponse;
 import com.gong9ri.gong9ri.dto.ProductSummaryResponse;
+import com.gong9ri.gong9ri.entity.ProductCategory;
 import java.nio.ByteBuffer;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -48,7 +49,8 @@ class CacheConfigTest {
                 productListConfig.get().getValueSerializationPair();
 
         ProductSummaryResponse summary = new ProductSummaryResponse(
-                1L, "제주 감귤 5kg", 25000, 15000, 10, "테스트판매자", LocalDateTime.now(), null);
+                1L, "제주 감귤 5kg", 25000, 15000, 10, "테스트판매자", LocalDateTime.now(), null, ProductCategory.FOOD,
+                null, null);
         ProductPageResponse original = new ProductPageResponse(List.of(summary), 0, 20, 1L);
 
         ByteBuffer serialized = valueSerializer.write(original);
@@ -76,7 +78,7 @@ class CacheConfigTest {
         ProductResponse original = new ProductResponse(
                 1L, 2L, "테스트판매자", "제주 감귤 5kg", "직접 재배한 감귤", 25000, 10,
                 List.of(new PriceTierResponse(2, 22000), new PriceTierResponse(10, 15000)),
-                LocalDateTime.now(), null, false, "dummy-test-kakao-js-key");
+                LocalDateTime.now(), null, false, "dummy-test-kakao-js-key", ProductCategory.FOOD);
 
         ByteBuffer serialized = valueSerializer.write(original);
         Object deserialized = valueSerializer.read(serialized);

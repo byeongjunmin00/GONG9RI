@@ -22,6 +22,7 @@
 
   var form = document.getElementById('product-form');
   var nameInput = document.getElementById('name');
+  var categorySelect = document.getElementById('category');
   var descriptionInput = document.getElementById('description');
   var basePriceInput = document.getElementById('basePrice');
   var maxParticipantsInput = document.getElementById('maxParticipants');
@@ -36,7 +37,7 @@
 
   if (
     !formAlertEl || !formAlertTextEl || !formAlertLoginLinkEl ||
-    !form || !nameInput || !descriptionInput || !basePriceInput || !maxParticipantsInput || !imageUrlInput ||
+    !form || !nameInput || !categorySelect || !descriptionInput || !basePriceInput || !maxParticipantsInput || !imageUrlInput ||
     !priceTierRowsEl || !addPriceTierBtn || !priceTiersErrorEl || !autoRefundOnCancelInput || !submitBtn
   ) {
     return;
@@ -277,6 +278,7 @@
       priceTiers: collected.tiers,
       imageUrl: imageUrl || null,
       autoRefundOnCancel: autoRefundOnCancelInput.checked,
+      category: categorySelect.value,
     })
       .then(function (product) {
         window.location.href = '/product.html?id=' + product.productId;
