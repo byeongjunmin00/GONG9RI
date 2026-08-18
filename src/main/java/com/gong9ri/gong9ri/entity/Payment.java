@@ -121,4 +121,10 @@ public class Payment {
             this.status = PaymentStatus.REFUNDED;
         }
     }
+
+    // 본인 결제 확인 — PaymentService/RefundRequestService가 각자 따로 구현하던 동일한 검증을 여기로
+    // 통합했다(둘 다 "이 결제의 구매자 == 이 memberId"만 확인).
+    public boolean isOwnedBy(Long memberId) {
+        return this.member.getId().equals(memberId);
+    }
 }

@@ -7,6 +7,13 @@
 환불뿐이었다(`docs/dev/payment/portone/design.md`) — 이 기능은 그 스코프를 "구매자가 자발적으로
 원해서 환불을 요청하는" 경로로 확장한다.
 
+## 관련 정책·의존
+
+- `docs/policy/refund-trigger.md` — 공구팀 마감(`team/deadline-check`) 시 `PAID` 결제를 일괄
+  `REFUNDED` 전환하는 정책. 이 기능(참여 취소·직접 요청으로 생기는 `PENDING` `RefundRequest`)과
+  겹칠 수 있는 유일한 기존 정책이라, 아래 "매우 중요한 제약"의 FAILED 케이스 분석이 이 정책을
+  전제로 한다.
+
 생성 경로는 두 가지이며 서로 겹치지 않는다:
 
 1. **공구팀 참여 취소가 자동 생성** (`team/leave` → `TeamService.leave` → `RefundRequestService.
@@ -48,6 +55,27 @@
 > `currentCount`를 감소시켰으므로, 그 사람은 SUCCESS로 전환된 팀의 "현재 참여자"가 아니라서
 > 위에서 말한 악용(인원수 대비 저가 구간 유지)이 성립하지 않는다.
 
+### 대칭 케이스 — 팀이 FAILED(마감)로 전환되는 경우
+
+위 SUCCESS 케이스와 대칭으로, 참여 취소로 생긴 `PENDING` 요청이 아직 판매자 결정 전인 상태에서
+**그 팀이 마감(`team/deadline-check`)으로 FAILED 전환**되는 경우도 있다. 이건 SUCCESS 케이스와
+달리 처음엔 실제 결함이었다(코드리뷰로 발견, `docs/logs/refund/request/002-code-review.md`) —
+`docs/policy/refund-trigger.md`의 마감 스윕이 "그 팀의 `PAID` 결제를 전부 REFUNDED로 일괄
+전환"하는데, 이게 이미 존재하는 `PENDING` `RefundRequest`를 무시하고 그 결제를 먼저 취소해버리면,
+그 `RefundRequest`가 영구히 고아 상태(승인/거절 대상 결제가 이미 없음)로 남았다.
+
+**해결**: `TeamDeadlineService.processDeadline()`이 마감 스윕 대상에서 이미 `PENDING`
+`RefundRequest`가 걸린 결제를 제외하도록 수정했다(`docs/dev/team/deadline-check/design.md` 참고,
+`003-hardening.md`). `REJECTED`/`APPROVED`로 이미 결정 난 요청이 있던 결제는 제외 대상이
+아니다 — 결정과 무관하게 결제가 여전히 `PAID`라면 정상적인 마감 환불 대상이다.
+
+### 참고 — 리더 필드(`GroupBuyTeam.leader`) stale 문제는 별도 규칙으로 해소됨
+
+코드리뷰에서 함께 발견된 "마지막 참여자(=리더)가 참여 취소로 나가면서 팀이 FAILED로 전환될 때
+`leader` 필드가 삭제된 참여자를 계속 가리키는" 문제는, 이 기능이 아니라 `team/crud`의 새 규칙
+("마지막 남은 참여자는 참여 취소 불가", `docs/dev/team/crud/design.md`)으로 원천 해소됐다 — 참여
+취소로는 더 이상 팀이 FAILED가 되지 않으므로 이 시나리오 자체가 발생하지 않는다.
+
 ## API / 인터페이스
 
 - `POST /api/payments/{paymentId}/refund-requests` — 솔로 구매 건 직접 요청
@@ -87,7 +115,11 @@
   (`REFUND_REQUEST_ALREADY_EXISTS`, 409), `reason` 필수(`VALIDATION_FAILED`, 400).
 - `createFromTeamLeave`: `TeamService.leave()`가 같은 트랜잭션에서만 호출(공개 메서드지만 실제
   호출자는 하나뿐). `reason`은 항상 `null`. 상품의 `autoRefundOnCancel`이 켜져 있으면 저장 즉시
-  `approve()` + `RefundRequestApprovedEvent` 발행까지 이 메서드 안에서 끝낸다.
+  `approve()` + `RefundRequestApprovedEvent` 발행까지 이 메서드 안에서 끝낸다. `createDirect`와
+  동일하게 같은 결제에 이미 대기 중인 요청이 있으면 새로 만들지 않지만, **예외를 던지지 않고
+  조용히 스킵**한다(로그만 남김) — 이 메서드는 `leave()`의 부수효과라, 예외가 나면 참여 취소
+  자체가 롤백돼버려 사용자가 탈퇴를 못 하게 된다(재참가 후 재탈퇴 시 도달 가능,
+  `docs/logs/refund/request/003-hardening.md`).
 - `approve`/`reject`: `SELLER`만(`FORBIDDEN`), 본인 상품에 대한 요청만(`FORBIDDEN`,
   `findWithOwnerCheck`로 `payment.product.seller` 확인), `PENDING` 상태만
   (`REFUND_REQUEST_ALREADY_DECIDED`, 409). `reject`는 자유 텍스트가 아니라 `RefundRejectionReason`
@@ -113,12 +145,15 @@
 ## 관련 코드 위치
 
 - `entity/{RefundRequest,RefundRequestStatus,RefundRejectionReason}.java`
-- `repository/RefundRequestRepository(+Custom/Impl).java` — QueryDSL. `findByIdWithPaymentAndProduct`
-  (단건, 소유권 확인용), `findAllByRequesterIdWithPaymentAndProduct`/`findAllBySellerIdWithPaymentAndProduct`
-  (마이페이지 목록). 3단계 경로(`refundRequest.payment.product.seller`)는 QueryDSL 기본
-  `PathInits`(DIRECT2, 2단계까지만 자동 초기화) 제약으로 그대로 체이닝하면 NPE가 나서, 별도
-  `QProduct` alias로 우회했다(단건 조회는 seller까지 fetch join하지 않고 지연로딩 1회로 대체 — N+1
-  아님).
+- `repository/RefundRequestRepository(+Custom/Impl).java` — QueryDSL. `findByIdForUpdate`(단건,
+  승인/거절 전용 비관적 락 조회 — 동시 승인 경합 방지, `docs/logs/refund/request/002-code-review.md`
+  참고로 이전 `findByIdWithPaymentAndProduct`에서 교체됨), `findAllByRequesterIdWithPaymentAndProduct`/
+  `findAllBySellerIdWithPaymentAndProduct`(마이페이지 목록). 3단계 경로
+  (`refundRequest.payment.product.seller`)는 QueryDSL 기본 `PathInits`(DIRECT2, 2단계까지만 자동
+  초기화) 제약으로 그대로 체이닝하면 NPE가 나서, 별도 `QProduct` alias로 우회했다. `existsByPayment_
+  IdAndStatus`(중복 대기중 요청 방지, `createDirect`/`createFromTeamLeave` 공용)/
+  `findByPayment_IdInAndStatus`(마감 스윕 제외 대상 조회, `team/deadline-check`에서 사용 — 상세는
+  `docs/dev/team/deadline-check/design.md`).
 - `service/RefundRequestService.java` — `createDirect`/`createFromTeamLeave`/`approve`/`reject`
 - `service/PaymentCancellationExecutor.java` — 실제 PortOne 취소 실행(공유, `docs/dev/payment/
   portone/design.md`에서 상세)

@@ -8,6 +8,7 @@ import com.gong9ri.gong9ri.entity.Member;
 import com.gong9ri.gong9ri.entity.Payment;
 import com.gong9ri.gong9ri.entity.PaymentStatus;
 import com.gong9ri.gong9ri.entity.Product;
+import com.gong9ri.gong9ri.entity.RefundRequest;
 import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.entity.TeamParticipation;
 import com.gong9ri.gong9ri.entity.TeamStatus;
@@ -17,6 +18,7 @@ import com.gong9ri.gong9ri.repository.MemberRepository;
 import com.gong9ri.gong9ri.repository.NotificationRepository;
 import com.gong9ri.gong9ri.repository.PaymentRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
+import com.gong9ri.gong9ri.repository.RefundRequestRepository;
 import com.gong9ri.gong9ri.repository.TeamParticipationRepository;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -66,6 +68,9 @@ class TeamDeadlineServiceTest {
     @Autowired
     private NotificationRepository notificationRepository;
 
+    @Autowired
+    private RefundRequestRepository refundRequestRepository;
+
     private Member saveMember(String username, Role role) {
         return memberRepository.save(new Member(username, "pw", "테스트유저", username + "@test.com", role));
     }
@@ -109,6 +114,31 @@ class TeamDeadlineServiceTest {
         assertEquals(team.getId(), published.get(0).teamId());
         assertTrue(published.get(0).paymentIds().containsAll(List.of(payment1.getId(), payment2.getId())),
                 "이벤트에 두 결제 id가 모두 포함돼야 한다");
+    }
+
+    @Test
+    @DisplayName("참여 취소로 이미 대기 중인 환불 요청이 걸린 결제는 마감 스윕 대상에서 제외된다")
+    void processDeadline_paymentWithPendingRefundRequest_isExcludedFromSweep(ApplicationEvents events) {
+        Member seller = saveMember("dlSeller7", Role.SELLER);
+        Product product = saveProduct(seller);
+        Member leader = saveMember("dlLeader7", Role.BUYER);
+        GroupBuyTeam team = saveTeam(product, leader, LocalDateTime.now().minusMinutes(1));
+
+        Member pendingBuyer = saveMember("dlBuyer7a", Role.BUYER);
+        Payment pendingPayment = paymentRepository.save(new Payment(pendingBuyer, product, team, 10000));
+        refundRequestRepository.save(new RefundRequest(pendingPayment, pendingBuyer, null));
+
+        Member normalBuyer = saveMember("dlBuyer7b", Role.BUYER);
+        Payment normalPayment = paymentRepository.save(new Payment(normalBuyer, product, team, 10000));
+
+        teamDeadlineService.processDeadline(team.getId());
+
+        List<TeamPaymentsRefundRequestedEvent> published = events.stream(TeamPaymentsRefundRequestedEvent.class).toList();
+        assertEquals(1, published.size(), "환불취소 요청 이벤트가 정확히 1건 발행돼야 한다");
+        assertTrue(published.get(0).paymentIds().contains(normalPayment.getId()),
+                "대기 중인 환불 요청이 없는 결제는 그대로 마감 환불 대상이어야 한다");
+        assertTrue(!published.get(0).paymentIds().contains(pendingPayment.getId()),
+                "이미 대기 중인 환불 요청이 걸린 결제는 마감 스윕이 건드리면 안 된다(고아 요청 방지)");
     }
 
     @Test

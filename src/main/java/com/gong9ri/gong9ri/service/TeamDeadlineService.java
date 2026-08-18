@@ -3,12 +3,16 @@ package com.gong9ri.gong9ri.service;
 import com.gong9ri.gong9ri.entity.GroupBuyTeam;
 import com.gong9ri.gong9ri.entity.Payment;
 import com.gong9ri.gong9ri.entity.PaymentStatus;
+import com.gong9ri.gong9ri.entity.RefundRequestStatus;
 import com.gong9ri.gong9ri.entity.TeamStatus;
 import com.gong9ri.gong9ri.event.TeamPaymentsRefundRequestedEvent;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.PaymentRepository;
+import com.gong9ri.gong9ri.repository.RefundRequestRepository;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -37,6 +41,7 @@ public class TeamDeadlineService {
 
     private final GroupBuyTeamRepository groupBuyTeamRepository;
     private final PaymentRepository paymentRepository;
+    private final RefundRequestRepository refundRequestRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     public List<Long> findExpiredRecruitingTeamIds() {
@@ -61,14 +66,31 @@ public class TeamDeadlineService {
         team.fail();
 
         List<Payment> paidPayments = paymentRepository.findByTeamIdAndStatus(teamId, PaymentStatus.PAID);
-        if (!paidPayments.isEmpty()) {
+        List<Long> paymentIds = paidPayments.stream().map(Payment::getId).toList();
+
+        // 참여 취소(team/leave)로 이미 대기 중(PENDING)인 환불 요청이 걸린 결제는 이 마감 스윕에서
+        // 제외한다 — 판매자의 승인/거절 결정을 기다리는 중인 요청을, 마감 스윕이 먼저 가로채 취소해
+        // 버리면 그 RefundRequest가 영구히 고아 상태로 남는다(docs/dev/refund/request/design.md
+        // "매우 중요한 제약" 옆 FAILED 케이스 분석 참고). REJECTED/APPROVED로 이미 결정 난 요청이 있는
+        // 결제는 제외 대상이 아니다 — 그 결정과 무관하게 결제가 여전히 PAID라면 정상적인 마감 환불
+        // 대상이다.
+        Set<Long> pendingPaymentIds = refundRequestRepository
+                .findByPayment_IdInAndStatus(paymentIds, RefundRequestStatus.PENDING).stream()
+                .map(refundRequest -> refundRequest.getPayment().getId())
+                .collect(Collectors.toSet());
+        List<Long> refundTargetPaymentIds = paymentIds.stream()
+                .filter(paymentId -> !pendingPaymentIds.contains(paymentId))
+                .toList();
+
+        if (!refundTargetPaymentIds.isEmpty()) {
             // 여기서는 결제 상태·판매자 수익 요약을 건드리지 않는다 — 포트원 취소 API 응답을 확인한
             // 뒤에만(PaymentRefundService) 실제 반영한다. 이 이벤트는 이 트랜잭션이 커밋된 이후에만
             // 소비된다(TeamPaymentsRefundRequestedEventListener, AFTER_COMMIT).
-            List<Long> paymentIds = paidPayments.stream().map(Payment::getId).toList();
-            eventPublisher.publishEvent(new TeamPaymentsRefundRequestedEvent(teamId, paymentIds));
+            eventPublisher.publishEvent(new TeamPaymentsRefundRequestedEvent(teamId, refundTargetPaymentIds));
         }
 
-        log.info("공구팀 마감 실패 처리 완료: teamId={}, refundRequestedPaymentCount={}", teamId, paidPayments.size());
+        log.info("공구팀 마감 실패 처리 완료: teamId={}, refundRequestedPaymentCount={}, "
+                        + "excludedPendingRefundRequestCount={}",
+                teamId, refundTargetPaymentIds.size(), pendingPaymentIds.size());
     }
 }

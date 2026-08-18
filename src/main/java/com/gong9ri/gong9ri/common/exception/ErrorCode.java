@@ -33,6 +33,7 @@ public enum ErrorCode {
     DUPLICATE_REVIEW(HttpStatus.CONFLICT, "이미 이 상품에 리뷰를 작성했습니다."),
     REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 리뷰입니다."),
     TEAM_NOT_RECRUITING(HttpStatus.CONFLICT, "모집이 끝난 공구팀은 참여를 취소할 수 없습니다."),
+    LAST_PARTICIPANT_CANNOT_LEAVE(HttpStatus.CONFLICT, "마지막 남은 참여자는 참여를 취소할 수 없습니다."),
     REFUND_REQUEST_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 환불 요청입니다."),
     REFUND_REQUEST_ALREADY_DECIDED(HttpStatus.CONFLICT, "이미 처리된 환불 요청입니다."),
     REFUND_REQUEST_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 처리 대기 중인 환불 요청이 있습니다."),
