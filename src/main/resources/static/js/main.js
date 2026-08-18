@@ -201,7 +201,6 @@
   var sortSelectEl = document.getElementById('sort-select');
   var searchFormEl = document.getElementById('search-form');
   var searchInputEl = document.getElementById('search-input');
-  var searchTrendsEl = document.getElementById('search-trends');
 
   if (!gridEl || !statusEl || !loadMoreBtn || !categoryBarEl || !sortSelectEl || !searchFormEl || !searchInputEl) {
     return;
@@ -671,119 +670,12 @@
     window.history.replaceState(null, '', url.pathname + url.search);
 
     resetAndReload();
-    // 방금 검색한 키워드가 곧바로 집계에 반영되므로("실시간"), 검색할 때마다 순위를 다시 불러온다.
-    loadSearchTrends();
   }
 
   searchFormEl.addEventListener('submit', function (event) {
     event.preventDefault();
     submitSearch(searchInputEl.value.trim());
   });
-
-  // 실시간 인기 검색어(product/search-trends) — 한 번에 다 늘어놓지 않고, 순위 하나씩 자동으로
-  // 바뀌는 티커로 보여준다(promo-bar의 자동 순환 배너와 같은 패턴). 새로 목록을 불러올 때마다
-  // 이전 타이머를 반드시 정리해야 타이머가 중첩돼 점점 빨리 바뀌는 버그가 안 생긴다.
-  var SEARCH_TRENDS_ROTATE_MS = 2200;
-  var SEARCH_TRENDS_FADE_MS = 220; // components.css .search-trends__current의 transition 시간과 맞춤
-  var searchTrendsTimer = null;
-  var searchTrendsFadeTimeout = null;
-  var searchTrendsLabelEl = null;
-  var searchTrendsCurrentEl = null;
-  var searchTrendsRankEl = null;
-  var searchTrendsKeywordEl = null;
-
-  function stopSearchTrendsRotate() {
-    if (searchTrendsTimer) {
-      window.clearInterval(searchTrendsTimer);
-      searchTrendsTimer = null;
-    }
-    if (searchTrendsFadeTimeout) {
-      window.clearTimeout(searchTrendsFadeTimeout);
-      searchTrendsFadeTimeout = null;
-    }
-  }
-
-  /**
-   * keyword는 다른 방문자가 검색창에 직접 입력한 값이라(Redis에 그대로 저장), 반드시 textContent로만
-   * 넣는다 — innerHTML로 조립하면 저장형 XSS가 된다.
-   */
-  function renderSearchTrends(keywords) {
-    if (!searchTrendsEl) {
-      return;
-    }
-    stopSearchTrendsRotate();
-    searchTrendsEl.innerHTML = '';
-    searchTrendsLabelEl = null;
-    searchTrendsCurrentEl = null;
-    searchTrendsRankEl = null;
-    searchTrendsKeywordEl = null;
-
-    if (!keywords || !keywords.length) {
-      searchTrendsEl.hidden = true;
-      return;
-    }
-
-    searchTrendsLabelEl = document.createElement('span');
-    searchTrendsLabelEl.className = 'search-trends__label';
-    searchTrendsLabelEl.textContent = '실시간 인기 검색어';
-    searchTrendsEl.appendChild(searchTrendsLabelEl);
-
-    searchTrendsCurrentEl = document.createElement('button');
-    searchTrendsCurrentEl.type = 'button';
-    searchTrendsCurrentEl.className = 'search-trends__current';
-
-    searchTrendsRankEl = document.createElement('b');
-    searchTrendsKeywordEl = document.createElement('span');
-    searchTrendsCurrentEl.appendChild(searchTrendsRankEl);
-    searchTrendsCurrentEl.appendChild(searchTrendsKeywordEl);
-
-    searchTrendsCurrentEl.addEventListener('click', function () {
-      var keyword = keywords[searchTrendsIndex];
-      searchInputEl.value = keyword;
-      submitSearch(keyword);
-    });
-    searchTrendsEl.appendChild(searchTrendsCurrentEl);
-
-    var searchTrendsIndex = 0;
-    var prefersReducedMotion =
-      window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    function showCurrent() {
-      searchTrendsRankEl.textContent = String(searchTrendsIndex + 1);
-      searchTrendsKeywordEl.textContent = keywords[searchTrendsIndex];
-    }
-
-    showCurrent();
-
-    if (keywords.length > 1 && !prefersReducedMotion) {
-      searchTrendsTimer = window.setInterval(function () {
-        // 먼저 fade-out(opacity 0)만 걸고, 실제로 안 보이게 된 다음(transition 시간만큼 기다린 뒤)
-        // 텍스트를 바꾸고 다시 fade-in한다 — 안 그러면 글자가 바뀌는 순간이 그대로 보여버린다.
-        searchTrendsCurrentEl.classList.add('is-swapping');
-        searchTrendsFadeTimeout = window.setTimeout(function () {
-          searchTrendsIndex = (searchTrendsIndex + 1) % keywords.length;
-          showCurrent();
-          searchTrendsCurrentEl.classList.remove('is-swapping');
-          searchTrendsFadeTimeout = null;
-        }, SEARCH_TRENDS_FADE_MS);
-      }, SEARCH_TRENDS_ROTATE_MS);
-    }
-
-    searchTrendsEl.hidden = false;
-  }
-
-  function loadSearchTrends() {
-    if (!searchTrendsEl || !window.Api || typeof window.Api.get !== 'function') {
-      return;
-    }
-    window.Api.get('/products/search-trends?limit=5')
-      .then(function (data) {
-        renderSearchTrends(data && data.keywords);
-      })
-      .catch(function () {
-        // 조용히 무시 — 인기 검색어는 보조 UI라 실패해도 검색 자체엔 영향 없다(서버도 fail-open).
-      });
-  }
 
   sortSelectEl.addEventListener('change', function () {
     state.sort = sortSelectEl.value || 'LATEST';
@@ -797,5 +689,4 @@
 
   renderCategoryBar();
   fetchProducts(0);
-  loadSearchTrends();
 })();

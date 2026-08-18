@@ -738,16 +738,77 @@
   min-width: 200px;
 }
 
-/* ---------- Header brand (이미지 로고) ---------- */
+/* ---------- Header brand (이미지 로고 + 워드마크) ---------- */
 .site-header__logo {
   display: inline-flex;
   align-items: center;
+  gap: 10px;
 }
 
 .site-header__logo img {
   display: block;
-  height: 40px;
+  height: 34px;
   width: auto;
+}
+
+/* layout.css의 예전 텍스트 전용 .site-header__logo 규칙(font-family/size/weight)이 이 span에도
+   상속돼 적용된다 — 여기서는 자간·숫자 "9" 그라디언트 강조만 추가로 얹는다. */
+.site-header__wordmark {
+  font-family: var(--font-heading);
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--color-text);
+}
+
+/* ---------- 실시간 인기 검색어 슬라이드 티커 (product/search-trends, 검색바 옆) ----------
+   한 번에 하나씩 순위가 자동으로 바뀌는 티커 버튼 — 클릭하면 .header-search-trends 전체 목록 팝업을 연다. */
+.header-search-trends-ticker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  max-width: 180px;
+  padding: 6px 12px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  font-size: var(--fs-xs);
+  color: var(--color-text);
+  cursor: pointer;
+  opacity: 1;
+  transition: opacity 0.25s ease, border-color 0.15s ease;
+  overflow: hidden;
+}
+
+.header-search-trends-ticker[hidden] {
+  display: none;
+}
+
+.header-search-trends-ticker:hover {
+  border-color: var(--color-purple);
+}
+
+.header-search-trends-ticker.is-swapping {
+  opacity: 0;
+}
+
+.header-search-trends-ticker b {
+  flex: none;
+  color: var(--color-pink);
+  font-weight: 800;
+}
+
+.header-search-trends-ticker span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 860px) {
+  .header-search-trends-ticker {
+    display: none;
+  }
 }
 
 /* ---------- Header search (전역 검색 진입점) ---------- */
@@ -1185,53 +1246,6 @@
   background: var(--gradient-brand);
   color: var(--color-text-on-brand);
   cursor: pointer;
-}
-
-/* ---------- 실시간 인기 검색어 (product/search-trends) ---------- */
-.search-trends {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  margin-top: calc(var(--space-2) * -1);
-  margin-bottom: var(--space-5);
-}
-
-.search-trends__label {
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  color: var(--color-text-muted);
-}
-
-/* 한 번에 하나씩, 순위가 자동으로 바뀌는 티커(promo-bar 자동 순환과 같은 패턴) —
-   .is-swapping이 붙는 순간 opacity 0으로 내려갔다가, JS가 다음 프레임에 떼어내면서
-   opacity 1로 되돌아오는 크로스페이드. */
-.search-trends__current {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: none;
-  background: none;
-  padding: 2px 0;
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  color: var(--color-text);
-  cursor: pointer;
-  opacity: 1;
-  transition: opacity 0.25s ease, color 0.15s ease;
-}
-
-.search-trends__current.is-swapping {
-  opacity: 0;
-}
-
-.search-trends__current:hover {
-  color: var(--color-purple);
-}
-
-.search-trends__current b {
-  color: var(--color-pink);
-  font-weight: 800;
 }
 
 /* ---------- 메인 페이지 광고 배너 — 슬림 공지 바 (main-page) ----------
