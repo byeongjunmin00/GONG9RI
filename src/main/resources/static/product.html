@@ -139,6 +139,32 @@
             <button type="submit" id="review-submit" class="btn btn-primary btn-sm">리뷰 작성</button>
           </form>
         </div>
+
+        <div class="inquiries-section">
+          <div class="section__head">
+            <h2>문의하기 <span id="inquiries-count" class="text-muted" style="font-size: var(--fs-md); font-weight: 400;"></span></h2>
+          </div>
+
+          <!-- 문의 목록 로딩/빈 목록/에러 상태. -->
+          <div id="inquiries-status" class="product-status" role="status" hidden></div>
+
+          <ul id="inquiries-list" class="mypage-list"></ul>
+
+          <!-- 문의 작성/수정 폼 — 리뷰와 달리 구매 이력이 필요 없다. 로그인 안 한 사람에게도 항상
+               보이고, 비로그인 상태로 제출하면 서버 응답(401)을 그대로 안내한다(js/product.js가 처리).
+               판매자 답변 등록/수정/삭제 폼은 각 문의 항목 안에 개별적으로 표시된다(currentMemberId가
+               그 상품의 sellerId와 같을 때만, js/product.js). -->
+          <form id="inquiry-form" novalidate>
+            <div id="inquiry-form-alert" class="form-alert" role="alert" hidden></div>
+
+            <div class="form-group">
+              <label class="form-label" for="inquiry-content">문의 내용</label>
+              <textarea class="form-input" id="inquiry-content" rows="3" maxlength="1000" placeholder="배송/옵션 등 궁금한 점을 남겨주세요."></textarea>
+            </div>
+
+            <button type="submit" id="inquiry-submit" class="btn btn-primary btn-sm">문의 작성</button>
+          </form>
+        </div>
       </div>
     </section>
   </main>

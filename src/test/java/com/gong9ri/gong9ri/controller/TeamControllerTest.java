@@ -2,6 +2,7 @@ package com.gong9ri.gong9ri.controller;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -21,6 +22,7 @@ import com.gong9ri.gong9ri.entity.RefundRequest;
 import com.gong9ri.gong9ri.entity.RefundRequestStatus;
 import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.entity.TeamParticipation;
+import com.gong9ri.gong9ri.entity.TeamStatus;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.MemberRepository;
 import com.gong9ri.gong9ri.repository.PaymentRepository;
@@ -503,17 +505,20 @@ class TeamControllerTest {
     }
 
     @Test
-    @DisplayName("마지막 한 명이 참여를 취소하면 팀이 FAILED로 전환된다")
-    void leave_lastParticipant_teamBecomesFailed() throws Exception {
+    @DisplayName("마지막 남은 참여자는 참여를 취소할 수 없다(409 LAST_PARTICIPANT_CANNOT_LEAVE)")
+    void leave_lastParticipant_conflict() throws Exception {
         Member seller = saveMember("leaveSeller4", Role.SELLER);
         Product product = saveProduct(seller, 5);
         Member leader = saveMember("leaveLeader4", Role.BUYER);
         GroupBuyTeam team = saveTeam(product, leader, 5);
 
         mockMvc.perform(post("/api/teams/" + team.getId() + "/leave").with(asUser(leader)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.currentCount").value(0))
-                .andExpect(jsonPath("$.data.status").value("FAILED"));
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("LAST_PARTICIPANT_CANNOT_LEAVE"));
+
+        GroupBuyTeam unchanged = groupBuyTeamRepository.findById(team.getId()).orElseThrow();
+        assertEquals(1, unchanged.getCurrentCount());
+        assertEquals(TeamStatus.RECRUITING, unchanged.getStatus());
     }
 
     @Test
@@ -632,5 +637,35 @@ class TeamControllerTest {
         assertTrue(refundRequests.size() == 1);
         assertTrue(refundRequests.get(0).getStatus() == RefundRequestStatus.APPROVED);
         assertTrue(refundRequests.get(0).getDecidedAt() != null);
+    }
+
+    @Test
+    @DisplayName("참여 취소로 대기 중인 환불 요청이 생긴 뒤 재참가·재탈퇴해도 중복 생성되지 않고 탈퇴 자체는 성공한다")
+    void leave_rejoinThenLeaveAgain_doesNotDuplicatePendingRefundRequest() throws Exception {
+        Member seller = saveMember("leaveSeller11", Role.SELLER);
+        Product product = saveProduct(seller, 5, false);
+        Member leader = saveMember("leaveLeader11", Role.BUYER);
+        GroupBuyTeam team = saveTeam(product, leader, 5);
+        Member joiner = saveMember("leaveJoiner11", Role.BUYER);
+        teamParticipationRepository.save(new TeamParticipation(team, joiner));
+        team.increaseParticipant();
+        groupBuyTeamRepository.save(team);
+        Payment payment = new Payment(joiner, product, team, 25000, "pay_leave_test_3");
+        payment.confirm();
+        paymentRepository.save(payment);
+
+        mockMvc.perform(post("/api/teams/" + team.getId() + "/leave").with(asUser(joiner)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/teams/" + team.getId() + "/join").with(asUser(joiner)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/teams/" + team.getId() + "/leave").with(asUser(joiner)))
+                .andExpect(status().isOk());
+
+        List<RefundRequest> refundRequests =
+                refundRequestRepository.findAllByRequesterIdWithPaymentAndProduct(joiner.getId());
+        assertTrue(refundRequests.size() == 1, "재참가·재탈퇴해도 같은 결제에 대한 환불 요청은 여전히 1건이어야 한다");
+        assertTrue(refundRequests.get(0).getStatus() == RefundRequestStatus.PENDING);
     }
 }

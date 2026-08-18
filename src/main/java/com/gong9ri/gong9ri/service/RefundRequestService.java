@@ -77,9 +77,20 @@ public class RefundRequestService {
      * 있으면 즉시 APPROVED로 만들고, 그 실제 PortOne 취소 호출은 AFTER_COMMIT 이벤트로 미룬다(락이
      * 풀린 뒤에만 외부 HTTP를 호출해야 하므로 — TeamService.leave가 아직 락을 쥔 채로 이 메서드를
      * 호출하고 있다는 점이 핵심 전제).
+     *
+     * <p>같은 결제에 이미 대기 중(PENDING) 요청이 있으면 새로 만들지 않고 조용히 스킵한다(재참가 후
+     * 재탈퇴 등으로 도달 가능 — {@code createDirect}처럼 예외를 던지지 않는다: 이 메서드는
+     * {@code TeamService.leave()}의 부수효과라, 여기서 예외가 나면 참여 취소 자체가 롤백돼버려
+     * 사용자가 탈퇴를 아예 못 하게 된다).
      */
     @Transactional
     public void createFromTeamLeave(Payment payment, Member requester, boolean autoRefundOnCancel) {
+        if (refundRequestRepository.existsByPayment_IdAndStatus(payment.getId(), RefundRequestStatus.PENDING)) {
+            log.info("참여 취소 환불 요청 스킵(이미 대기 중인 요청 존재): paymentId={}, memberId={}",
+                    payment.getId(), requester.getId());
+            return;
+        }
+
         RefundRequest saved = refundRequestRepository.save(new RefundRequest(payment, requester, null));
 
         if (!autoRefundOnCancel) {
@@ -152,7 +163,7 @@ public class RefundRequestService {
     }
 
     private void requireOwner(Member member, Payment payment) {
-        if (!payment.getMember().getId().equals(member.getId())) {
+        if (!payment.isOwnedBy(member.getId())) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }

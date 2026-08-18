@@ -157,13 +157,19 @@ public class TeamService {
 
     /**
      * 공구팀 참여 취소(team/leave) — join()과 대칭적인 API다. 취소 가능 조건: 로그인한 구매자가 그
-     * 팀의 현재 참여자여야 하고, 팀 상태가 RECRUITING이어야 한다(그 외 상태는 거절 —
-     * {@code TEAM_NOT_RECRUITING}). join()의 락 경로({@code findByIdForUpdate})를 그대로 재사용해
-     * 동시성을 제어한다(취소와 동시에 다른 사람이 참가를 시도하는 경합 방지).
+     * 팀의 현재 참여자여야 하고, 팀 상태가 RECRUITING이어야 하며(그 외 상태는 거절 —
+     * {@code TEAM_NOT_RECRUITING}), 그 팀의 마지막 남은 참여자가 아니어야 한다(사용자 확인 —
+     * {@code LAST_PARTICIPANT_CANNOT_LEAVE}: 마지막 1명은 참여 취소·환불 모두 불가, 팀 실패 처리는
+     * {@code team/deadline-check} 스케줄러 경로로만 일어난다). join()의 락 경로
+     * ({@code findByIdForUpdate})를 그대로 재사용해 동시성을 제어한다(취소와 동시에 다른 사람이
+     * 참가를 시도하는 경합 방지).
      *
      * <p>한 트랜잭션 안에서: 참여 기록 제거 → 정원(currentCount) 감소(자리 즉시 반환) → 취소한 사람이
-     * 리더였다면 그다음 최초 참가자에게 리더 승계 → 마지막 참여자였다면 팀을 FAILED로 전환 → 취소한
-     * 사람의 PAID 결제가 있으면 환불 요청 자동 생성({@code RefundRequestService.createFromTeamLeave}).
+     * 리더였다면 그다음 최초 참가자에게 리더 승계 → 취소한 사람의 PAID 결제가 있으면 환불 요청 자동
+     * 생성({@code RefundRequestService.createFromTeamLeave}). 마지막 참여자는 위 가드로 이 메서드에
+     * 도달하기 전에 이미 거절되므로, {@code decreaseParticipant()}가 currentCount를 0으로 만들 일은
+     * 이 경로에서 없다(리더 승계 로직상 마지막 1명은 항상 그 시점의 리더라서, 이 가드 하나로 "리더가
+     * 마지막으로 나가면서 leader 필드가 삭제된 참여자를 계속 가리키는" 문제까지 함께 막힌다).
      */
     @Transactional
     public TeamJoinResponse leave(MemberUserDetails principal, Long teamId) {
@@ -178,6 +184,9 @@ public class TeamService {
         }
         if (team.getStatus() != TeamStatus.RECRUITING) {
             throw new BusinessException(ErrorCode.TEAM_NOT_RECRUITING);
+        }
+        if (team.getCurrentCount() <= 1) {
+            throw new BusinessException(ErrorCode.LAST_PARTICIPANT_CANNOT_LEAVE);
         }
 
         boolean wasLeader = team.getLeader().getId().equals(member.getId());

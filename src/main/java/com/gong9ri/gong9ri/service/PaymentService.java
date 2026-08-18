@@ -203,7 +203,7 @@ public class PaymentService {
     }
 
     private void requireOwner(MemberUserDetails principal, Payment payment) {
-        if (!payment.getMember().getId().equals(principal.getMember().getId())) {
+        if (!payment.isOwnedBy(principal.getMember().getId())) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }

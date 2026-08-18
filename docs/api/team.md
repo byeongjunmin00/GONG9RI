@@ -148,8 +148,11 @@ team-leave-and-refund-request.md`의 악용 방지 근거 참고).
 
   > 취소 즉시 `currentCount`가 감소해 자리가 반환된다(다른 사람이 그 자리에 바로 참가 가능). 취소한
   > 사람이 리더였다면 그다음 최초 참가자에게 리더가 승계된다(`leaderId`는 이 응답에 포함되지 않지만
-  > 팀 목록/상세 조회에서 확인 가능). 마지막 한 명이 취소하면 `status`가 `FAILED`로 전환된다
-  > (`currentCount: 0`).
+  > 팀 목록/상세 조회에서 확인 가능).
+  >
+  > **마지막 남은 참여자는 참여 취소를 할 수 없다**(`LAST_PARTICIPANT_CANNOT_LEAVE`, 409, 사용자
+  > 확인 — 마지막 1명은 참여 취소·환불 모두 불가). 팀이 실패(`FAILED`) 처리되는 경로는 이제
+  > `team/deadline-check` 마감 스케줄러뿐이다.
   >
   > 취소한 사람이 그 팀에 대해 `PAID` 결제를 갖고 있으면, 이 응답과 같은 트랜잭션 안에서 환불 요청
   > (`docs/api/refund.md`)이 자동 생성된다(사유 없음 — "참여 취소"가 곧 사유). 상품별
@@ -161,6 +164,7 @@ team-leave-and-refund-request.md`의 악용 방지 근거 참고).
   |------|------|------|
   | `TEAM_NOT_FOUND` | 404 | 존재하지 않는 팀 |
   | `TEAM_NOT_RECRUITING` | 409 | 팀이 이미 `SUCCESS`/`FAILED`로 전환됨 — 참여 취소 불가 |
+  | `LAST_PARTICIPANT_CANNOT_LEAVE` | 409 | 그 팀의 마지막 남은 참여자 — 참여 취소 불가 |
   | `FORBIDDEN` | 403 | 그 팀의 참여자가 아님, 또는 판매자 계정으로 시도 |
   | `UNAUTHORIZED` | 401 | 미인증 |
 

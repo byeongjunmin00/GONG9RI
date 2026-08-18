@@ -29,6 +29,12 @@
  *   구매는 환불 불가 규칙의 대상이 아니라서).
  * - "카카오톡 공유하기": product.html의 Kakao JS SDK(CDN)를 상품 상세 응답의 kakaoJsKey로 초기화한다.
  *   키가 없으면(로컬에서 KAKAO_JS_KEY 미설정 등) 버튼을 숨긴 채로 둔다(docs/dev/share/kakao-share/design.md).
+ * - 문의하기: GET /api/products/{id}/inquiries로 목록을 불러온다(비로그인도 조회 가능, 리뷰와 달리
+ *   구매 이력 없이도 누구나 작성 가능). 작성 폼은 항상 노출하고, 비로그인이면(UNAUTHORIZED) 서버 응답을
+ *   그대로 안내한다. 본인이 쓴 문의 중 아직 답변이 없는 것에만 수정/삭제 버튼을 보여주고(답변 달린 문의는
+ *   서버가 409 INQUIRY_ALREADY_ANSWERED로 거절), 로그인한 회원이 그 상품의 판매자(product.sellerId와
+ *   currentMemberId 비교)일 때만 각 문의 항목에 답변 등록/수정/삭제 UI를 보여준다(review 섹션과 동일한
+ *   'gong9ri:auth-resolved' currentMemberId 패턴 재사용, design.md 결정).
  */
 (function () {
   var pageAlertEl = document.getElementById('page-alert');
@@ -66,6 +72,14 @@
   var reviewContentEl = document.getElementById('review-content');
   var reviewSubmitBtn = document.getElementById('review-submit');
 
+  var inquiriesCountEl = document.getElementById('inquiries-count');
+  var inquiriesStatusEl = document.getElementById('inquiries-status');
+  var inquiriesListEl = document.getElementById('inquiries-list');
+  var inquiryFormEl = document.getElementById('inquiry-form');
+  var inquiryFormAlertEl = document.getElementById('inquiry-form-alert');
+  var inquiryContentEl = document.getElementById('inquiry-content');
+  var inquirySubmitBtn = document.getElementById('inquiry-submit');
+
   if (
     !pageAlertEl || !pageAlertTextEl || !pageAlertLoginLinkEl || !pageAlertPayLinkEl || !statusEl || !detailEl ||
     !imageEl ||
@@ -75,7 +89,9 @@
     !buyAloneBtn || !createTeamBtn || !kakaoShareBtn ||
     !teamStatusEl || !teamListEl ||
     !reviewAverageEl || !reviewsStatusEl || !reviewsListEl || !reviewFormEl || !reviewFormAlertEl ||
-    !reviewRatingEl || !reviewContentEl || !reviewSubmitBtn
+    !reviewRatingEl || !reviewContentEl || !reviewSubmitBtn ||
+    !inquiriesCountEl || !inquiriesStatusEl || !inquiriesListEl || !inquiryFormEl || !inquiryFormAlertEl ||
+    !inquiryContentEl || !inquirySubmitBtn
   ) {
     return;
   }
@@ -90,6 +106,11 @@
   var editingReviewId = null;
   // 카카오톡 공유하기 버튼 클릭 시 쓸 상품 정보. renderProduct에서 채워진다.
   var shareTargetProduct = null;
+  // 문의 폼이 "새로 작성" 모드인지 "기존 문의 수정" 모드인지 구분한다. null이면 작성 모드.
+  var editingInquiryId = null;
+  // 이 상품의 판매자 id. renderProduct에서 채워진다 — currentMemberId와 비교해 답변 등록/수정/삭제
+  // UI 노출 여부를 결정한다(design.md 결정).
+  var currentSellerId = null;
 
   function formatPrice(value) {
     if (typeof value !== 'number') {
@@ -199,6 +220,8 @@
       imgEl.alt = product.name || '';
       imageEl.appendChild(imgEl);
     }
+
+    currentSellerId = typeof product.sellerId === 'number' ? product.sellerId : null;
 
     sellerEl.textContent = product.sellerName || '';
     nameEl.textContent = product.name || '';
@@ -834,6 +857,288 @@
       });
   }
 
+  // ---------- 문의하기 ----------
+
+  function showInquiriesStatus(text, variant) {
+    inquiriesStatusEl.hidden = false;
+    inquiriesStatusEl.textContent = text;
+    inquiriesStatusEl.className = 'product-status product-status--' + variant;
+  }
+
+  function hideInquiriesStatus() {
+    inquiriesStatusEl.hidden = true;
+    inquiriesStatusEl.textContent = '';
+  }
+
+  function showInquiryFormAlert(text, variant) {
+    inquiryFormAlertEl.hidden = false;
+    inquiryFormAlertEl.textContent = text;
+    inquiryFormAlertEl.className = 'form-alert form-alert--' + variant;
+  }
+
+  function hideInquiryFormAlert() {
+    inquiryFormAlertEl.hidden = true;
+    inquiryFormAlertEl.textContent = '';
+  }
+
+  function resetInquiryForm() {
+    editingInquiryId = null;
+    inquiryContentEl.value = '';
+    inquirySubmitBtn.textContent = '문의 작성';
+  }
+
+  function startEditingInquiry(inquiry) {
+    editingInquiryId = inquiry.inquiryId;
+    inquiryContentEl.value = inquiry.content || '';
+    inquirySubmitBtn.textContent = '문의 수정 저장';
+    hideInquiryFormAlert();
+    inquiryFormEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function handleDeleteInquiry(inquiryId) {
+    if (!window.confirm('문의를 삭제할까요?')) {
+      return;
+    }
+    window.Api.del('/inquiries/' + inquiryId)
+      .then(function () {
+        if (editingInquiryId === inquiryId) {
+          resetInquiryForm();
+        }
+        loadInquiries(currentProductId);
+      })
+      .catch(function (err) {
+        console.error('[product.js] failed to delete inquiry:', err);
+        window.alert((err && err.message) || '문의 삭제에 실패했습니다.');
+      });
+  }
+
+  function handleDeleteAnswer(inquiryId) {
+    if (!window.confirm('답변을 삭제할까요?')) {
+      return;
+    }
+    window.Api.del('/inquiries/' + inquiryId + '/answer')
+      .then(function () {
+        loadInquiries(currentProductId);
+      })
+      .catch(function (err) {
+        console.error('[product.js] failed to delete answer:', err);
+        window.alert((err && err.message) || '답변 삭제에 실패했습니다.');
+      });
+  }
+
+  /**
+   * 판매자용 답변 등록/수정 인라인 폼 — review-form처럼 페이지에 하나 두고 재사용하는 대신, 여러
+   * 문의에 동시에 답변할 수 있게 문의 항목마다 개별로 만든다(design.md 결정). 문의에 이미 답변이
+   * 있으면 PUT(수정), 없으면 POST(등록)를 호출한다.
+   */
+  function createAnswerForm(inquiry) {
+    var wrapper = document.createElement('div');
+    wrapper.className = 'form-group';
+
+    var alertEl = document.createElement('div');
+    alertEl.className = 'form-alert';
+    alertEl.hidden = true;
+    wrapper.appendChild(alertEl);
+
+    var textarea = document.createElement('textarea');
+    textarea.className = 'form-input';
+    textarea.rows = 2;
+    textarea.maxLength = 1000;
+    textarea.value = inquiry.answerContent || '';
+    wrapper.appendChild(textarea);
+
+    var submitBtn = document.createElement('button');
+    submitBtn.type = 'button';
+    submitBtn.className = 'btn btn-primary btn-sm';
+    submitBtn.textContent = inquiry.answered ? '답변 수정 저장' : '답변 등록';
+    wrapper.appendChild(submitBtn);
+
+    submitBtn.addEventListener('click', function () {
+      var content = textarea.value.trim();
+      submitBtn.disabled = true;
+
+      var request = inquiry.answered
+        ? window.Api.put('/inquiries/' + inquiry.inquiryId + '/answer', { content: content })
+        : window.Api.post('/inquiries/' + inquiry.inquiryId + '/answer', { content: content });
+
+      request
+        .then(function () {
+          loadInquiries(currentProductId);
+        })
+        .catch(function (err) {
+          console.error('[product.js] failed to save answer:', err);
+          alertEl.hidden = false;
+          alertEl.textContent = (err && err.message) || '답변 저장에 실패했습니다.';
+          alertEl.className = 'form-alert form-alert--error';
+          submitBtn.disabled = false;
+        });
+    });
+
+    return wrapper;
+  }
+
+  function createInquiryItem(inquiry) {
+    var li = document.createElement('li');
+    li.className = 'mypage-list-item';
+
+    var infoEl = document.createElement('div');
+    infoEl.className = 'mypage-list-item__info';
+
+    var titleEl = document.createElement('span');
+    titleEl.className = 'mypage-list-item__title';
+    titleEl.textContent = inquiry.memberName + (inquiry.answered ? ' · 답변완료' : ' · 미답변');
+    infoEl.appendChild(titleEl);
+
+    var contentEl = document.createElement('span');
+    contentEl.className = 'mypage-list-item__meta';
+    contentEl.textContent = inquiry.content || '';
+    infoEl.appendChild(contentEl);
+
+    if (inquiry.answered) {
+      var answerEl = document.createElement('span');
+      answerEl.className = 'mypage-list-item__meta';
+      answerEl.textContent = '판매자 답변: ' + (inquiry.answerContent || '');
+      infoEl.appendChild(answerEl);
+    }
+
+    li.appendChild(infoEl);
+
+    var actionsEl = document.createElement('div');
+    actionsEl.className = 'mypage-list-item__actions';
+    var hasActions = false;
+
+    // 작성자 본인 — 답변이 없는 문의만 수정/삭제 가능(답변 달린 문의는 서버가 409로 거절하므로
+    // 애초에 버튼을 노출하지 않는다).
+    if (currentMemberId !== null && inquiry.memberId === currentMemberId && !inquiry.answered) {
+      hasActions = true;
+
+      var editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'btn btn-secondary btn-sm';
+      editBtn.textContent = '수정';
+      editBtn.addEventListener('click', function () {
+        startEditingInquiry(inquiry);
+      });
+      actionsEl.appendChild(editBtn);
+
+      var deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'btn btn-ghost btn-sm';
+      deleteBtn.textContent = '삭제';
+      deleteBtn.addEventListener('click', function () {
+        handleDeleteInquiry(inquiry.inquiryId);
+      });
+      actionsEl.appendChild(deleteBtn);
+    }
+
+    // 그 상품의 판매자 본인 — 답변 등록/수정/삭제.
+    if (currentMemberId !== null && currentSellerId !== null && currentMemberId === currentSellerId) {
+      hasActions = true;
+
+      var answerFormEl = null;
+      var toggleAnswerBtn = document.createElement('button');
+      toggleAnswerBtn.type = 'button';
+      toggleAnswerBtn.className = 'btn btn-secondary btn-sm';
+      toggleAnswerBtn.textContent = inquiry.answered ? '답변 수정' : '답변 등록';
+      toggleAnswerBtn.addEventListener('click', function () {
+        if (answerFormEl) {
+          answerFormEl.remove();
+          answerFormEl = null;
+          return;
+        }
+        answerFormEl = createAnswerForm(inquiry);
+        li.appendChild(answerFormEl);
+      });
+      actionsEl.appendChild(toggleAnswerBtn);
+
+      if (inquiry.answered) {
+        var deleteAnswerBtn = document.createElement('button');
+        deleteAnswerBtn.type = 'button';
+        deleteAnswerBtn.className = 'btn btn-ghost btn-sm';
+        deleteAnswerBtn.textContent = '답변 삭제';
+        deleteAnswerBtn.addEventListener('click', function () {
+          handleDeleteAnswer(inquiry.inquiryId);
+        });
+        actionsEl.appendChild(deleteAnswerBtn);
+      }
+    }
+
+    if (hasActions) {
+      li.appendChild(actionsEl);
+    }
+
+    return li;
+  }
+
+  function renderInquiries(data) {
+    inquiriesCountEl.textContent = typeof data.count === 'number' && data.count > 0 ? '(' + data.count + ')' : '';
+
+    clearChildren(inquiriesListEl);
+    var fragment = document.createDocumentFragment();
+    (data.inquiries || []).forEach(function (inquiry) {
+      fragment.appendChild(createInquiryItem(inquiry));
+    });
+    inquiriesListEl.appendChild(fragment);
+  }
+
+  function loadInquiries(productId) {
+    showInquiriesStatus('문의를 불러오는 중입니다...', 'loading');
+    clearChildren(inquiriesListEl);
+
+    return window.Api.get('/products/' + productId + '/inquiries')
+      .then(function (data) {
+        if (!data.inquiries || data.inquiries.length === 0) {
+          inquiriesCountEl.textContent = '';
+          showInquiriesStatus('아직 등록된 문의가 없습니다.', 'empty');
+          return;
+        }
+        hideInquiriesStatus();
+        renderInquiries(data);
+      })
+      .catch(function (err) {
+        console.error('[product.js] failed to load inquiries:', err);
+        var message = (err && err.message) || '문의를 불러오지 못했습니다.';
+        showInquiriesStatus(message, 'error');
+      });
+  }
+
+  function handleInquiryFormError(err) {
+    var status = err && err.status;
+    var code = err && err.code;
+    var message = (err && err.message) || '요청 처리 중 오류가 발생했습니다.';
+
+    if (status === 401 || code === 'UNAUTHORIZED') {
+      showInquiryFormAlert('로그인 후 작성할 수 있습니다.', 'error');
+      return;
+    }
+    showInquiryFormAlert(message, 'error');
+  }
+
+  function handleInquiryFormSubmit(event) {
+    event.preventDefault();
+    hideInquiryFormAlert();
+
+    var content = inquiryContentEl.value.trim();
+    var body = { content: content };
+
+    inquirySubmitBtn.disabled = true;
+
+    var request = editingInquiryId
+      ? window.Api.put('/inquiries/' + editingInquiryId, body)
+      : window.Api.post('/products/' + currentProductId + '/inquiries', body);
+
+    request
+      .then(function () {
+        showInquiryFormAlert(editingInquiryId ? '문의를 수정했습니다.' : '문의를 작성했습니다.', 'success');
+        resetInquiryForm();
+        loadInquiries(currentProductId);
+      })
+      .catch(handleInquiryFormError)
+      .then(function () {
+        inquirySubmitBtn.disabled = false;
+      });
+  }
+
   function loadProduct(productId) {
     showStatus('상품 정보를 불러오는 중입니다...', 'loading');
     detailEl.hidden = true;
@@ -843,6 +1148,9 @@
         hideStatus();
         renderProduct(product);
         detailEl.hidden = false;
+        // renderProduct()가 currentSellerId를 채운 뒤에 다시 불러와야 판매자 답변 UI가 정확히
+        // 반영된다(init()의 초기 loadInquiries() 호출은 currentSellerId가 아직 null일 수 있음).
+        loadInquiries(productId);
         return loadTeams(productId);
       })
       .catch(function (err) {
@@ -870,14 +1178,16 @@
     createTeamBtn.addEventListener('click', handleCreateTeam);
     kakaoShareBtn.addEventListener('click', handleKakaoShare);
     reviewFormEl.addEventListener('submit', handleReviewFormSubmit);
+    inquiryFormEl.addEventListener('submit', handleInquiryFormSubmit);
 
     // header-auth.js가 이미 GET /api/auth/me를 호출하므로 그 결과를 재사용한다(중복 호출 방지).
-    // 이 이벤트가 loadReviews()보다 늦게 올 수도 있어(비동기 순서 보장 없음), 도착하면 리뷰를
-    // 다시 불러와서 "내가 쓴 리뷰"의 수정/삭제 버튼이 정확히 반영되게 한다.
+    // 이 이벤트가 loadReviews()/loadInquiries()보다 늦게 올 수도 있어(비동기 순서 보장 없음), 도착하면
+    // 다시 불러와서 "내가 쓴 리뷰/문의"의 수정/삭제 버튼과 판매자 답변 UI가 정확히 반영되게 한다.
     document.addEventListener('gong9ri:auth-resolved', function (event) {
       var detail = event.detail || {};
       currentMemberId = detail.loggedIn && detail.member ? detail.member.memberId : null;
       loadReviews(productId);
+      loadInquiries(productId);
     });
 
     refundNoticeCheckboxEl.addEventListener('change', function () {
@@ -887,6 +1197,7 @@
 
     loadProduct(productId);
     loadReviews(productId);
+    loadInquiries(productId);
     connectRealtime(productId);
   }
 

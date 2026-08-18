@@ -30,7 +30,7 @@
 - 스캔(`findExpiredRecruitingTeamIds`)은 id만 조회하는 읽기전용 쿼리, 실제 처리(`processDeadline`)는 팀별로 별도 트랜잭션 — 전체 대상을 하나의 트랜잭션으로 묶지 않는다.
 - **동시성**: `processDeadline`은 `team/join`(`TeamService.join`)과 동일한 `findByIdForUpdate` 비관적 락을 재사용해, 마감 직전 참가 시도와 마감 처리가 같은 팀 row에서 직렬화되게 한다. 락 획득 후 "여전히 `RECRUITING`이고 `deadline`이 지났는지" 방어적으로 재검증한다(스캔 스냅샷과 락 획득 시점 사이 상태가 바뀔 수 있어서 — 예: 그 사이 참가로 `SUCCESS` 전환).
 - `GroupBuyTeam.fail()`은 `RECRUITING` 상태일 때만 `FAILED`로 전환하는 가드를 가진다(이미 `SUCCESS`/`FAILED`인 팀은 보호됨).
-- 환불 대상 조회: `PaymentRepository.findByTeamIdAndStatus(teamId, PAID)`로 이 시점 기준 `PAID` 결제 id 목록만 뽑아 이벤트로 넘긴다 — 실제 `Payment.refund()` 호출과 판매자 수익 요약 반영은 이 서비스가 아니라 `PaymentRefundService`(`docs/dev/payment/portone/design.md`)가 PortOne 취소 응답을 확인한 뒤 담당한다.
+- 환불 대상 조회: `PaymentRepository.findByTeamIdAndStatus(teamId, PAID)`로 이 시점 기준 `PAID` 결제 id 목록을 뽑되, **그중 이미 `PENDING` `RefundRequest`가 걸린 결제는 제외**하고 이벤트로 넘긴다(`RefundRequestRepository.findByPayment_IdInAndStatus`). 참여 취소(`team/leave` → `RefundRequestService.createFromTeamLeave`)로 생긴 대기 중 요청은 판매자의 승인/거절을 기다리는 중이라, 이 마감 스윕이 먼저 가로채 취소해버리면 그 요청이 영구히 고아 상태로 남는다(원래 있던 결함, `docs/logs/refund/request/002-code-review.md`·`003-hardening.md`, 상세 설계 근거는 `docs/dev/refund/request/design.md`). `REJECTED`/`APPROVED`로 이미 결정 난 요청이 있던 결제는 제외 대상이 아니다 — 그 결정과 무관하게 결제가 여전히 `PAID`라면 정상적인 마감 환불 대상이다. 실제 `Payment.refund()` 호출과 판매자 수익 요약 반영은 이 서비스가 아니라 `PaymentRefundService`(`docs/dev/payment/portone/design.md`)가 PortOne 취소 응답을 확인한 뒤 담당한다.
 - 컨트롤러/DTO/`ErrorCode` 신규 없음(사용자 대면 기능이 아님).
 - 인프로세스 이벤트라 서버 재시작 중 처리되지 못한 이벤트는 사라질 수 있다 — 영향은 "알림 발송 누락"뿐이고, 환불 자체는 스캔이 다음 주기(1분)에 같은 팀을 다시 찾아 트랜잭션으로 보장한다(데이터 정합성 문제는 아님).
 
@@ -39,6 +39,7 @@
 - `entity/GroupBuyTeam.java` — `fail()`
 - `repository/GroupBuyTeamRepository.java` — `findIdsByStatusAndDeadlineBefore(status, now)`
 - `repository/PaymentRepository.java` — `findByTeamIdAndStatus(teamId, status)`
+- `repository/RefundRequestRepository.java` — `findByPayment_IdInAndStatus(paymentIds, status)`(대기 중 환불 요청 걸린 결제 제외용)
 - `service/TeamDeadlineService.java` — `findExpiredRecruitingTeamIds()`(스캔) / `processDeadline(teamId)`(팀 단위 트랜잭션 처리, `FAILED` 전환 + 환불 대상 있으면 `TeamPaymentsRefundRequestedEvent` 발행)
 - `scheduler/TeamDeadlineScheduler.java` — `@Scheduled(fixedRate = 60_000)` `checkDeadlines()` — 스캔 후 팀 id별로 `TeamDeadlineDetectedEvent`만 발행(처리 직접 호출 없음)
 - `event/TeamDeadlineDetectedEvent.java` — 마감 감지 이벤트(record, teamId)
@@ -49,7 +50,7 @@
 - `config/AsyncConfig.java` — `@EnableAsync` + 전용 `ThreadPoolTaskExecutor` + 비동기 예외 로깅
 - `Gong9riApplication.java` — `@EnableScheduling`
 - 테스트:
-  - `service/TeamDeadlineServiceTest.java` — `processDeadline` 자체 회귀(마감 전환 + `TeamPaymentsRefundRequestedEvent` 발행 검증, 결제 없는 팀, 마감 미도달, 이미 SUCCESS인 팀 보호, 스캔쿼리 필터링) + 신규(트랜잭션 롤백 시 이벤트가 소비되지 않아 알림도 생성되지 않음 검증)
+  - `service/TeamDeadlineServiceTest.java` — `processDeadline` 자체 회귀(마감 전환 + `TeamPaymentsRefundRequestedEvent` 발행 검증, 결제 없는 팀, 마감 미도달, 이미 SUCCESS인 팀 보호, 스캔쿼리 필터링) + 트랜잭션 롤백 시 이벤트가 소비되지 않아 알림도 생성되지 않음 검증 + 대기 중 환불 요청이 걸린 결제는 스윕 대상에서 제외되고 없는 결제는 그대로 포함됨 검증(신규)
   - `scheduler/TeamDeadlineSchedulerTest.java` — 스캔된 팀마다 이벤트만 발행하고 `processDeadline`을 직접 호출하지 않는지(순수 Mockito, DB 없음)
   - `event/TeamDeadlineEventFlowTest.java` — 실제 이벤트 발행 → 비동기 리스너 경유 상태전환+환불취소요청, PortOne 취소(목) 확인 후 실제 REFUNDED 전환 및 구매자 전원+판매자 알림 생성, PortOne이 REQUESTED(비동기)로 응답하면 `REFUND_PENDING`로 대기하는 케이스까지(`@SpringBootTest`, 실제 커밋 필요해 클래스 레벨 `@Transactional` 미사용, `PortOneClient`는 `@MockitoBean`)
   - `event/TeamPaymentsRefundRequestedEventListenerTest.java` — 리스너의 순수 라우팅 로직(취소 대상마다 PortOne 호출·결과 반영, 대상 아님/호출 실패 시 안전 처리) 단위 검증
