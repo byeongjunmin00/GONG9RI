@@ -244,6 +244,18 @@
       panelEl.hidden = true;
     }
 
+    // 티커 전용 — 티커는 오버레이를 여는 트리거이면서 동시에 오버레이 바깥(wrapEl 안쪽)에 있어서,
+    // 열린 상태에서 눌러도 바깥 클릭 닫기 핸들러가 무시해버린다. 그래서 열기만 걸어두면 "열려 있을 때
+    // 티커를 누르면 아무 일도 안 일어나는" 죽은 영역이 된다(사용자가 실제로 "안 닫힌다"고 리포트,
+    // 2026-08-20). 여는 트리거를 다시 누르면 닫히는 게 자연스러워서 토글로 바꾼다.
+    function togglePanel() {
+      if (panelEl.hidden) {
+        openPanel();
+      } else {
+        closePanel();
+      }
+    }
+
     overlayCloseBtn.addEventListener('click', closePanel);
 
     formEl.addEventListener('submit', function (event) {
@@ -277,7 +289,7 @@
     var tickerRankEl = null;
     var tickerKeywordEl = null;
 
-    tickerEl.addEventListener('click', openPanel);
+    tickerEl.addEventListener('click', togglePanel);
 
     function stopTicker() {
       if (tickerTimer) {
