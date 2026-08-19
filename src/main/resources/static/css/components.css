@@ -763,11 +763,15 @@
 
 /* ---------- 실시간 인기 검색어 슬라이드 티커 (product/search-trends, 검색바 옆) ----------
    한 번에 하나씩 순위가 자동으로 바뀌는 티커 버튼 — 클릭하면 .header-search-trends 전체 목록 팝업을 연다. */
-/* 슬롯(.header-search-trends-ticker-slot)이 고정폭을 담당하므로, 티커 자신은 슬롯 안에서
-   내용 길이만큼만 차지하고 슬롯 왼쪽(검색창과 맞닿는 쪽)에 붙는다 — 슬롯의 justify-content:
-   flex-start와 짝. */
+/* 검색창(.search-bar) 자체가 헤더 정중앙에 오도록, 티커 슬롯은 flex 흐름에서 빼서
+   검색창 오른쪽 바로 옆에 얹는 오버레이로 둔다 — 슬롯 폭이 고정이라 검색어 글자 수가
+   바뀌어도 검색창의 크기·중앙 위치는 전혀 영향받지 않는다(슬롯은 중앙 정렬 대상이 아니다). */
 .header-search-trends-ticker-slot {
-  flex: none;
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: var(--space-4);
   width: 180px;
   display: flex;
   align-items: center;
@@ -823,20 +827,17 @@
 }
 
 /* ---------- Header search (전역 검색 진입점) ----------
-   검색창과 인기 검색어 티커를 나란히 두되(가운데 gap으로 확실히 분리), 검색창은 남는 공간을 채우고
-   티커 슬롯은 고정폭만큼만 차지한다(.header-search-trends-ticker-slot의 고정 width와 짝) — 슬롯이
-   고정폭이라 검색어 글자 수가 바뀌어도 검색창 너비는 흔들리지 않는다. */
+   검색창(.search-bar)이 이 박스의 유일한 in-flow 콘텐츠라, 이 박스를 헤더 그리드의 중앙 열에
+   두면 검색창 자체가 헤더 정중앙에 온다. 티커 슬롯은 absolute라 이 박스 크기 계산에 관여하지
+   않는다(바로 위 .header-search-trends-ticker-slot 참고) — "검색창 자체가 중앙"이 우선이고
+   티커는 그 옆에 곁다리로 얹힐 뿐, 전체 블록이 중앙이어야 하는 건 아니다. */
 .site-header__search {
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
   width: 100%;
 }
 
 .site-header__search .search-bar {
-  flex: 1;
-  min-width: 0;
+  width: 100%;
   margin-bottom: 0;
 }
 
