@@ -88,6 +88,10 @@ SSE 스트리밍은 컨트롤러 요청 스레드가 즉시 `SseEmitter`를 반�
 
 `GET /api/chat/stats`(모델별 누적 토큰·P95 응답지연·에러율), `GET /api/buyer/chat/sessions/{id}/usage`(세션별 누적 토큰). 이 프로젝트 데이터 규모에서는 DB 퍼센타일 함수 대신, 로그를 모델별/세션별로 모아 애플리케이션 레벨에서 정렬 후 계산하는 방식을 택함(단순함 우선). 별도 프론트 대시보드 UI는 스코프 밖 — 전용운이 필요하면 이 JSON을 그대로 붙여 쓸 수 있음.
 
+## 비용인식 — 요청 제한(2026-08-19 추가)
+
+`POST /api/buyer/chat/messages`는 로그인(구매자) 게이트만 있고 자체 트래픽 제어가 없었다 — 계정 하나만 있으면 반복 호출로 OpenAI 비용이 계속 발생할 수 있는 갭이었음(비로그인 접근 허용 여부를 논의하다가 발견). `RateLimitFilter`(`team/join`·로그인 등과 같은 IP 단위 고정 윈도우 규칙)에 `buyer-chat` 규칙 추가 — 1분에 10회 초과 시 `429 TOO_MANY_REQUESTS`. 정상적인 채팅 사용 패턴(메시지 하나 보내고 답변 기다렸다 다음 질문)은 절대 못 채우는 여유값, 실측 근거 없는 초기값(다른 규칙들과 같은 성격). 프론트(`chat-widget.js`)는 이미 `!res.ok`일 때 서버 메시지를 그대로 시스템 메시지로 보여주는 처리가 있어서 별도 프론트 변경 불필요.
+
 ## 관련 코드 위치
 
 - `entity/{ChatSession,ChatMessage,ChatRole,ChatInteractionLog,ChatErrorType}.java`

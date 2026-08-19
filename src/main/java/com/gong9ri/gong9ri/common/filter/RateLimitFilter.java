@@ -56,7 +56,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
             new RateLimitRule("POST", Pattern.compile("^/api/auth/login$"), "login", Duration.ofSeconds(60), 10),
             // 로그인 고도화 2단계 — 이메일 폭탄(무차별 재발송/재설정 요청) 방지.
             new RateLimitRule("POST", Pattern.compile("^/api/auth/verify-email/resend$"), "verify-email-resend", Duration.ofMinutes(5), 3),
-            new RateLimitRule("POST", Pattern.compile("^/api/auth/password/reset-request$"), "password-reset-request", Duration.ofMinutes(5), 3));
+            new RateLimitRule("POST", Pattern.compile("^/api/auth/password/reset-request$"), "password-reset-request", Duration.ofMinutes(5), 3),
+            // 구매자 챗봇(SSE) — 로그인(구매자) 게이트 하나만 방어선이었다(비용 인식 원칙, docs/dev/ai/
+            // buyer-chatbot/design.md). 호출 한 번마다 OpenAI 비용이 실제로 발생하는데 이 엔드포인트만
+            // 트래픽 제어 규칙이 없었던 걸 뒤늦게 발견해서(2026-08-19) 추가한다. 정상적인 채팅 사용 패턴
+            // (한 번에 메시지 하나씩, 답변 기다렸다 다음 질문)은 1분에 10회면 절대 못 채우지만, 스크립트로
+            // 반복 호출하는 건 확실히 막는다.
+            new RateLimitRule("POST", Pattern.compile("^/api/buyer/chat/messages$"), "buyer-chat", Duration.ofMinutes(1), 10));
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
