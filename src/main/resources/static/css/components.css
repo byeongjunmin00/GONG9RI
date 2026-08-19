@@ -763,27 +763,17 @@
 
 /* ---------- 실시간 인기 검색어 슬라이드 티커 (product/search-trends, 검색바 옆) ----------
    한 번에 하나씩 순위가 자동으로 바뀌는 티커 버튼 — 클릭하면 .header-search-trends 전체 목록 팝업을 연다. */
-/* 검색창(.search-bar) 자체가 헤더 정중앙에 오도록, 티커 슬롯은 flex 흐름에서 빼서
-   검색창 오른쪽 바로 옆에 얹는 오버레이로 둔다 — 슬롯 폭이 고정이라 검색어 글자 수가
-   바뀌어도 검색창의 크기·중앙 위치는 전혀 영향받지 않는다(슬롯은 중앙 정렬 대상이 아니다). */
-.header-search-trends-ticker-slot {
-  position: absolute;
-  left: 100%;
-  top: 50%;
-  transform: translateY(-50%);
-  margin-left: var(--space-4);
-  width: 180px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-}
-
+/* 검색창이 밀리지 않도록 슬롯을 고정폭으로 예약해두는 대신(사용자 피드백 — 그런 임의의 고정폭
+   예약을 두지 말 것), 검색어 자체를 js/header-search.js에서 10자로 잘라(TICKER_KEYWORD_MAX_LENGTH)
+   티커가 가질 수 있는 실제 너비 범위를 좁혀둔다 — 아래 max-width는 그 10자 상한을 넉넉히
+   담는 안전장치일 뿐, 항상 그 폭을 채우도록 강제하는 예약 공간이 아니다(내용이 짧으면 그만큼
+   줄어든다, flex: none이 곧 shrink-to-fit). */
 .header-search-trends-ticker {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   flex: none;
-  max-width: 100%;
+  max-width: 150px;
   padding: 6px 12px;
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-full);
@@ -821,23 +811,27 @@
 }
 
 @media (max-width: 860px) {
-  .header-search-trends-ticker-slot {
+  .header-search-trends-ticker {
     display: none;
   }
 }
 
 /* ---------- Header search (전역 검색 진입점) ----------
-   검색창(.search-bar)이 이 박스의 유일한 in-flow 콘텐츠라, 이 박스를 헤더 그리드의 중앙 열에
-   두면 검색창 자체가 헤더 정중앙에 온다. 티커 슬롯은 absolute라 이 박스 크기 계산에 관여하지
-   않는다(바로 위 .header-search-trends-ticker-slot 참고) — "검색창 자체가 중앙"이 우선이고
-   티커는 그 옆에 곁다리로 얹힐 뿐, 전체 블록이 중앙이어야 하는 건 아니다. */
+   검색창과 티커를 한 덩어리로 묶어 헤더 그리드의 중앙 열에 둔다(이 덩어리 전체가 헤더
+   정중앙에 온다) — 티커는 10자 상한(js/header-search.js) 덕에 실제 너비 변동이 좁은
+   범위로 묶여 있어, 검색창이 크게 흔들리지 않으면서도 별도의 고정폭 예약 없이 내용
+   길이만큼만 자연스럽게 자리를 차지한다. */
 .site-header__search {
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
   width: 100%;
 }
 
 .site-header__search .search-bar {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   margin-bottom: 0;
 }
 

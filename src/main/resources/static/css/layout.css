@@ -43,7 +43,7 @@
    로고보다 우측 nav+auth가 더 넓어서 검색창이 실제 중앙보다 왼쪽으로 치우쳐 보였다.) */
 .site-header__inner {
   display: grid;
-  grid-template-columns: 1fr minmax(280px, 640px) 1fr;
+  grid-template-columns: 1fr minmax(240px, 520px) 1fr;
   align-items: center;
   gap: var(--space-4);
   min-height: var(--header-height);

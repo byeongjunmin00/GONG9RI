@@ -146,9 +146,21 @@
       }
     }
 
+    var TICKER_KEYWORD_MAX_LENGTH = 10;
+
+    // 티커 옆 검색창이 밀리지 않도록 슬롯을 고정폭으로 두는 대신, 검색어 자체를 여기서 10자로
+    // 잘라 티커가 가질 수 있는 최대 너비를 예측 가능한 좁은 범위로 묶어둔다(사용자 피드백 —
+    // 슬롯을 고정폭으로 예약해두지 말 것).
+    function truncateKeyword(keyword) {
+      if (keyword.length <= TICKER_KEYWORD_MAX_LENGTH) {
+        return keyword;
+      }
+      return keyword.slice(0, TICKER_KEYWORD_MAX_LENGTH) + '...';
+    }
+
     function showTickerCurrent(keywords) {
       tickerRankEl.textContent = String(tickerIndex + 1);
-      tickerKeywordEl.textContent = keywords[tickerIndex];
+      tickerKeywordEl.textContent = truncateKeyword(keywords[tickerIndex]);
     }
 
     function startTicker(keywords) {
