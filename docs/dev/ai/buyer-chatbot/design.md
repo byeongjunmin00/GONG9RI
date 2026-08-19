@@ -24,8 +24,9 @@ Spring AI 2.0.0 `@Tool`(`org.springframework.ai.tool.annotation.Tool`) + `ChatCl
 
 ## 장애격리 (발제 AI 필수3)
 
-- **Fallback 1 — 타임아웃**: `.stream().chatResponse()`(`Flux<ChatResponse>`)에 `.timeout(Duration.ofSeconds(15))`. **15초는 실측 근거 없는 초기값**(`refund-trigger` 1분 주기와 같은 성격) — 추후 실제 지연 데이터로 재검토 필요.
+- **Fallback 1 — 타임아웃**: `.stream().chatResponse()`(`Flux<ChatResponse>`)에 `.timeout(Duration.ofMillis(llmTimeoutMs))`. `gong9ri.chat.llm-timeout-ms`(기본 15000) 설정값 — 원래 상수(15초, 실측 근거 없는 초기값)였다가 동시성 버그 수정(`changes/002-*.md`) 중 테스트에서 타임아웃 경로를 실제 시간 경과로 검증할 수 있도록 설정값으로 뺐다. 값 자체(15초)는 바뀌지 않았다.
 - **Fallback 2 — API 장애**: `com.openai.errors.RateLimitException`/`InternalServerException`/그 외 예외를 잡아 별도 안내. 에러 유형은 `ChatErrorType`(TIMEOUT/RATE_LIMIT/SERVER_ERROR/OTHER) 4종으로 로그에 구분 기록(대시보드 breakdown용)하되, 사용자에게 보여주는 문구는 "타임아웃"과 "그 외 API 장애" 2가지로 충분하다고 판단(발제 "최소 2가지" 요구 충족).
+- **Fallback 3 — SseEmitter 자체 타임아웃(연결 안전장치)**: `gong9ri.chat.emitter-timeout-ms`(기본 60000)로 `SseEmitter`를 생성하고 `emitter.onTimeout(...)`을 등록한다. 동시 요청 부하로 위 `llmTimeoutMs`가 제때 발동하지 못해도(아래 "동시 요청 처리" 참고), 이 콜백이 확실히 실패 턴 1건을 기록하고 폴백 이벤트(`message`+`done`)를 보낸 뒤 `emitter.complete()`를 직접 호출해서 컨테이너의 기본 `AsyncRequestTimeoutException` 경로(그리고 그로 인한 `HttpMessageNotWritableException`)를 타지 않게 한다.
 - **핵심 서비스 무영향**: 챗봇 Tool은 전부 읽기 전용(상품 검색, 내 참여 조회) — 주문/결제 상태를 바꾸지 않음. `BuyerChatServiceTest.streamChat_failureDoesNotAffectCoreService`로 챗봇 실패 후에도 상품 저장(핵심 서비스 예시)이 정상 동작함을 직접 검증.
 - **환각 방어**: 시스템 프롬프트에 "모르는 정보는 반드시 Tool을 호출해서 확인하고, 확인 안 된 사실을 지어내지 마라. 확실하지 않으면 모른다고 답하라" + "GONG9RI 공동구매 서비스와 무관한 질문에는 답하지 말고 안내만 하라"를 명시. 실제 호출로 (1) 서비스 무관 질문(날씨) 거절, (2) Tool로 확인 안 되는 정보(판매자 전화번호) "제공할 수 없다"고 답하는 것 둘 다 확인함(`docs/logs/ai/buyer-chatbot/001-buyer-chatbot.md`).
 
@@ -36,6 +37,34 @@ Spring AI 2.0.0 `@Tool`(`org.springframework.ai.tool.annotation.Tool`) + `ChatCl
 - **최근 N턴 윈도우(N=10, 최근 5턴)**: `ChatMessageRepository.findTop10BySessionIdOrderByCreatedAtDesc` → 시간순으로 뒤집어 `.messages(...)`에 포함. 근거: 상품 검색·내 참여 조회는 Tool Calling으로 매번 실시간 재조회하므로 오래된 대화 맥락 의존도가 낮음. 이 초기값도 실측 후 조정 여지 있음.
 - **사용자 간 격리**: `ChatSession.buyer` FK로 스코핑, mypage와 동일한 본인 소유 확인 패턴.
 - **토큰 사용량 추출**: 스트리밍 응답은 청크마다 `ChatResponseMetadata.getUsage()`가 항상 채워지지 않고 실측 결과 마지막 청크에만 채워짐(OpenAI 스트리밍 특성) — 스트림 도중 `Usage`가 non-null로 오는 마지막 값을 계속 갱신해두었다가 완료 시점에 사용.
+
+## 동시 요청 처리 (동시성 버그 수정, `changes/002-*.md`)
+
+동시에 여러 SSE 요청이 들어오면 대부분 실패하는 버그가 있었다. 로컬 재현(동시 10개 요청) + `jstack` 스레드
+덤프 + 서버 로그 타임스탬프로 실측 진단한 근본 원인과 수정 내용은 다음과 같다.
+
+- **근본 원인 — `spring.jpa.open-in-view`(OSIV) 기본값(`true`)으로 인한 HikariCP 커넥션 풀 고갈**: OSIV가
+  켜져 있으면 비동기(SSE) 요청은 `SseEmitter`가 완료/타임아웃될 때까지 JDBC 커넥션 1개를 계속 붙들고
+  있는다. 동시 10개 요청이 각자 커넥션 1개씩(HikariCP 기본 풀 크기 10개와 정확히 일치) 최대 60초간 쥐고
+  있으면서, `ChatLogRecorder`의 `REQUIRES_NEW` 트랜잭션이 새 커넥션을 못 얻어 조용히 실패하고(실패 턴 기록
+  누락), 챗봇과 무관한 `TeamDeadlineScheduler`까지 `CannotCreateTransactionException`으로 실패했다. 수정:
+  `spring.jpa.open-in-view: false`(운영·테스트 설정 모두). 이 코드베이스는 REST 전용(뷰 렌더링 없음)이고
+  컨트롤러가 엔티티를 직접 노출하지 않으며 DTO 매핑이 전부 `@Transactional` 서비스 메서드 안에서 끝나므로
+  (`docs/code-convention.md`) OSIV가 애초에 필요 없다.
+- **구독 생명주기 연결**: `streamChat()`의 `.subscribe(...)`가 반환하는 `Disposable`을 캡처해
+  `emitter.onCompletion()`에서 정리한다. 이전에는 `SseEmitter`가 타임아웃/완료돼도 배후 Reactor 구독(OpenAI
+  스트림)을 취소하는 코드가 없었다.
+- **정확히 1행 기록 보장**: `AtomicBoolean turnFinished`로, Reactor `onError`/`onComplete`와 `SseEmitter`의
+  `onTimeout`이 경쟁해도 정확히 1번만 `recordSuccessTurn`/`recordFailureTurn`이 호출되도록 가드한다(기존
+  "성공/실패 관계없이 정확히 1행" 설계 원칙 유지). 두 기록 호출은 각각 `try/catch`로 감싸 그 자체가
+  실패해도(DB 과부하 등) 최소한 ERROR 로그는 남도록 보강했다(관측성, 최후 방어선).
+- **SSE 컨텍스트에서 JSON 예외 응답 회피**: `GlobalExceptionHandler.handleException`(catch-all)이
+  `HttpServletResponse.isCommitted()`를 확인해, 이미 커밋된 응답(SSE 스트림 도중 타임아웃 등)이면 JSON
+  바디를 쓰지 않고 `null`을 반환한다. 일반 JSON API는 예외 시점에 응답이 아직 커밋되지 않으므로 기존 동작과
+  동일(회귀 없음).
+- **결과**: 실제 OpenAI 호출로 동시 10개 요청 2라운드(총 20회) 재검증, 10/10 전부 정상 완료·
+  `chat_interaction_log`/`chat_message` 정상 저장 확인(수정 전 3/10 → 수정 후 10/10). 상세 진단·검증 로그:
+  `docs/logs/ai/buyer-chatbot/002-buyer-chatbot-concurrent-timeout-bug.md`.
 
 ## 트랜잭션 — DB 쓰기는 전부 `ChatLogRecorder`의 REQUIRES_NEW
 
@@ -68,4 +97,6 @@ SSE 스트리밍은 컨트롤러 요청 스레드가 즉시 `SseEmitter`를 반�
 - `service/{PolicyRagService,PolicyRagServiceImpl}.java`, `config/{PolicyRagVectorStoreConfig,PolicyDocumentIndexer}.java` — 전용운 담당(`ai/policy-rag`), `BuyerChatService`가 생성자 주입으로 사용
 - `controller/BuyerChatController.java`
 - `common/exception/ErrorCode.java` — `CHAT_SESSION_NOT_FOUND` 추가
+- `common/exception/GlobalExceptionHandler.java` — `handleException`의 `isCommitted()` 체크(SSE 응답 커밋 후 예외 시 JSON 바디 생략, 위 "동시 요청 처리" 참고)
+- `application.yaml`(`spring.jpa.open-in-view: false`, `gong9ri.chat.llm-timeout-ms`/`emitter-timeout-ms`), `src/test/resources/application.yaml`(테스트 전용 짧은 타임아웃 값)
 - 테스트: `service/ChatbotToolsTest`(Tool 메서드 직접 단위 테스트 — mock ChatClient로는 Spring AI의 실제 tool 실행 메커니즘을 안 타므로), `service/ChatLogRecorderTest`(세션 생성/재사용/만료/소유권, 성공·실패 턴 기록), `service/BuyerChatServiceTest`(스트리밍·폴백 분류·핵심서비스 무영향·N턴 윈도잉·RAG 결합), `controller/BuyerChatControllerTest`(권한/스코핑)

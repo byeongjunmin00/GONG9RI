@@ -10,6 +10,9 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+    # 메인 application.yaml과 동일하게 꺼서(이유는 그쪽 주석 참고) 테스트에서도 회귀가 없는지 함께
+    # 검증한다 — REST 전용·DTO 매핑 구조라 꺼도 지연로딩 문제가 없어야 정상이다.
+    open-in-view: false
     properties:
       hibernate:
         format_sql: true
@@ -22,6 +25,14 @@ spring:
       # 테스트는 실제 OpenAI를 호출하지 않고 ChatClient를 목(mock)으로 대체한다 — 컨텍스트 로딩 시
       # 빈 생성 자체가 막히지 않도록 형식만 맞는 더미 키를 둔다(비용·네트워크 의존 없음).
       api-key: dummy-test-key-not-real
+
+gong9ri:
+  chat:
+    # BuyerChatServiceTest에서 SseEmitter 자체의 타임아웃(구독 정리·중복기록 방지 경로)을 실제 시간
+    # 경과로 검증하기 위해 운영값(15000/60000)보다 훨씬 짧게 둔다 — 기존 테스트는 전부 Flux.error(...)
+    # 등으로 즉시 종료돼서 이 값 자체에 영향을 받지 않는다.
+    llm-timeout-ms: 1500
+    emitter-timeout-ms: 300
 
 app:
   # src/test/resources/application.yaml는 메인 application.yaml을 완전히 대체한다(같은 이름의

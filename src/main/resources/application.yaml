@@ -20,6 +20,16 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+    # Open-Session-In-View 끔(기본값 true) — 구매자 챗봇 SSE(동시성 버그 진단, docs/dev/ai/buyer-chatbot/
+    # changes/002-*.md) 재현 중 실측으로 확인: OSIV가 켜져 있으면 각 SSE 요청이 "뷰 렌더링"이 끝날 때까지,
+    # 즉 SseEmitter가 완료/타임아웃될 때까지(최대 EMITTER_TIMEOUT_MS) JDBC 커넥션 1개를 계속 붙들고
+    # 있는다. 동시에 10개 요청을 보내면 HikariCP 기본 풀(10개)이 그 즉시 전부 소진되어, ChatLogRecorder의
+    # REQUIRES_NEW 트랜잭션(실패 턴 기록)은 물론 이 챗봇과 무관한 다른 스케줄러(TeamDeadlineScheduler)
+    # 까지 커넥션을 못 얻어 CannotCreateTransactionException으로 실패하는 걸 로컬 재현으로 직접 확인함.
+    # 이 코드베이스는 REST API 전용(뷰 렌더링 없음)이고 컨트롤러가 엔티티를 직접 노출하지 않으며
+    # (docs/code-convention.md), DTO 매핑이 전부 @Transactional 서비스 메서드 안에서 끝나므로 OSIV가
+    # 필요 없다 — 꺼도 지연로딩 예외가 나지 않는다(전체 테스트로 회귀 없음 확인).
+    open-in-view: false
     properties:
       hibernate:
         format_sql: true
@@ -38,6 +48,16 @@ spring:
           model: gpt-4o-mini
           temperature: 0.3
           max-tokens: 500
+gong9ri:
+  chat:
+    # 구매자 챗봇(BuyerChatService)의 두 타임아웃 — 기존에는 코드 상수였는데, 동시 요청 버그 진단
+    # (docs/dev/ai/buyer-chatbot/changes/002-*.md) 중 테스트에서 실제 SseEmitter 타임아웃 경로를
+    # 빠르게 검증할 필요가 있어 설정값으로 뺐다(테스트는 src/test/resources/application.yaml에서
+    # 훨씬 짧은 값으로 오버라이드). llm-timeout-ms(LLM 응답 대기 상한)가 emitter-timeout-ms(SseEmitter
+    # 자체 연결 유지 상한)보다 항상 충분히 짧아야 LLM_TIMEOUT의 폴백 안내가 정상적으로 먼저 발동한다.
+    llm-timeout-ms: 15000
+    emitter-timeout-ms: 60000
+
 app:
   # 이메일 안의 인증/재설정 링크를 만들 때 쓰는 서버 공개 URL. Railway엔
   # APP_BASE_URL=https://gong9ri-production.up.railway.app 환경변수 추가 필요(docs/deploy-guide.md).

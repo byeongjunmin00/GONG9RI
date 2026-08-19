@@ -276,6 +276,37 @@ class BuyerChatServiceTest {
     }
 
     @Test
+    @DisplayName("LLM 응답이 emitter 타임아웃보다 늦으면 실패 턴이 정확히 1행만 기록되고 배후 구독이 정리된다")
+    void streamChat_emitterTimesOutFirst_recordsFailureOnceAndDisposesSubscription() throws InterruptedException {
+        // src/test/resources/application.yaml: emitter-timeout-ms=300, llm-timeout-ms=1500 — emitter가
+        // 먼저 타임아웃되고, 그 뒤에도 살아있을 Flux.never() 구독이 llmTimeoutMs 시점에 또 onError를
+        // 쏘려고 하는지까지 확인해야 "구독 정리(dispose)"가 실제로 동작하는지 검증할 수 있다.
+        when(streamResponseSpec.chatResponse()).thenReturn(Flux.never());
+
+        SseEmitter emitter = buyerChatService.streamChat(new MemberUserDetails(buyer),
+                new ChatMessageRequest(null, "질문"));
+        assertTrue(emitter != null);
+
+        Long sessionId = chatSessionRepository.findAll().stream()
+                .filter(s -> s.getBuyer().getId().equals(buyer.getId())).findFirst().orElseThrow().getId();
+
+        // emitter-timeout-ms(300)가 지나면 finishAbnormally()가 실패 턴을 기록해야 한다.
+        awaitLogRow(sessionId);
+        List<ChatInteractionLog> logsAfterEmitterTimeout = chatInteractionLogRepository.findAllBySessionId(sessionId);
+        assertEquals(1, logsAfterEmitterTimeout.size());
+        assertTrue(!logsAfterEmitterTimeout.get(0).getSuccess());
+        assertEquals("TIMEOUT", logsAfterEmitterTimeout.get(0).getErrorType().name());
+        assertEquals(1, chatMessageRepository.findAllBySessionIdOrderByCreatedAtAsc(sessionId).size());
+
+        // llmTimeoutMs(1500)까지 넉넉히 더 기다려도 — 구독이 제대로 정리(dispose)됐다면 Reactor의
+        // .timeout()이 뒤늦게 또 onError를 쏘며 recordFailureTurn을 한 번 더 호출하는 일이 없어야 한다.
+        Thread.sleep(2000);
+        List<ChatInteractionLog> logsAfterWait = chatInteractionLogRepository.findAllBySessionId(sessionId);
+        assertEquals(1, logsAfterWait.size());
+        assertEquals(1, chatMessageRepository.findAllBySessionIdOrderByCreatedAtAsc(sessionId).size());
+    }
+
+    @Test
     @DisplayName("RAG 검색이 실패해도 챗봇 턴은 정상적으로 성공한다(RAG는 부가 기능)")
     void streamChat_ragServiceThrows_stillProceedsNormally() throws InterruptedException {
         when(policyRagService.findRelevantSnippets(anyString())).thenThrow(new RuntimeException("임베딩 API 장애"));

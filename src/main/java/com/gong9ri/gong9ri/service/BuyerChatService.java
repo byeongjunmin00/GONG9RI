@@ -27,6 +27,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -38,9 +39,11 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import reactor.core.Disposable;
 
 /**
  * 구매자 챗봇(발제 AI 필수2 Tool Calling + 필수3 장애격리·비용인식 + 도전 SSE 스트리밍·멀티턴).
@@ -50,11 +53,6 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @Service
 @RequiredArgsConstructor
 public class BuyerChatService {
-
-    // LLM 응답 대기 상한 — 실측 근거 없는 초기값(design.md에 명시, refund-trigger 1분 주기와 같은 성격).
-    private static final Duration LLM_TIMEOUT = Duration.ofSeconds(15);
-    // SseEmitter 자체의 연결 유지 상한(위 LLM_TIMEOUT과는 별개 — 연결 안전장치).
-    private static final long EMITTER_TIMEOUT_MS = 60_000L;
 
     private static final String SYSTEM_PROMPT = """
             너는 공동구매 플랫폼 GONG9RI의 구매자 전용 채팅 상담원이다. 구매자가 상품이나 본인의 공구
@@ -74,6 +72,15 @@ public class BuyerChatService {
     private final TeamParticipationRepository teamParticipationRepository;
     private final ChatLogRecorder chatLogRecorder;
     private final PolicyRagService policyRagService;
+
+    // LLM 응답 대기 상한 — 동시성 버그 진단(docs/dev/ai/buyer-chatbot/changes/002-*.md) 전까지는 코드
+    // 상수였다가, 테스트에서 SseEmitter 자체 타임아웃 경로를 실제 시간 경과로 검증하려고 설정값으로 뺐다.
+    @Value("${gong9ri.chat.llm-timeout-ms:15000}")
+    private long llmTimeoutMs;
+
+    // SseEmitter 자체의 연결 유지 상한(위 llmTimeoutMs와는 별개 — 연결 안전장치).
+    @Value("${gong9ri.chat.emitter-timeout-ms:60000}")
+    private long emitterTimeoutMs;
 
     @Transactional(readOnly = true)
     public List<ChatMessageResponse> history(MemberUserDetails principal, Long sessionId) {
@@ -150,34 +157,64 @@ public class BuyerChatService {
         // 권한/존재 오류(BusinessException)는 SSE 프레임이 아니라 평범한 HTTP 에러 응답으로 나가야 하므로,
         // SseEmitter를 만들기 전에 먼저 던져지게 한다.
         ChatSession session = chatLogRecorder.getOrCreateSession(buyer, request.sessionId());
-        List<Message> history = loadRecentHistory(session.getId());
+        Long sessionId = session.getId();
+        String userContent = request.content();
+        List<Message> history = loadRecentHistory(sessionId);
         ChatbotTools tools = new ChatbotTools(buyer.getId(), productRepository, teamParticipationRepository);
-        List<String> ragSnippets = retrieveRagContext(request.content());
+        List<String> ragSnippets = retrieveRagContext(userContent);
 
-        SseEmitter emitter = new SseEmitter(EMITTER_TIMEOUT_MS);
-        sendEvent(emitter, "session", String.valueOf(session.getId()));
+        SseEmitter emitter = new SseEmitter(emitterTimeoutMs);
+        long startedAt = System.currentTimeMillis();
+
+        // 한 턴의 성공/실패 기록은 정확히 1행만 남아야 한다(design.md 원칙) — Reactor 구독의 onError/
+        // onComplete와 SseEmitter 자체의 onTimeout이 서로 다른 스레드에서 거의 동시에 도착할 수 있어서,
+        // 둘 중 먼저 끝내는 쪽만 기록하도록 이 플래그로 막는다.
+        AtomicBoolean turnFinished = new AtomicBoolean(false);
+        // subscribe() 호출 전에 onTimeout 콜백을 먼저 등록해야 하는데, 실제 Disposable은 subscribe()가
+        // 반환한 뒤에야 알 수 있어서 참조를 담아둘 그릇이 필요하다.
+        AtomicReference<Disposable> subscriptionRef = new AtomicReference<>();
+
+        // SseEmitter가 어떤 이유로든 끝나면(정상 완료/타임아웃/전송오류) 배후에서 계속 돌고 있을 Reactor
+        // 구독(OpenAI 스트림 + Tool Calling)을 반드시 취소한다 — 이전에는 이 생명주기 연결이 아예 없어서
+        // 연결이 끊긴 뒤에도 구독이 계속 리소스를 붙들고 있었다(동시성 버그 진단, changes/002-*.md).
+        emitter.onCompletion(() -> disposeSubscription(subscriptionRef));
+        // SseEmitter 자체의 하드 타임아웃 — 배후 LLM 타임아웃이 동시 요청 부하로 지연돼 제때 못 끝나도,
+        // 여기서 확실히 실패 턴 1건을 기록하고 폴백 이벤트로 스트림을 정상 종료시킨다. 이 콜백이 없으면
+        // 컨테이너가 AsyncRequestTimeoutException을 던지고, 그게 GlobalExceptionHandler의 catch-all까지
+        // 흘러가 이미 커밋된 SSE 응답에 JSON을 쓰려다 HttpMessageNotWritableException까지 겹쳐서 났었다.
+        emitter.onTimeout(() -> finishAbnormally(emitter, subscriptionRef, turnFinished, sessionId, userContent,
+                startedAt, ChatErrorType.TIMEOUT));
+
+        sendEvent(emitter, "session", String.valueOf(sessionId));
 
         StringBuilder assembled = new StringBuilder();
         AtomicReference<Usage> usageRef = new AtomicReference<>();
-        long startedAt = System.currentTimeMillis();
 
-        chatClientBuilder.build()
+        Disposable subscription = chatClientBuilder.build()
                 .prompt()
                 .system(buildSystemPrompt(ragSnippets))
                 .messages(history)
-                .user(request.content())
+                .user(userContent)
                 .tools(tools)
                 .options(buildChatOptions())
                 .stream()
                 .chatResponse()
-                .timeout(LLM_TIMEOUT)
+                .timeout(Duration.ofMillis(llmTimeoutMs))
                 .subscribe(
                         chatResponse -> onChunk(emitter, assembled, usageRef, chatResponse),
-                        throwable -> onError(emitter, session.getId(), request.content(), startedAt, throwable),
-                        () -> onComplete(emitter, session.getId(), request.content(), assembled, startedAt,
+                        throwable -> onError(emitter, turnFinished, sessionId, userContent, startedAt, throwable),
+                        () -> onComplete(emitter, turnFinished, sessionId, userContent, assembled, startedAt,
                                 usageRef.get()));
+        subscriptionRef.set(subscription);
 
         return emitter;
+    }
+
+    private void disposeSubscription(AtomicReference<Disposable> subscriptionRef) {
+        Disposable subscription = subscriptionRef.get();
+        if (subscription != null && !subscription.isDisposed()) {
+            subscription.dispose();
+        }
     }
 
     private void onChunk(SseEmitter emitter, StringBuilder assembled, AtomicReference<Usage> usageRef,
@@ -193,28 +230,78 @@ public class BuyerChatService {
         }
     }
 
-    private void onComplete(SseEmitter emitter, Long sessionId, String userContent, StringBuilder assembled,
-            long startedAt, Usage usage) {
+    private void onComplete(SseEmitter emitter, AtomicBoolean turnFinished, Long sessionId, String userContent,
+            StringBuilder assembled, long startedAt, Usage usage) {
+        if (!turnFinished.compareAndSet(false, true)) {
+            // SseEmitter가 이미 타임아웃으로 실패 턴을 기록하고 스트림을 끝냈다 — 뒤늦게 도착한 정상
+            // 완료는 무시한다(정확히 1행 원칙).
+            return;
+        }
         long latencyMs = System.currentTimeMillis() - startedAt;
         Integer promptTokens = usage != null ? usage.getPromptTokens() : null;
         Integer completionTokens = usage != null ? usage.getCompletionTokens() : null;
         Integer totalTokens = usage != null ? usage.getTotalTokens() : null;
-        chatLogRecorder.recordSuccessTurn(sessionId, userContent, assembled.toString(), "gpt-4o-mini", latencyMs,
-                promptTokens, completionTokens, totalTokens);
+        recordSuccessSafely(sessionId, userContent, assembled.toString(), latencyMs, promptTokens, completionTokens,
+                totalTokens);
         sendEvent(emitter, "done", "");
         emitter.complete();
     }
 
-    private void onError(SseEmitter emitter, Long sessionId, String userContent, long startedAt,
-            Throwable throwable) {
+    private void onError(SseEmitter emitter, AtomicBoolean turnFinished, Long sessionId, String userContent,
+            long startedAt, Throwable throwable) {
+        if (!turnFinished.compareAndSet(false, true)) {
+            // SseEmitter가 이미 타임아웃으로 실패 턴을 기록하고 스트림을 끝냈다 — 뒤늦게 도착한 이 에러는
+            // 무시한다(정확히 1행 원칙). 정상적으로는 emitter.onCompletion()에서 구독을 정리하지만, 이
+            // 경로로 들어왔다는 건 정리 전에 에러가 도착했다는 뜻이라 안전하게 한 번 더 시도해도 무해하다.
+            return;
+        }
         long latencyMs = System.currentTimeMillis() - startedAt;
         ChatErrorType errorType = classifyError(throwable);
         log.error("챗봇 응답 실패: sessionId={}, errorType={}, latencyMs={}", sessionId, errorType, latencyMs,
                 throwable);
-        chatLogRecorder.recordFailureTurn(sessionId, userContent, "gpt-4o-mini", latencyMs, errorType);
+        recordFailureSafely(sessionId, userContent, latencyMs, errorType);
         sendEvent(emitter, "message", fallbackMessage(errorType));
         sendEvent(emitter, "done", "");
         emitter.complete();
+    }
+
+    // SseEmitter 자체의 타임아웃(onTimeout)으로 끝나는 비정상 종료 경로. Reactor 쪽 onError/onComplete와
+    // 정확히 같은 "1행만 기록" 규칙을 따르되, 여기서는 클라이언트 연결이 이미 죽어가는 중이므로 배후
+    // 구독을 먼저 정리한 뒤 폴백 이벤트를 시도한다(실패해도 sendEvent가 조용히 흡수한다).
+    private void finishAbnormally(SseEmitter emitter, AtomicReference<Disposable> subscriptionRef,
+            AtomicBoolean turnFinished, Long sessionId, String userContent, long startedAt,
+            ChatErrorType errorType) {
+        if (!turnFinished.compareAndSet(false, true)) {
+            return;
+        }
+        disposeSubscription(subscriptionRef);
+        long latencyMs = System.currentTimeMillis() - startedAt;
+        log.error("챗봇 응답 실패(emitter 타임아웃): sessionId={}, latencyMs={}", sessionId, latencyMs);
+        recordFailureSafely(sessionId, userContent, latencyMs, errorType);
+        sendEvent(emitter, "message", fallbackMessage(errorType));
+        sendEvent(emitter, "done", "");
+        emitter.complete();
+    }
+
+    // recordSuccessTurn/recordFailureTurn(REQUIRES_NEW 트랜잭션)이 커넥션 풀 고갈 등으로 자체적으로
+    // 실패하는 경우, 그 예외를 Reactor 콜백 밖으로 그냥 던지면 조용히 사라져서(Operators.onErrorDropped)
+    // chat_interaction_log 기록 누락 원인을 나중에 아예 추적할 수 없다 — 로그만이라도 반드시 남긴다.
+    private void recordSuccessSafely(Long sessionId, String userContent, String assistantContent, long latencyMs,
+            Integer promptTokens, Integer completionTokens, Integer totalTokens) {
+        try {
+            chatLogRecorder.recordSuccessTurn(sessionId, userContent, assistantContent, "gpt-4o-mini", latencyMs,
+                    promptTokens, completionTokens, totalTokens);
+        } catch (Exception e) {
+            log.error("성공 턴 기록 자체가 실패함: sessionId={}", sessionId, e);
+        }
+    }
+
+    private void recordFailureSafely(Long sessionId, String userContent, long latencyMs, ChatErrorType errorType) {
+        try {
+            chatLogRecorder.recordFailureTurn(sessionId, userContent, "gpt-4o-mini", latencyMs, errorType);
+        } catch (Exception e) {
+            log.error("실패 턴 기록 자체가 실패함: sessionId={}, errorType={}", sessionId, errorType, e);
+        }
     }
 
     private ChatErrorType classifyError(Throwable throwable) {
