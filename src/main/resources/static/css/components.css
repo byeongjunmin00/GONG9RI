@@ -784,9 +784,14 @@
      검색창은 그대로 두고 이 티커만(이미 회전마다 폭이 바뀌는 요소라 자연스럽다) 줄어들게 한다 —
      그래도 안 쓴 min-width:0이 없으면 아래 shrink가 실제로 안 먹는다(flex 기본 min-width:auto가
      내용 전체 너비를 최소로 강제해서 줄어들 수 없게 막기 때문).
+     2차 수정: flex-basis를 150px로 고정했더니(`flex: 0 1 150px`), 짧은 검색어일 때도 항상
+     150px로 그려지면서 빈 공간이 남는 부작용이 생겼다(비로그인 등 nav가 좁아 여유 공간이 있을 때
+     사용자가 실측으로 발견, 2026-08-19). flex-basis를 auto(=내용 크기)로 바꿔서, 평소엔 내용만큼만
+     차지하고(짧으면 좁게) max-width로만 150px 상한을 걸고, 진짜 공간이 부족할 때만 shrink가
+     작동하게 한다.
      검색창(.search-bar)은 여전히 flex:none으로 고정 — 이 요소가 줄어들면 지터가 재발한다(과거에
      이미 겪음, 위 site-header__search 주석 참고). */
-  flex: 0 1 150px;
+  flex: 0 1 auto;
   min-width: 0;
   max-width: 150px;
   margin-right: var(--space-2);
