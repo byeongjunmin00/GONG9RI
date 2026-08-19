@@ -7,7 +7,7 @@
  *   읽어 처리하는 걸 그대로 재사용한다.
  * - 검색바 옆 티커(#header-search-trends-ticker)가 순위 하나씩 자동으로 바뀌며 상시 노출된다
  *   (product/list-enhancements의 main.js 티커와 동일한 페이드 전환 패턴, 자리만 헤더로 옮김).
- *   티커를 클릭하거나 검색창을 포커스/클릭하면 전체 20개 목록 팝업(#header-search-trends-panel)이
+ *   티커를 클릭하거나 검색창을 포커스/클릭하면 전체 10개 목록 팝업(#header-search-trends-panel)이
  *   열린다 — 데이터는 페이지 로드 시 한 번만 불러와 티커·팝업 둘 다에서 재사용한다(중복 호출 없음).
  * - js/include.js가 헤더를 삽입한 뒤 발행하는 'gong9ri:includes-ready' 이벤트를 구독해서 초기화한다
  *   (js/header-auth.js와 같은 패턴).
@@ -77,7 +77,7 @@
         return;
       }
       trendsLoaded = true;
-      window.Api.get('/products/search-trends?limit=20')
+      window.Api.get('/products/search-trends?limit=10')
         .then(function (data) {
           trendKeywords = (data && data.keywords) || [];
           renderTrends(trendKeywords);

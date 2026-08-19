@@ -88,6 +88,29 @@
   color: var(--color-pink);
 }
 
+/* 찜(product/wishlist) 헤더 지름길 — 텍스트 링크가 아니라 아이콘 버튼이라 별도 스타일. */
+.site-header__wishlist-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: var(--color-text-muted);
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.site-header__wishlist-link svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.site-header__wishlist-link:hover {
+  color: var(--color-pink);
+  background-color: var(--color-surface-alt);
+}
+
 .site-header__auth {
   display: flex;
   align-items: center;

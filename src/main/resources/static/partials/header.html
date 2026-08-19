@@ -70,6 +70,11 @@
         <a href="/seller/products/new.html" data-role="SELLER" hidden>판매 물품 등록</a>
         <a href="/seller/mypage.html" data-role="SELLER" hidden>판매자 마이페이지</a>
         <a href="/buyer/mypage.html" data-role="BUYER" hidden>구매자 마이페이지</a>
+        <!-- 찜(product/wishlist) 지름길 — 구매자 마이페이지의 "찜한 상품" 섹션(#wishlist-section)으로
+             바로 이동. 다른 nav 링크와 동일하게 header-auth.js의 data-role 매칭으로 노출된다. -->
+        <a href="/buyer/mypage.html#wishlist-section" class="site-header__wishlist-link" data-role="BUYER" hidden aria-label="찜한 상품">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 21s-7.5-4.6-10.2-9.1C.1 8.8 1.4 5 5 4.2c2.1-.5 4.1.4 5.2 2.1a.9.9 0 0 0 1.6 0C13 4.6 15 3.7 17.1 4.2c3.5.8 4.9 4.6 3.1 7.7C19.5 16.4 12 21 12 21z"/></svg>
+        </a>
         <a href="/admin/dashboard.html" data-role="ADMIN" hidden>관리자 대시보드</a>
       </nav>
 
