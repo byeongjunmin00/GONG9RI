@@ -763,12 +763,23 @@
 
 /* ---------- 실시간 인기 검색어 슬라이드 티커 (product/search-trends, 검색바 옆) ----------
    한 번에 하나씩 순위가 자동으로 바뀌는 티커 버튼 — 클릭하면 .header-search-trends 전체 목록 팝업을 연다. */
+/* 슬롯(.header-search-trends-ticker-slot)이 고정폭을 담당하므로, 티커 자신은 슬롯 안에서
+   내용 길이만큼만 차지하고 슬롯 왼쪽(검색창과 맞닿는 쪽)에 붙는다 — 슬롯의 justify-content:
+   flex-start와 짝. */
+.header-search-trends-ticker-slot {
+  flex: none;
+  width: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
 .header-search-trends-ticker {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   flex: none;
-  max-width: 180px;
+  max-width: 100%;
   padding: 6px 12px;
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-full);
@@ -806,22 +817,21 @@
 }
 
 @media (max-width: 860px) {
-  .header-search-trends-ticker {
+  .header-search-trends-ticker-slot {
     display: none;
   }
 }
 
 /* ---------- Header search (전역 검색 진입점) ----------
    검색창과 인기 검색어 티커를 나란히 두되(가운데 gap으로 확실히 분리), 검색창은 남는 공간을 채우고
-   티커는 자기 콘텐츠 너비만큼만 차지한다(.header-search-trends-ticker의 flex: none과 짝). */
+   티커 슬롯은 고정폭만큼만 차지한다(.header-search-trends-ticker-slot의 고정 width와 짝) — 슬롯이
+   고정폭이라 검색어 글자 수가 바뀌어도 검색창 너비는 흔들리지 않는다. */
 .site-header__search {
   position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  flex: 1;
-  min-width: 160px;
-  max-width: 640px;
+  width: 100%;
 }
 
 .site-header__search .search-bar {

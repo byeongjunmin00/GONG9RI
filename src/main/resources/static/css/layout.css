@@ -37,18 +37,22 @@
   border-bottom: 1px solid var(--color-border);
 }
 
+/* 3열 그리드(좌: 로고 / 중앙: 검색창 / 우: nav+auth) — 바깥 두 열을 똑같은 1fr로 둬서, 로고와
+   우측 영역의 실제 콘텐츠 너비가 서로 달라도 중앙 열(검색창)이 항상 헤더 정중앙에 오게 한다.
+   (예전엔 flex + justify-content:space-between이라 검색창이 "남는 공간"을 채우는 방식이었는데,
+   로고보다 우측 nav+auth가 더 넓어서 검색창이 실제 중앙보다 왼쪽으로 치우쳐 보였다.) */
 .site-header__inner {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr minmax(280px, 640px) 1fr;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-4);
   min-height: var(--header-height);
-  flex-wrap: wrap;
   padding-top: var(--space-2);
   padding-bottom: var(--space-2);
 }
 
 .site-header__logo {
+  justify-self: start;
   font-family: var(--font-heading);
   font-size: var(--fs-xl);
   font-weight: 800;
@@ -57,6 +61,7 @@
 }
 
 .site-header__right {
+  justify-self: end;
   display: flex;
   align-items: center;
   gap: var(--space-5);
@@ -89,6 +94,8 @@
 
 @media (max-width: 767px) {
   .site-header__inner {
+    display: flex;
+    flex-wrap: wrap;
     justify-content: center;
     text-align: center;
   }

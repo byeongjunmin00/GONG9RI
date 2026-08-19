@@ -46,14 +46,19 @@
 
       <!-- 실시간 인기 검색어 슬라이드(product/search-trends) — 한 번에 하나씩 순위가 자동으로
            바뀌는 티커. 클릭하면 팀원이 만든 전체 목록 팝업(#header-search-trends-panel)을 그대로 연다
-           (같은 데이터를 한 번만 불러와 재사용, js/header-search.js). -->
-      <button
-        type="button"
-        id="header-search-trends-ticker"
-        class="header-search-trends-ticker"
-        aria-label="실시간 인기 검색어 더 보기"
-        hidden
-      ></button>
+           (같은 데이터를 한 번만 불러와 재사용, js/header-search.js).
+           고정폭 슬롯(.header-search-trends-ticker-slot)으로 감싸서, 검색어 글자 수가 바뀌어도
+           슬롯 폭은 항상 같아 검색창이 밀리지 않는다 — 티커 자신은 슬롯 안에서 검색창 쪽에 붙어
+           내용 길이만큼만 차지한다(남는 공백은 슬롯 바깥쪽 끝에만 생긴다). -->
+      <div class="header-search-trends-ticker-slot">
+        <button
+          type="button"
+          id="header-search-trends-ticker"
+          class="header-search-trends-ticker"
+          aria-label="실시간 인기 검색어 더 보기"
+          hidden
+        ></button>
+      </div>
 
       <div id="header-search-trends-panel" class="header-search-trends" hidden>
         <p class="header-search-trends__label">실시간 인기 검색어</p>
@@ -73,8 +78,9 @@
       </nav>
 
       <div class="site-header__auth" id="header-auth-guest">
-        <a href="/login.html" class="btn btn-secondary btn-sm">로그인</a>
-        <a href="/signup.html" class="btn btn-primary btn-sm">회원가입</a>
+        <!-- 로그인/회원가입 버튼 하나로 통합 — 로그인 페이지(login.html) 하단에 이미
+             "회원가입" 링크가 있어(login.html:84), 별도 회원가입 버튼 없이도 진입 가능하다. -->
+        <a href="/login.html" class="btn btn-primary btn-sm">로그인</a>
       </div>
 
       <div class="site-header__auth" id="header-auth-user" hidden>
