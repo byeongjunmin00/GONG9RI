@@ -1583,6 +1583,49 @@
   background: #fff;
 }
 
+/* 좌우 화살표 — 점(.hero-carousel-dot)만으로는 작고 눈에 안 띄어서 누르기 불편하다는 피드백으로
+   추가(2026-08-19). 평소엔 은은하게(반투명 검은 배경) 있다가 호버 시에만 또렷해지는 걸 원칙으로 하는
+   흔한 캐러셀 관례를 따른다 — 화면을 계속 차지하는 톤을 낮추면서도 있다는 건 알 수 있게. */
+.hero-carousel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.25);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.hero-carousel-arrow:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.hero-carousel-arrow--prev {
+  left: var(--space-3);
+}
+
+.hero-carousel-arrow--next {
+  right: var(--space-3);
+}
+
+@media (max-width: 767px) {
+  /* 좁은 화면에서는 화살표가 슬라이드 문구를 가리기 쉬워서(높이가 300px로 고정, 텍스트가 이미
+     세로로 빡빡함) 점만 남기고 숨긴다 — 터치로 스와이프하는 게 자연스러운 화면 크기이기도 하다. */
+  .hero-carousel-arrow {
+    display: none;
+  }
+}
+
 /* ---------- 메인 페이지 카테고리 바 + 정렬 (main-page) ---------- */
 .category-bar-row {
   display: flex;

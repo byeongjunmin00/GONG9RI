@@ -69,6 +69,8 @@
     var carouselEl = document.getElementById('hero-carousel');
     var trackEl = document.getElementById('hero-carousel-track');
     var dotsEl = document.getElementById('hero-carousel-dots');
+    var prevBtn = document.getElementById('hero-carousel-prev');
+    var nextBtn = document.getElementById('hero-carousel-next');
     var popularSlideEl = document.getElementById('hero-carousel-popular-slide');
     var popularImageEl = document.getElementById('hero-carousel-popular-image');
     var popularTitleEl = document.getElementById('hero-carousel-popular-title');
@@ -119,13 +121,31 @@
       dotEl.className = 'hero-carousel-dot';
       dotEl.setAttribute('aria-label', (index + 1) + '번째 슬라이드로 이동');
       dotEl.addEventListener('click', function () {
-        goTo(index);
-        stopAutoRotate();
-        startAutoRotate();
+        goToWithReset(index);
       });
       dotsEl.appendChild(dotEl);
       dots.push(dotEl);
     });
+
+    // 화살표 클릭도 점 클릭과 동일하게 goTo() 재사용 + 자동 순환 타이머 리셋(눌러서 넘긴 직후
+    // 곧바로 자동으로 또 넘어가 버리면 어색하니, 리셋해서 그 슬라이드를 최소 AUTO_ROTATE_MS만큼은
+    // 보게 한다).
+    function goToWithReset(index) {
+      goTo(index);
+      stopAutoRotate();
+      startAutoRotate();
+    }
+
+    if (prevBtn) {
+      prevBtn.addEventListener('click', function () {
+        goToWithReset(current - 1);
+      });
+    }
+    if (nextBtn) {
+      nextBtn.addEventListener('click', function () {
+        goToWithReset(current + 1);
+      });
+    }
 
     // 실제 인기순 1위 상품을 찾아 2번 슬라이드를 채운다 — 진행 중인 팀이 있는 상품이 하나도 없으면
     // (RECRUITING 팀 없음) 그 슬라이드는 기본 문구(그리드 스크롤 링크) 그대로 둔다(가짜 상품 금지).

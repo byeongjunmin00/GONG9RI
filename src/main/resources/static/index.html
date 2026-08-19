@@ -101,6 +101,15 @@
             </div>
           </a>
         </div>
+        <!-- 좌우 화살표 — 원 안의 점을 눌러 넘기는 건 눈에 잘 안 띄고 누르기도 작다는 피드백(2026-08-19)
+             으로 추가. js/main.js의 goTo()를 그대로 재사용(점 클릭과 동일하게 자동 순환 타이머도
+             리셋). aria-label만 있고 텍스트가 없어 스크린리더용 안내가 핵심, 화살표 아이콘은 CSS로. -->
+        <button type="button" id="hero-carousel-prev" class="hero-carousel-arrow hero-carousel-arrow--prev" aria-label="이전 슬라이드">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button type="button" id="hero-carousel-next" class="hero-carousel-arrow hero-carousel-arrow--next" aria-label="다음 슬라이드">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M9 18l6-6-6-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
         <div id="hero-carousel-dots" class="hero-carousel-dots"></div>
       </div>
 
