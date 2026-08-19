@@ -1,5 +1,13 @@
 server:
   port: ${PORT:8080}
+  # Railway가 TLS를 프록시(엣지)에서 종료하고 내부로는 HTTP로 전달해서, 이 설정 없이는 Spring이 실제
+  # HTTPS 요청도 "HTTP 요청"으로 인식했다 — Spring Security의 HSTS(항상 HTTPS로만 접속하게 강제하는
+  # 헤더) 기본 작성기가 request.isSecure()==true일 때만 동작하는데, 그 조건을 못 맞춰서 HSTS 헤더가
+  # 응답에 전혀 안 붙고 있었다(실측으로 확인, 2026-08-19). framework로 켜면 Spring Boot가
+  # ForwardedHeaderFilter를 자동 등록해서 X-Forwarded-Proto(Railway 엣지가 실제로 https였다는 걸
+  # 알려주는 헤더)를 신뢰하고 request.isSecure()를 정확히 판단한다 — Railway 같은 신뢰할 수 있는
+  # 프록시 뒤에 있다는 전제는 이미 RateLimitFilter의 X-Forwarded-For 파싱에서도 똑같이 깔고 있다.
+  forward-headers-strategy: framework
   tomcat:
     # 기본값 200 — 프로덕션 컨테이너 메모리 한도(1GB) 안에서 스레드 스택만으로 발생하는 non-heap
     # 점유를 줄이기 위해 낮춤(2026-08-13, 반복되는 OOM 크래시 대응). 스레드 하나당 기본 스택이
