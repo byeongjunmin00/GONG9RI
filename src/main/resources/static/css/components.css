@@ -822,17 +822,21 @@
    늘어나는 흔들림을 그대로 재현했다 — 실측으로 확인, docs/logs/frontend/header-search/001).
    검색창+티커 묶음을 그리드 중앙 열에 두어 묶음 자체는 헤더 정중앙에 오고, 그 안에서
    검색창은 고정폭, 티커만 내용 길이만큼 자연스럽게 커지고 줄어든다. */
+/* 중앙 그리드 열(layout.css의 auto minmax(320px,1fr) auto)이 넓어진 만큼, 이 안에서 검색창+티커
+   묶음을 가운데로 모은다 — justify-content: center. 검색창 자체도 380px -> 480px로 키워서
+   로고/nav 사이 빈 공간을 줄였다(사용자 피드백, 2026-08-19). */
 .site-header__search {
   position: relative;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-4);
   width: 100%;
 }
 
 .site-header__search .search-bar {
   flex: none;
-  width: 380px;
+  width: 480px;
   margin-bottom: 0;
 }
 
@@ -915,6 +919,11 @@
     order: 3;
     flex-basis: 100%;
     max-width: 100%;
+  }
+
+  /* 데스크톱 고정폭(480px)은 좁은 화면에서 넘친다 — 모바일에서는 컨테이너 폭에 맞게 늘어나게 한다. */
+  .site-header__search .search-bar {
+    width: 100%;
   }
 }
 
@@ -1331,8 +1340,12 @@
    repeating-linear-gradient로 채운다. 마스크 타일 간격(60px)과 그라디언트 밴드 폭(24px)이 서로
    딱 안 맞아떨어져서, 로고 하나하나가 우연히 걸치는 색 밴드가 자연스럽게 달라져 옆 로고와 다른
    색으로 보인다(수작업으로 각 로고에 색을 지정할 필요 없음). */
+/* 배경 톤을 퍼플 위주(80%)에서 코럴 위주로 바꿨다 — 사이트 전반의 따뜻한 톤(헤더 배경, 카드 그라디언트
+   전부 오렌지/코럴 계열이 주도)과 이 슬라이드만 차가운 보라 계열이라 겉돈다는 피드백(2026-08-19).
+   같은 기법(브랜드 색 80% + 진한 텍스트 컬러 20% 블렌드)은 그대로 유지 — "화려하기만 하고 촌스럽다"던
+   원래 우려는 여전히 유효해서, 채도 높은 그라디언트 대신 깊은 단색 톤을 쓰는 접근 자체는 바꾸지 않는다. */
 .hero-carousel-slide--intro {
-  background: color-mix(in srgb, var(--color-purple) 80%, var(--color-text) 20%);
+  background: color-mix(in srgb, var(--color-coral) 80%, var(--color-text) 20%);
 }
 
 .hero-carousel-slide--intro::after {
@@ -1371,9 +1384,11 @@
   opacity: 0.9;
 }
 
+/* 예전엔 --color-brand(핑크)였는데, 보라~코럴 계열 배경 위에서 핑크 글씨는 대비가 약해 잘 안 보였다
+   (사용자 피드백 — "글씨가 잘 안 보인다"). 제목/본문과 같은 흰색 계열로 통일해 확실히 읽히게 한다. */
 .hero-carousel-slide--intro .hero-carousel-slide__kicker {
-  color: var(--color-brand);
-  opacity: 1;
+  color: var(--color-text-on-brand);
+  opacity: 0.95;
 }
 
 .hero-carousel-slide__title {
