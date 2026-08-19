@@ -817,10 +817,11 @@
 }
 
 /* ---------- Header search (전역 검색 진입점) ----------
-   검색창과 티커를 한 덩어리로 묶어 헤더 그리드의 중앙 열에 둔다(이 덩어리 전체가 헤더
-   정중앙에 온다) — 티커는 10자 상한(js/header-search.js) 덕에 실제 너비 변동이 좁은
-   범위로 묶여 있어, 검색창이 크게 흔들리지 않으면서도 별도의 고정폭 예약 없이 내용
-   길이만큼만 자연스럽게 자리를 차지한다. */
+   검색창(.search-bar)에 고정 width를 직접 줘서, 티커 길이가 바뀌어도 검색창 자체의
+   크기는 절대 변하지 않는다(flex:1로 "남는 공간을 채우던" 이전 방식은 티커가 줄면 검색창이
+   늘어나는 흔들림을 그대로 재현했다 — 실측으로 확인, docs/logs/frontend/header-search/001).
+   검색창+티커 묶음을 그리드 중앙 열에 두어 묶음 자체는 헤더 정중앙에 오고, 그 안에서
+   검색창은 고정폭, 티커만 내용 길이만큼 자연스럽게 커지고 줄어든다. */
 .site-header__search {
   position: relative;
   display: flex;
@@ -830,8 +831,8 @@
 }
 
 .site-header__search .search-bar {
-  flex: 1;
-  min-width: 0;
+  flex: none;
+  width: 380px;
   margin-bottom: 0;
 }
 
