@@ -39,14 +39,15 @@
 
 /* 3열 그리드(좌: 로고 / 중앙: 검색창 / 우: nav+auth). 바깥 두 열을 똑같은 1fr로 강제했더니
    (예전 방식) nav+auth 쪽 콘텐츠가 로고보다 넓어서 로고 쪽에 불필요하게 큰 여백이 생겼다(사용자
-   피드백, 2026-08-19). 바깥 두 열을 각자 콘텐츠 너비만큼만(auto) 차지하게 바꾸고, 중앙 열이
-   남는 공간을 전부 가져가게 해서 검색창이 실제로 넓게 채워지도록 했다. 정중앙 정렬은 중앙 열
-   안에서 `.site-header__search`를 flex + justify-content: center로 맞춰 유지한다. */
+   피드백, 2026-08-19). 바깥 두 열을 각자 콘텐츠 너비만큼만(auto) 차지하게 바꿨다. 중앙 열 안의
+   검색창은 정중앙 정렬(justify-content: center) 대신 왼쪽 정렬로 둔다 — 티커 길이가 바뀔 때마다
+   "묶음"을 다시 가운데로 맞추면서 검색창 자체가 좌우로 흔들리는 문제가 있었다(같은 날 재수정).
+   왼쪽 정렬 + 좁힌 gap으로 검색창이 로고 바로 옆에 붙어 보이게 한다(참고 사이트 스타일). */
 .site-header__inner {
   display: grid;
   grid-template-columns: auto minmax(320px, 1fr) auto;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-3);
   min-height: var(--header-height);
   padding-top: var(--space-2);
   padding-bottom: var(--space-2);
