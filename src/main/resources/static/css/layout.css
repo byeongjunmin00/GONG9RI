@@ -101,13 +101,6 @@
   transition: color 0.15s ease, background-color 0.15s ease;
 }
 
-/* display를 선언하는 클래스라 네이티브 [hidden]의 기본 display:none을 이겨버린다 — 이 프로젝트에서
-   반복돼온 CSS 특이도 함정(.btn/.product-detail/.chat-widget/.card-seller-trust 등과 동일 패턴).
-   판매자 계정으로 로그인했을 때도 이 링크(data-role="BUYER")가 계속 보이던 버그로 실제 발견(2026-08-20). */
-.site-header__wishlist-link[hidden] {
-  display: none;
-}
-
 .site-header__wishlist-link svg {
   fill: none;
   stroke: currentColor;
@@ -134,10 +127,6 @@
   line-height: 1;
 }
 
-.site-header__wishlist-badge[hidden] {
-  display: none;
-}
-
 .site-header__wishlist-link:hover {
   color: var(--color-pink);
   background-color: var(--color-surface-alt);
@@ -147,10 +136,6 @@
    그 안의 원형 버튼 자체는 찜 아이콘(.site-header__wishlist-link)과 크기·톤을 맞춘다. */
 .site-header__notifications {
   position: relative;
-}
-
-.site-header__notifications[hidden] {
-  display: none;
 }
 
 .site-header__notifications-bell {
@@ -197,10 +182,6 @@
   font-size: 10px;
   font-weight: 800;
   line-height: 1;
-}
-
-.site-header__notifications-badge[hidden] {
-  display: none;
 }
 
 .site-header__auth {
