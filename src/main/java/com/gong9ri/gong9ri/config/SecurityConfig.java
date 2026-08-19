@@ -45,6 +45,8 @@ public class SecurityConfig {
                         // "/*.html"은 단일 세그먼트만 매칭하므로(예: /login.html), 서브디렉토리 정적 페이지
                         // (예: /seller/products/new.html)까지 허용하도록 "/**/*.html"을 나란히 추가한다.
                         .requestMatchers("/", "/*.html", "/**/*.html", "/css/**", "/js/**", "/partials/**", "/images/**").permitAll()
+                        // 검색엔진 크롤러가 인증 없이 읽어야 하는 것들(SEO).
+                        .requestMatchers(HttpMethod.GET, "/robots.txt", "/sitemap.xml").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login").permitAll()
                         // 로그인 고도화 2단계 — 전부 "아직 로그인 못 하는 상태"의 사용자가 쓰는 기능이라
                         // 인증 없이 열어야 한다(이메일 인증, 비밀번호 재설정).

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://gong9ri-production.up.railway.app/sitemap.xml
