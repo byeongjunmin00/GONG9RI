@@ -785,6 +785,10 @@
      항상 이기게 한다. */
   min-width: 0;
   max-width: 150px;
+  /* 그리드 전체 gap(로고-검색창 사이 여백을 좁히려고 이미 12px로 줄여둔 값, layout.css)을 그대로
+     쓰면 티커 오른쪽과 nav 사이가 너무 붙어 답답해 보인다(사용자 피드백, 2026-08-19) — 이 요소만
+     오른쪽 여백을 추가로 준다(로고-검색창 간격에는 영향 없음). */
+  margin-right: var(--space-3);
   padding: 6px 12px;
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-full);
