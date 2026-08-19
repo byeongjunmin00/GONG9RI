@@ -5,9 +5,10 @@
 |------|------|------|------|
 | id | BIGINT | PK, auto | 식별자 |
 | member_id | BIGINT | NOT NULL, FK | 알림 수신자(구매자 또는 판매자) |
-| type | VARCHAR(30) | NOT NULL | 알림 종류 (예: `TEAM_REFUNDED`) |
+| type | VARCHAR(30) | NOT NULL | 알림 종류 — `TEAM_REFUNDED` / `TEAM_SUCCESS` / `INQUIRY_CREATED` / `INQUIRY_ANSWERED` / `PAYMENT_RECEIVED` / `REVIEW_CREATED` / `REFUND_REQUESTED` / `REFUND_REQUEST_APPROVED` / `REFUND_REQUEST_REJECTED` (9종, 2026-08-20 확장) |
 | message | VARCHAR(255) | NOT NULL | 알림 본문 |
 | related_team_id | BIGINT | NULL, FK | 관련 공구팀 ID (팀 관련 알림이 아니면 NULL) |
+| link_url | VARCHAR(255) | NULL | 알림 클릭 시 이동할 앱 내부 경로 (예: `/product.html?id=33`). 2026-08-20 추가 — 이전에 만들어진 알림은 NULL |
 | is_read | BOOLEAN | NOT NULL, default false | 읽음 여부 |
 | created_at | DATETIME | NOT NULL | 생성 시각 |
 

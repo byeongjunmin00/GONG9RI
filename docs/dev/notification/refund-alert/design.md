@@ -1,4 +1,6 @@
-# 환불 완료 알림 (notification/refund-alert) — Design
+# 알림 (notification/refund-alert) — Design
+
+> **기능명과 실제 범위가 어긋나 있다.** 처음엔 환불 완료 알림만 있어서 `refund-alert`로 이름 지었는데, 2026-08-20에 알림 종류가 8종으로 늘면서 이제 문의·리뷰·결제·공구팀 성사까지 담는다. 디렉터리 개명은 문서 링크가 여럿 깨져서 하지 않았다 — 이 문서를 "알림 기능 전체"의 design으로 읽으면 된다.
 
 ## 개요
 
@@ -27,6 +29,16 @@
 
 ## 이벤트 소비
 
+### 범용 알림 이벤트 (2026-08-20)
+
+알림 종류가 8종으로 늘면서 종류마다 이벤트+리스너를 한 쌍씩 만들면 보일러플레이트만 늘고 하는 일(알림 row INSERT)은 전부 같아서, **`NotificationRequestedEvent` 하나로 통일**했다. 각 도메인 서비스(문의·리뷰·결제·환불·공구팀)는 `NotificationPublisher`의 메서드를 한 줄 호출하고, 문구·링크 규칙은 그 클래스 한 곳에 모여 있다.
+
+- **`NotificationRequestedEventListener`는 `@Async`가 필수다.** AFTER_COMMIT 콜백은 원본 트랜잭션의 JDBC 커넥션이 *아직 반납되기 전에* 실행되므로, 여기서 동기로 `REQUIRES_NEW`인 `NotificationService`를 부르면 한 요청 스레드가 커넥션을 동시에 2개 필요로 한다. 동시 요청이 풀 크기만큼 몰리면 전원이 첫 커넥션을 쥔 채 두 번째를 기다리며 교착된다 — 실제로 동시 결제 20건 테스트에서 `total=10, active=10, idle=0, waiting=16`으로 재현됐다. `@Async`로 분리해 해결.
+- 알림 생성이 실패해도 원인 작업(이미 커밋됨)은 되돌리지 않는다 — 리스너가 예외를 잡아 로그만 남긴다. 알림은 부가 기능이라 이게 깨졌다고 결제/문의/환불이 실패한 것처럼 보이면 안 된다.
+- **결제 알림 중복 방지**: 결제 확정 경로가 클라이언트 `confirm()`과 웹훅 두 갈래지만 둘 다 `PaymentService.applyVerificationResult`로 모이고 양쪽 호출부가 PENDING일 때만 도달하므로, 발행은 그 메서드 안에서만 한다.
+
+### 환불 완료 이벤트 (기존)
+
 - `event/TeamRefundedEventListener`가 `TeamRefundedEvent`를 `@TransactionalEventListener(phase = AFTER_COMMIT)`로 구독해 `NotificationService.createTeamRefundedNotifications(event)`를 호출한다(이벤트 발행·발행 시점 보장은 `payment/portone`의 `PaymentRefundService` 책임 — 상세: `docs/dev/payment/portone/design.md`).
 - `NotificationService.createTeamRefundedNotifications`는 그 팀의 환불된 결제 구매자 전원(중복 제거, `LinkedHashSet`) + 상품 판매자 각각에게 `Notification` 1건씩 생성한다. member/team은 FK로만 쓰이므로 `getReferenceById`로 불필요한 SELECT를 피한다.
 - **`@Transactional(propagation = Propagation.REQUIRES_NEW)`**가 필수다 — 이 메서드는 원본 트랜잭션(`TeamDeadlineService.processDeadline`)의 커밋 직후 `AFTER_COMMIT` 콜백으로 호출되는데, 기본 propagation(REQUIRED)으로 두면 아직 스레드에 남아있는 원본 트랜잭션 리소스에 조인해버려 이 메서드의 INSERT가 실제로 커밋되지 않고 사라진다(스프링 공식 문서가 명시하는 캐비앗, 실제로 겪은 버그 — `docs/logs/notification/refund-alert/001-refund-alert.md` 참고). REQUIRES_NEW로 물리적으로 독립된 새 트랜잭션임을 보장해 해결.
@@ -37,7 +49,13 @@
 - 조회는 본인 알림만 스코핑된다 — `BuyerMypageService`/`SellerMypageService`가 각각 `requireBuyer`/`requireSeller` 역할 체크(반대 역할 403 `FORBIDDEN`) 후 `principal.getMember().getId()` 기준으로만 `NotificationRepository.findAllByMemberIdOrderByCreatedAtDesc`를 호출한다. buyer/seller 둘 다 "내 memberId 기준" 조회라 별도 스코핑 리포지토리 메서드 없이 동일 쿼리를 재사용한다.
 - 비로그인 401.
 - 엔티티(`Notification`)를 컨트롤러 응답으로 직접 노출하지 않는다 — `dto/NotificationResponse`로 변환.
-- 알림 타입은 `enum NotificationType`으로 관리(현재 `TEAM_REFUNDED` 하나) — 향후 알림 종류가 늘어나면 이 enum에 추가.
+- 알림 타입은 `enum NotificationType`으로 관리. **2026-08-20에 8종이 추가돼 총 9종**이 됐다(상세: `changes/003-notification-types-expansion.md`).
+  - 판매자 수신: `REFUND_REQUESTED`(승인/거절 처리 필요) / `INQUIRY_CREATED` / `PAYMENT_RECEIVED` / `TEAM_SUCCESS` / `REVIEW_CREATED`
+  - 구매자 수신: `TEAM_SUCCESS` / `INQUIRY_ANSWERED` / `REFUND_REQUEST_APPROVED` / `REFUND_REQUEST_REJECTED`
+  - 구매자의 "결제 완료"는 의도적으로 넣지 않았다 — 본인이 방금 한 행동이고 결제 완료 화면에 이미 표시된다(알림으로 또 알리면 소음).
+  - 타입 이름은 **사건 기준**이고 수신자를 이름에 넣지 않는다 — 같은 사건을 양쪽이 함께 받는 경우가 있다(공구팀 성사는 참여자 전원 + 판매자).
+- **`Notification.linkUrl`**(2026-08-20 추가, NULL 허용) — 알림을 눌렀을 때 이동할 앱 내부 경로. 연결 대상이 공구팀만이 아니게 되면서(문의·리뷰·결제) `related_team_id`만으로는 표현할 수 없어 추가했다. 대상 타입+ID로 정규화하는 대신 경로를 그대로 저장한다(프론트에 타입별 URL 조립 분기를 만들지 않기로 결정). 이 컬럼이 생기기 전 알림은 값이 없으므로 프론트는 링크 없는 알림을 정상 처리해야 한다.
+- **자기 행동에 자기가 알림받지 않는다** — 수신자와 행위자가 같으면 발행하지 않는다(`NotificationPublisher`가 각 메서드에서 걸러낸다).
 - **읽음 처리(2026-08-19)**: `Notification.markAsRead()`(도메인 메서드, `isRead=true`) 신규. 개별 읽음은 `notificationId`로 조회 후 소유권(`member.id` 일치) 검증, 아니면 `NOTIFICATION_NOT_FOUND`(404)/`FORBIDDEN`(403). 전체 읽음은 `@Modifying` 벌크 UPDATE(`WHERE member_id=:id AND is_read=false`)로 한 번에 처리 — 안 읽은 것만 골라서 건드리므로 이미 읽은 알림까지 매번 다시 쓰지 않는다.
   - `Buyer,SellerMypageService`는 클래스 기본이 `@Transactional(readOnly=true)`라, 새로 추가한 이 두 메서드는 명시적으로 `@Transactional`(쓰기)로 덮어써야 한다 — 안 그러면 같은 읽기전용 트랜잭션에 합류해서 실제 쓰기가 무시되거나 예외가 난다(실제로 겪음, 아래 로그 참고).
   - 벌크 UPDATE는 `@Modifying(clearAutomatically = true)`가 필수다 — 영속성 컨텍스트(1차 캐시)를 거치지 않고 DB를 직접 바꾸는 쿼리라, 안 비우면 같은 트랜잭션 안에서 그 전에 이미 로드된 `Notification` 엔티티를 다시 조회할 때 옛 `isRead` 값이 캐시된 채로 보인다(테스트로 직접 재현 후 발견).

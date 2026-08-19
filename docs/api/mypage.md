@@ -147,6 +147,10 @@
 
 ## 알림
 
+> **알림 종류(`type`)는 9종이다**(2026-08-20 확장) — `TEAM_REFUNDED`, `TEAM_SUCCESS`, `INQUIRY_CREATED`, `INQUIRY_ANSWERED`, `PAYMENT_RECEIVED`, `REVIEW_CREATED`, `REFUND_REQUESTED`, `REFUND_REQUEST_APPROVED`, `REFUND_REQUEST_REJECTED`. 각 종류가 누구에게 가는지는 `docs/dev/notification/refund-alert/design.md` 참고.
+>
+> **`linkUrl`**(2026-08-20 추가)은 알림을 눌렀을 때 이동할 앱 내부 경로다. 이 필드가 생기기 전에 만들어진 알림은 `null`이므로 클라이언트는 `null`을 정상 처리해야 한다(이동하지 않음).
+
 ### GET /api/buyer/mypage/notifications — 구매자 알림 목록
 
 - 응답: `200 OK`
@@ -157,6 +161,7 @@
       "type": "TEAM_REFUNDED",
       "message": "참여하신 공구팀이 미성사되어 환불 처리되었습니다.",
       "relatedTeamId": 5,
+      "linkUrl": "/buyer/mypage.html",
       "isRead": false,
       "createdAt": "2026-08-10T10:00:00"
     }
@@ -181,6 +186,7 @@
       "type": "TEAM_REFUNDED",
       "message": "등록하신 상품의 공구팀이 미성사되어 환불 처리되었습니다.",
       "relatedTeamId": 5,
+      "linkUrl": "/seller/mypage.html",
       "isRead": false,
       "createdAt": "2026-08-10T10:00:00"
     }
