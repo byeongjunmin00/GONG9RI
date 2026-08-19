@@ -179,3 +179,12 @@
 
 - 참고: 코드는 아직 커밋되지 않은 워킹 트리 변경 상태다(사용자가 커밋을 명시적으로 요청하지 않는 한
   Evaluate 단계에서 임의로 커밋하지 않음, `AGENTS.md` 규칙).
+
+### 후속 (별개 작업에서 원인 데이터 제거함) — 2026-08-19
+
+위에서 "무관한 기존 문제"로 지목한 `ProductControllerTest`/`ProductCachingTest` 실패 6건의 원인이었던
+로컬 MySQL(`gong9ri_db`) 잔여 상품 데이터("블루투스 이어폰" 등, `product.id=2918~2920` +
+`group_buy_team.id=704`)를 이후 별개 작업(`product/crud` 003, 가격 구간 최소 인원 검증)에서 실제로
+찾아 삭제 처리함. 상세: `docs/logs/product/crud/003-price-tier-min-count-validation.md`의 Attempt 2.
+현재는 `./gradlew test` 전체가 통과한다 — 이 로그를 나중에 참고할 때 "아직 해결 안 된 로컬 환경
+문제"로 오해하지 않도록 남긴다.
