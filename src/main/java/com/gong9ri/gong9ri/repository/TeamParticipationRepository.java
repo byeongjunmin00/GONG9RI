@@ -1,8 +1,11 @@
 package com.gong9ri.gong9ri.repository;
 
 import com.gong9ri.gong9ri.entity.TeamParticipation;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
 public interface TeamParticipationRepository
@@ -22,6 +25,11 @@ public interface TeamParticipationRepository
 
     // 리더가 참여를 취소했을 때 그다음 최초 참가자(joinedAt 가장 빠른 사람)에게 리더를 승계하기 위한 조회.
     Optional<TeamParticipation> findFirstByTeamIdOrderByJoinedAtAsc(Long teamId);
+
+    // 공구팀 성사 알림(notification) — 그 팀 참여자 전원에게 보내야 해서 회원 id만 뽑는다.
+    // 엔티티를 통째로 로드할 이유가 없어(알림은 memberId만 쓴다) 프로젝션으로 가져온다.
+    @Query("SELECT tp.member.id FROM TeamParticipation tp WHERE tp.team.id = :teamId")
+    List<Long> findMemberIdsByTeamId(@Param("teamId") Long teamId);
 
     // 관리자 회원 삭제 — 참여 중인(또는 참여했던) 공구팀이 하나라도 있으면 하드 삭제를 막는다(product/admin).
     boolean existsByMember_Id(Long memberId);

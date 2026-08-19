@@ -40,6 +40,7 @@ public class ReviewService {
     private final ReviewRepository reviewRepository;
     private final ProductRepository productRepository;
     private final PaymentRepository paymentRepository;
+    private final NotificationPublisher notificationPublisher;
 
     public ReviewListResponse list(Long productId) {
         return ReviewListResponse.of(reviewRepository.findByProductIdOrderByCreatedAtDesc(productId));
@@ -67,6 +68,8 @@ public class ReviewService {
 
         Review saved = reviewRepository.save(new Review(product, member, request.rating(), request.content()));
         log.info("리뷰 작성 완료: reviewId={}, productId={}, memberId={}", saved.getId(), productId, member.getId());
+        notificationPublisher.reviewCreated(product.getSeller().getId(), member.getId(),
+                productId, product.getName(), request.rating());
         return ReviewResponse.from(saved);
     }
 

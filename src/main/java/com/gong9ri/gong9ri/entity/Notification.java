@@ -52,6 +52,17 @@ public class Notification {
     @JoinColumn(name = "related_team_id")
     private GroupBuyTeam relatedTeam;
 
+    /**
+     * 알림을 눌렀을 때 이동할 앱 내부 경로(예: {@code /product.html?id=33}). 알림 종류가 늘면서
+     * 연결 대상이 공구팀만이 아니게 돼(문의·리뷰·결제 등) 추가했다 — 대상 타입+ID로 정규화하는 대신
+     * 경로를 그대로 저장한다(프론트에 타입별 URL 조립 분기를 만들지 않기로 함, 2026-08-20 결정).
+     *
+     * NULL 허용이다 — 이 컬럼이 생기기 전에 만들어진 기존 알림들은 값이 없다. 프론트는 링크 없는
+     * 알림을 "클릭해도 이동하지 않는 항목"으로 정상 처리해야 한다.
+     */
+    @Column(length = 255)
+    private String linkUrl;
+
     @Column(nullable = false)
     private Boolean isRead;
 
@@ -60,10 +71,16 @@ public class Notification {
     private LocalDateTime createdAt;
 
     public Notification(Member member, NotificationType type, String message, GroupBuyTeam relatedTeam) {
+        this(member, type, message, relatedTeam, null);
+    }
+
+    public Notification(Member member, NotificationType type, String message, GroupBuyTeam relatedTeam,
+            String linkUrl) {
         this.member = member;
         this.type = type;
         this.message = message;
         this.relatedTeam = relatedTeam;
+        this.linkUrl = linkUrl;
         this.isRead = false;
     }
 

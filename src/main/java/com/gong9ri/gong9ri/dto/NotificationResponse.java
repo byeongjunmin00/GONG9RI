@@ -9,6 +9,7 @@ public record NotificationResponse(
         NotificationType type,
         String message,
         Long relatedTeamId,
+        String linkUrl,
         Boolean isRead,
         LocalDateTime createdAt
 ) {
@@ -18,6 +19,7 @@ public record NotificationResponse(
                 notification.getType(),
                 notification.getMessage(),
                 notification.getRelatedTeam() != null ? notification.getRelatedTeam().getId() : null,
+                notification.getLinkUrl(),
                 notification.getIsRead(),
                 notification.getCreatedAt()
         );

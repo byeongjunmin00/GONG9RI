@@ -33,6 +33,7 @@ public class InquiryService {
 
     private final InquiryRepository inquiryRepository;
     private final ProductRepository productRepository;
+    private final NotificationPublisher notificationPublisher;
 
     public InquiryListResponse list(Long productId) {
         if (!productRepository.existsById(productId)) {
@@ -49,6 +50,8 @@ public class InquiryService {
 
         Inquiry saved = inquiryRepository.save(new Inquiry(product, member, request.content()));
         log.info("문의 작성 완료: inquiryId={}, productId={}, memberId={}", saved.getId(), productId, member.getId());
+        notificationPublisher.inquiryCreated(
+                product.getSeller().getId(), member.getId(), productId, product.getName());
         return InquiryResponse.from(saved);
     }
 
@@ -83,6 +86,9 @@ public class InquiryService {
 
         inquiry.registerAnswer(principal.getMember(), request.content());
         log.info("문의 답변 등록 완료: inquiryId={}, sellerId={}", inquiryId, principal.getMember().getId());
+        Product product = inquiry.getProduct();
+        notificationPublisher.inquiryAnswered(inquiry.getMember().getId(), principal.getMember().getId(),
+                product.getId(), product.getName());
         return InquiryResponse.from(inquiry);
     }
 

@@ -28,6 +28,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 /**
  * 실제 동시 요청 상황을 재현해야 해서 이 클래스는 의도적으로 @Transactional을 안 쓴다.
@@ -37,6 +38,12 @@ import org.springframework.boot.test.context.SpringBootTest;
  */
 @SpringBootTest
 class TeamConcurrencyTest {
+
+    // 이 테스트는 동시성만 검증한다 — 알림 발행을 목으로 끊어서 (1) 알림 row가 team/member를 FK로
+    // 참조해 정리(@AfterEach)를 막는 문제와 (2) 알림 생성이 비동기라 정리 시점과 경합하는 문제를
+    // 아예 없앤다. 알림 수신자 검증은 NotificationTypesFlowTest가 따로 한다.
+    @MockitoBean
+    private NotificationPublisher notificationPublisher;
 
     @Autowired
     private TeamService teamService;

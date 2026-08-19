@@ -69,11 +69,22 @@
         timeEl.textContent = new Date(notification.createdAt).toLocaleString('ko-KR');
         btnEl.appendChild(timeEl);
 
-        if (!notification.isRead) {
-          btnEl.addEventListener('click', function () {
-            markAsRead(notification.notificationId);
+        // 알림 종류가 8종으로 늘면서(2026-08-20) 각 알림이 "어디로 가야 하는지"(linkUrl)를 갖는다.
+        // 이전엔 안 읽은 알림에만 클릭 핸들러를 달았는데, 이제는 이미 읽은 알림도 눌러서 이동할 수
+        // 있어야 하므로 항상 단다. linkUrl이 없는 알림(이 필드가 생기기 전에 만들어진 기존 알림
+        // 포함)은 읽음 처리만 하고 이동하지 않는다.
+        var targetUrl = safeInternalPath(notification.linkUrl);
+        btnEl.addEventListener('click', function () {
+          if (notification.isRead) {
+            navigateIfPossible(targetUrl);
+            return;
+          }
+          // 읽음 처리 요청이 페이지 이동으로 취소되지 않도록, 응답을 받은 뒤에 이동한다.
+          // 읽음 처리가 실패하더라도 이동 자체는 막지 않는다(사용자 입장에선 클릭이 먹통이면 더 나쁘다).
+          markAsRead(notification.notificationId).then(function () {
+            navigateIfPossible(targetUrl);
           });
-        }
+        });
 
         itemEl.appendChild(btnEl);
         listEl.appendChild(itemEl);
@@ -92,8 +103,26 @@
         });
     }
 
+    /**
+     * 서버가 내려준 linkUrl을 그대로 믿고 이동하지 않고, "우리 사이트 내부 경로"인 것만 통과시킨다.
+     * 지금은 서버가 고정 문자열로 만들어 내리므로 위험하지 않지만, 이 값이 언제든 데이터로 바뀔 수
+     * 있는 자리라 열린 리다이렉트(//evil.com 같은 프로토콜 상대 URL 포함)를 구조적으로 막아둔다.
+     */
+    function safeInternalPath(linkUrl) {
+      if (typeof linkUrl !== 'string' || linkUrl.charAt(0) !== '/' || linkUrl.charAt(1) === '/') {
+        return null;
+      }
+      return linkUrl;
+    }
+
+    function navigateIfPossible(targetUrl) {
+      if (targetUrl) {
+        window.location.href = targetUrl;
+      }
+    }
+
     function markAsRead(notificationId) {
-      window.Api.post(basePath + '/notifications/' + notificationId + '/read')
+      return window.Api.post(basePath + '/notifications/' + notificationId + '/read')
         .then(function () {
           var target = notifications.find(function (n) { return n.notificationId === notificationId; });
           if (target) {

@@ -39,6 +39,11 @@ class InquiryServiceTest {
     @Mock
     private ProductRepository productRepository;
 
+    // 문의 등록/답변 시 알림을 발행하지만(notification), 이 테스트는 문의 도메인 규칙만 검증하므로
+    // 발행 자체는 목으로 흘려보낸다 — 실제 알림 수신자 검증은 NotificationTypesFlowTest가 한다.
+    @Mock
+    private NotificationPublisher notificationPublisher;
+
     private InquiryService inquiryService;
 
     private Product product;
@@ -48,7 +53,7 @@ class InquiryServiceTest {
 
     @BeforeEach
     void setUp() {
-        inquiryService = new InquiryService(inquiryRepository, productRepository);
+        inquiryService = new InquiryService(inquiryRepository, productRepository, notificationPublisher);
 
         product = mock(Product.class);
         buyer = mock(Member.class);
@@ -78,6 +83,11 @@ class InquiryServiceTest {
         when(inquiryRepository.save(org.mockito.ArgumentMatchers.any(Inquiry.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(buyer.getName()).thenReturn("구매자");
+        // 문의 등록 시 판매자에게 알림을 발행하면서 product.getSeller()를 읽는다 — 목이라 스텁이 없으면
+        // null이 돌아와 NPE가 난다(실제로 겪음).
+        when(product.getSeller()).thenReturn(seller);
+        when(seller.getId()).thenReturn(2L);
+        when(buyer.getId()).thenReturn(1L);
 
         var response = inquiryService.create(principalOf(buyer), 1L, new InquiryCreateRequest("문의합니다"));
 

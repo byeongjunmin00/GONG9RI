@@ -7,6 +7,7 @@ import com.gong9ri.gong9ri.entity.GroupBuyTeam;
 import com.gong9ri.gong9ri.entity.Member;
 import com.gong9ri.gong9ri.entity.Notification;
 import com.gong9ri.gong9ri.entity.NotificationType;
+import com.gong9ri.gong9ri.event.NotificationRequestedEvent;
 import com.gong9ri.gong9ri.event.TeamRefundedEvent;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.MemberRepository;
@@ -67,6 +68,30 @@ public class NotificationService {
 
         log.info("공구팀 환불 알림 생성 완료: teamId={}, sellerId={}, buyerCount={}",
                 event.teamId(), event.sellerId(), distinctBuyerIds.size());
+    }
+
+    /**
+     * 범용 알림 요청({@code NotificationRequestedEvent})을 실제 알림 row로 저장한다(2026-08-20, 알림 8종 확장).
+     *
+     * REQUIRES_NEW인 이유는 위 {@code createTeamRefundedNotifications}와 완전히 동일하다 — AFTER_COMMIT
+     * 콜백에서 호출되므로 새 트랜잭션을 명시적으로 열지 않으면 INSERT가 커밋되지 않고 사라진다.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void createFromRequest(NotificationRequestedEvent event) {
+        GroupBuyTeam relatedTeam = event.teamId() != null
+                ? groupBuyTeamRepository.getReferenceById(event.teamId())
+                : null;
+
+        // 같은 사람이 여러 번 들어와도 알림은 1건 — 공구팀 성사처럼 참여자 목록을 그대로 넘기는 경우
+        // 같은 회원이 중복될 수 있다(환불 알림에서 쓰던 것과 같은 방식).
+        Set<Long> distinctMemberIds = new LinkedHashSet<>(event.memberIds());
+        for (Long memberId : distinctMemberIds) {
+            Member receiver = memberRepository.getReferenceById(memberId);
+            notificationRepository.save(new Notification(
+                    receiver, event.type(), event.message(), relatedTeam, event.linkUrl()));
+        }
+
+        log.info("알림 생성 완료: type={}, receiverCount={}", event.type(), distinctMemberIds.size());
     }
 
     // 클래스 기본이 @Transactional(readOnly = true)라 명시적으로 덮어쓴다.

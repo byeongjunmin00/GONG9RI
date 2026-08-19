@@ -49,6 +49,7 @@ public class TeamService {
     private final PaymentRepository paymentRepository;
     private final RefundRequestService refundRequestService;
     private final ApplicationEventPublisher eventPublisher;
+    private final NotificationPublisher notificationPublisher;
 
     // team/join 동시성 전략 토글(lock|atomic) — docs/logs/team/crud/003-atomic-comparison.md
     // 필드 주입: @RequiredArgsConstructor(final 필드)로는 Lombok이 @Value를 생성자 파라미터로
@@ -124,6 +125,7 @@ public class TeamService {
         eventPublisher.publishEvent(new TeamCapacityChangedEvent(team.getProduct().getId(), response));
         log.info("공구팀 참가 완료(lock): teamId={}, memberId={}, currentCount={}",
                 teamId, member.getId(), team.getCurrentCount());
+        publishTeamSucceededIfNeeded(team);
         return response;
     }
 
@@ -155,7 +157,27 @@ public class TeamService {
         eventPublisher.publishEvent(new TeamCapacityChangedEvent(team.getProduct().getId(), response));
         log.info("공구팀 참가 완료(atomic): teamId={}, memberId={}, currentCount={}",
                 teamId, member.getId(), team.getCurrentCount());
+        publishTeamSucceededIfNeeded(team);
         return response;
+    }
+
+    /**
+     * 이번 참가로 팀이 정원을 채워 성사됐다면 참여자 전원 + 판매자에게 알림을 발행한다(notification).
+     *
+     * <p>참가 경로가 두 개(비관적 락 / 원자적 UPDATE)라 양쪽에서 공통으로 부른다. 상태가 이번에 막
+     * SUCCESS로 바뀐 그 호출에서만 참이므로(이후 참가는 TEAM_FULL로 막힌다) 같은 팀에 알림이 두 번
+     * 생기지 않는다.
+     */
+    private void publishTeamSucceededIfNeeded(GroupBuyTeam team) {
+        if (team.getStatus() != TeamStatus.SUCCESS) {
+            return;
+        }
+        notificationPublisher.teamSucceeded(
+                teamParticipationRepository.findMemberIdsByTeamId(team.getId()),
+                team.getProduct().getSeller().getId(),
+                team.getId(),
+                team.getProduct().getId(),
+                team.getProduct().getName());
     }
 
     /**

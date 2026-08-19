@@ -17,6 +17,7 @@ import com.gong9ri.gong9ri.entity.Product;
 import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.entity.SellerRevenueSummary;
 import com.gong9ri.gong9ri.repository.MemberRepository;
+import com.gong9ri.gong9ri.repository.NotificationRepository;
 import com.gong9ri.gong9ri.repository.PaymentRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
 import com.gong9ri.gong9ri.repository.RevenueSummaryProjection;
@@ -79,6 +80,9 @@ class SellerRevenueSummaryConcurrencyTest {
     @Autowired
     private SellerRevenueSummaryRepository sellerRevenueSummaryRepository;
 
+    @Autowired
+    private NotificationRepository notificationRepository;
+
     @MockitoBean
     private PortOneClient portOneClient;
 
@@ -98,6 +102,13 @@ class SellerRevenueSummaryConcurrencyTest {
 
     @AfterEach
     void cleanUp() {
+        // 결제가 확정되면 판매자에게 "결제 발생" 알림이 생긴다(notification) — member를 FK로 참조하므로
+        // 회원보다 먼저 지운다. 알림 생성이 @Async라 아직 안 왔을 수 있어서, 커넥션이 다 풀린 뒤
+        // 잠깐 기다렸다가 지운다(이 테스트는 알림 자체를 검증하지 않는다 — NotificationTypesFlowTest 담당).
+        waitForAsyncNotifications();
+        memberIdsToClean.forEach(memberId ->
+                notificationRepository.findAllByMemberIdOrderByCreatedAtDesc(memberId)
+                        .forEach(n -> notificationRepository.deleteById(n.getId())));
         paymentIdsToClean.forEach(paymentRepository::deleteById);
         paymentIdsToClean.clear();
         if (summaryIdToClean != null) {
@@ -108,6 +119,15 @@ class SellerRevenueSummaryConcurrencyTest {
         }
         memberIdsToClean.forEach(memberRepository::deleteById);
         memberIdsToClean.clear();
+    }
+
+    // @Async 알림 리스너가 정리 도중에 뒤늦게 INSERT해서 FK 위반을 일으키지 않도록 짧게 기다린다.
+    private void waitForAsyncNotifications() {
+        try {
+            Thread.sleep(1_000L);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     @Test

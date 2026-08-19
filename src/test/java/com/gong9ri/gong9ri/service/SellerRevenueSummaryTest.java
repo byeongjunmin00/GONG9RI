@@ -65,6 +65,12 @@ class SellerRevenueSummaryTest {
     private static final long ASYNC_WAIT_TIMEOUT_MS = 5_000L;
     private static final long ASYNC_WAIT_INTERVAL_MS = 100L;
 
+    // 이 테스트는 매출 집계만 검증한다 — 결제 확정 시 판매자에게 생기는 알림이 member를 FK로 참조해
+    // 정리를 막고(실제로 겪음), 생성이 @Async라 정리 시점과 경합하기도 해서 발행을 목으로 끊는다.
+    // 알림 동작 검증은 NotificationTypesFlowTest 담당.
+    @MockitoBean
+    private NotificationPublisher notificationPublisher;
+
     @Autowired
     private SellerMypageService sellerMypageService;
 

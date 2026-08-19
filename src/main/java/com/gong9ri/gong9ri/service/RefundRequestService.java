@@ -42,6 +42,7 @@ public class RefundRequestService {
     private final RefundRequestRepository refundRequestRepository;
     private final PaymentRepository paymentRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final NotificationPublisher notificationPublisher;
 
     // 솔로 구매(payment.team == null) 건에 대한 구매자 직접 환불 요청 — 사유 입력 필수, 항상 판매자
     // 승인/거절 절차를 거친다(자동 환불 설정과 무관, 이미 배송됐을 수 있어서).
@@ -68,6 +69,8 @@ public class RefundRequestService {
         RefundRequest saved = refundRequestRepository.save(new RefundRequest(payment, member, request.reason()));
         log.info("솔로 구매 직접 환불 요청 생성: refundRequestId={}, paymentId={}, memberId={}",
                 saved.getId(), paymentId, member.getId());
+        notificationPublisher.refundRequested(payment.getProduct().getSeller().getId(), member.getId(),
+                payment.getProduct().getName());
         return RefundRequestResponse.from(saved);
     }
 
@@ -96,12 +99,17 @@ public class RefundRequestService {
         if (!autoRefundOnCancel) {
             log.info("참여 취소 환불 요청 생성(대기): refundRequestId={}, paymentId={}, memberId={}",
                     saved.getId(), payment.getId(), requester.getId());
+            // 판매자가 승인/거절해야 하는 상태로 남았을 때만 알린다 — 아래 자동승인 경로는 판매자가
+            // 할 일이 없으므로 "확인해주세요" 알림을 보내면 오히려 혼란스럽다.
+            notificationPublisher.refundRequested(payment.getProduct().getSeller().getId(), requester.getId(),
+                    payment.getProduct().getName());
             return;
         }
 
         saved.approve();
         eventPublisher.publishEvent(
                 new RefundRequestApprovedEvent(saved.getId(), payment.getId(), AUTO_REFUND_ON_LEAVE_REASON));
+        notificationPublisher.refundRequestApproved(requester.getId(), payment.getProduct().getName());
         log.info("참여 취소 환불 요청 자동 승인(상품별 자동환불 설정): refundRequestId={}, paymentId={}, memberId={}",
                 saved.getId(), payment.getId(), requester.getId());
     }
@@ -121,6 +129,8 @@ public class RefundRequestService {
                 refundRequest.getId(), refundRequest.getPayment().getId(), SELLER_APPROVED_REASON));
         log.info("환불 요청 승인: refundRequestId={}, paymentId={}, sellerId={}",
                 refundRequestId, refundRequest.getPayment().getId(), principal.getMember().getId());
+        notificationPublisher.refundRequestApproved(refundRequest.getRequester().getId(),
+                refundRequest.getPayment().getProduct().getName());
         return RefundRequestResponse.from(refundRequest);
     }
 
@@ -139,6 +149,8 @@ public class RefundRequestService {
         log.info("환불 요청 거절: refundRequestId={}, paymentId={}, sellerId={}, rejectionReason={}",
                 refundRequestId, refundRequest.getPayment().getId(), principal.getMember().getId(),
                 request.rejectionReason());
+        notificationPublisher.refundRequestRejected(refundRequest.getRequester().getId(),
+                refundRequest.getPayment().getProduct().getName());
         return RefundRequestResponse.from(refundRequest);
     }
 

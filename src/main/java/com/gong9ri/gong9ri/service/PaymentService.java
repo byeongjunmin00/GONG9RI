@@ -46,6 +46,7 @@ public class PaymentService {
     private final TeamParticipationRepository teamParticipationRepository;
     private final PriceTierRepository priceTierRepository;
     private final SellerRevenueSummaryRepository sellerRevenueSummaryRepository;
+    private final NotificationPublisher notificationPublisher;
     private final PortOneClient portOneClient;
 
     @Value("${portone.store-id}")
@@ -162,6 +163,11 @@ public class PaymentService {
             sellerRevenueSummaryRepository.incrementPaid(payment.getProduct().getSeller().getId(), payment.getAmount());
             log.info("결제 확정 완료: paymentId={}, pgPaymentId={}, amount={}",
                     payment.getId(), payment.getPgPaymentId(), payment.getAmount());
+            // 판매자 "결제 발생" 알림은 여기서만 낸다 — 확정 경로가 클라이언트 confirm()과 웹훅
+            // 두 갈래지만 둘 다 이 메서드로 모이고, 양쪽 호출부가 모두 PENDING일 때만 여기 도달하도록
+            // 막고 있어서 같은 결제로 알림이 두 번 생기지 않는다(중복 알림 방지).
+            notificationPublisher.paymentReceived(payment.getProduct().getSeller().getId(),
+                    payment.getMember().getId(), payment.getProduct().getName(), payment.getAmount());
             return true;
         }
 
