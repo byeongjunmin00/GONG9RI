@@ -195,6 +195,31 @@
 
 ---
 
+### POST /api/{buyer,seller}/mypage/notifications/{notificationId}/read — 알림 읽음 처리 (2026-08-19 추가)
+
+헤더 알림 벨 UI(신규)에서 사용 — 이전까지는 목록 조회 API만 있고 읽음 처리 수단이 없었다.
+
+- 응답: `200 OK`, 본문 없음(`data: null`)
+- 에러:
+  | 코드 | HTTP | 설명 |
+  |------|------|------|
+  | `NOTIFICATION_NOT_FOUND` | 404 | 존재하지 않는 알림 |
+  | `FORBIDDEN` | 403 | 본인 알림이 아님(다른 회원 소유), 또는 반대 역할 계정으로 시도 |
+  | `UNAUTHORIZED` | 401 | 미인증 |
+
+### POST /api/{buyer,seller}/mypage/notifications/read-all — 알림 모두 읽음 처리 (2026-08-19 추가)
+
+본인의 안 읽은 알림 전체를 한 번의 벌크 UPDATE로 읽음 처리한다.
+
+- 응답: `200 OK`, 본문 없음(`data: null`)
+- 에러:
+  | 코드 | HTTP | 설명 |
+  |------|------|------|
+  | `FORBIDDEN` | 403 | 반대 역할 계정으로 시도 |
+  | `UNAUTHORIZED` | 401 | 미인증 |
+
+---
+
 ## 환불 요청
 
 응답 항목 형식은 `docs/api/refund.md`의 `RefundRequestResponse`와 동일하다(승인/거절 액션 자체는

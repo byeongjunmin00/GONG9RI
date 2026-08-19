@@ -28,6 +28,7 @@ public class BuyerMypageService {
     private final NotificationRepository notificationRepository;
     private final RefundRequestRepository refundRequestRepository;
     private final WishlistService wishlistService;
+    private final NotificationService notificationService;
 
     public List<PurchaseResponse> purchases(MemberUserDetails principal) {
         requireBuyer(principal);
@@ -48,6 +49,20 @@ public class BuyerMypageService {
         return notificationRepository.findAllByMemberIdOrderByCreatedAtDesc(principal.getMember().getId()).stream()
                 .map(NotificationResponse::from)
                 .toList();
+    }
+
+    // 클래스 기본이 @Transactional(readOnly = true)라, 실제 쓰기가 필요한 이 두 메서드는 명시적으로
+    // 덮어써야 한다 — 안 그러면 같은(읽기전용) 트랜잭션에 합류해서 UPDATE가 무시되거나 예외가 난다.
+    @Transactional
+    public void markNotificationAsRead(MemberUserDetails principal, Long notificationId) {
+        requireBuyer(principal);
+        notificationService.markAsRead(principal, notificationId);
+    }
+
+    @Transactional
+    public void markAllNotificationsAsRead(MemberUserDetails principal) {
+        requireBuyer(principal);
+        notificationService.markAllAsRead(principal);
     }
 
     // 본인이 요청한 환불 요청 전체(대기/승인/거절 포함) — 참여 취소로 자동 생성된 요청도 포함된다.

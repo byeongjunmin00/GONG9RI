@@ -2,6 +2,7 @@ package com.gong9ri.gong9ri.controller;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -247,6 +248,50 @@ class SellerMypageControllerTest {
         mockMvc.perform(get("/api/seller/mypage/notifications"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    @DisplayName("본인 알림을 읽음 처리하면 isRead가 true로 바뀐다")
+    void markNotificationAsRead_success() throws Exception {
+        Member seller = saveMember("mpSeller7", Role.SELLER);
+        Notification notification = notificationRepository.save(
+                new Notification(seller, NotificationType.TEAM_REFUNDED, "읽음처리대상", null));
+
+        mockMvc.perform(post("/api/seller/mypage/notifications/" + notification.getId() + "/read")
+                        .with(asUser(seller)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/seller/mypage/notifications").with(asUser(seller)))
+                .andExpect(jsonPath("$.data[0].isRead").value(true));
+    }
+
+    @Test
+    @DisplayName("타인의 알림을 읽음 처리하려 하면 403 FORBIDDEN")
+    void markNotificationAsRead_forbidden_notOwner() throws Exception {
+        Member owner = saveMember("mpSeller8", Role.SELLER);
+        Member other = saveMember("mpSeller9", Role.SELLER);
+        Notification notification = notificationRepository.save(
+                new Notification(owner, NotificationType.TEAM_REFUNDED, "소유자 알림", null));
+
+        mockMvc.perform(post("/api/seller/mypage/notifications/" + notification.getId() + "/read")
+                        .with(asUser(other)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("모두 읽음 처리하면 본인의 안 읽은 알림이 전부 읽음으로 바뀐다")
+    void markAllNotificationsAsRead_success() throws Exception {
+        Member seller = saveMember("mpSeller10", Role.SELLER);
+        notificationRepository.save(new Notification(seller, NotificationType.TEAM_REFUNDED, "알림1", null));
+        notificationRepository.save(new Notification(seller, NotificationType.TEAM_REFUNDED, "알림2", null));
+
+        mockMvc.perform(post("/api/seller/mypage/notifications/read-all").with(asUser(seller)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/seller/mypage/notifications").with(asUser(seller)))
+                .andExpect(jsonPath("$.data[0].isRead").value(true))
+                .andExpect(jsonPath("$.data[1].isRead").value(true));
     }
 
     @Test

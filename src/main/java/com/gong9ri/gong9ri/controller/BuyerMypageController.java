@@ -13,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -39,6 +41,20 @@ public class BuyerMypageController {
     public ResponseEntity<ApiResponse<List<NotificationResponse>>> notifications(
             @AuthenticationPrincipal MemberUserDetails principal) {
         return ResponseEntity.ok(ApiResponse.success(buyerMypageService.notifications(principal)));
+    }
+
+    @PostMapping("/notifications/{notificationId}/read")
+    public ResponseEntity<ApiResponse<Void>> markNotificationAsRead(
+            @AuthenticationPrincipal MemberUserDetails principal, @PathVariable Long notificationId) {
+        buyerMypageService.markNotificationAsRead(principal, notificationId);
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @PostMapping("/notifications/read-all")
+    public ResponseEntity<ApiResponse<Void>> markAllNotificationsAsRead(
+            @AuthenticationPrincipal MemberUserDetails principal) {
+        buyerMypageService.markAllNotificationsAsRead(principal);
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     @GetMapping("/refund-requests")

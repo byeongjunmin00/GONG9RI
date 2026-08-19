@@ -47,7 +47,8 @@ public enum ErrorCode {
     ACCOUNT_SUSPENDED(HttpStatus.FORBIDDEN, "정지된 계정입니다. 문의는 관리자에게 해주세요."),
     MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 회원입니다."),
     MEMBER_HAS_ACTIVITY(HttpStatus.CONFLICT,
-            "상품·결제·리뷰 등 활동 기록이 있는 회원은 삭제할 수 없습니다. 정지 처리를 이용해주세요.");
+            "상품·결제·리뷰 등 활동 기록이 있는 회원은 삭제할 수 없습니다. 정지 처리를 이용해주세요."),
+    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 알림입니다.");
 
     private final HttpStatus httpStatus;
     private final String message;

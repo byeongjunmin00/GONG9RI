@@ -66,4 +66,8 @@ public class Notification {
         this.relatedTeam = relatedTeam;
         this.isRead = false;
     }
+
+    public void markAsRead() {
+        this.isRead = true;
+    }
 }

@@ -102,6 +102,28 @@
         <a href="/admin/dashboard.html" data-role="ADMIN" hidden>관리자 대시보드</a>
       </nav>
 
+      <!-- 알림 벨 — 구매자/판매자 둘 다 쓰는 기능이라(GET/POST /api/{buyer,seller}/mypage/notifications*)
+           위 nav의 data-role 매칭 방식(역할별로 다른 링크 하나씩 노출) 대신, 로그인 여부만으로 노출을
+           결정하는 별도 스크립트(js/header-notifications.js)가 담당한다. 그래서 .site-header__nav
+           바깥에 둔다. -->
+      <div class="site-header__notifications" id="header-notifications" hidden>
+        <button type="button" id="header-notifications-bell" class="site-header__notifications-bell" aria-label="알림">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path d="M12 3a6 6 0 0 0-6 6v3.3c0 .6-.2 1.2-.6 1.7L4 16h16l-1.4-2c-.4-.5-.6-1.1-.6-1.7V9a6 6 0 0 0-6-6z" />
+            <path d="M9.5 19a2.5 2.5 0 0 0 5 0" />
+          </svg>
+          <span id="header-notifications-badge" class="site-header__notifications-badge" hidden></span>
+        </button>
+
+        <div id="header-notifications-panel" class="header-notifications-panel" hidden>
+          <div class="header-notifications-panel__head">
+            <p class="header-notifications-panel__title">알림</p>
+            <button type="button" id="header-notifications-mark-all" class="header-notifications-panel__mark-all" hidden>모두 읽음</button>
+          </div>
+          <ul id="header-notifications-list" class="header-notifications-panel__list"></ul>
+        </div>
+      </div>
+
       <div class="site-header__auth" id="header-auth-guest">
         <!-- 로그인/회원가입 버튼 하나로 통합 — 로그인 페이지(login.html) 하단에 이미
              "회원가입" 링크가 있어(login.html:84), 별도 회원가입 버튼 없이도 진입 가능하다. -->

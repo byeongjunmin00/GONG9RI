@@ -1,5 +1,8 @@
 package com.gong9ri.gong9ri.service;
 
+import com.gong9ri.gong9ri.common.exception.BusinessException;
+import com.gong9ri.gong9ri.common.exception.ErrorCode;
+import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.entity.GroupBuyTeam;
 import com.gong9ri.gong9ri.entity.Member;
 import com.gong9ri.gong9ri.entity.Notification;
@@ -18,7 +21,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 환불 완료 이벤트({@code TeamRefundedEvent})를 받아 그 팀에서 환불된 결제의 구매자 전원 + 상품 판매자
- * 각각에게 Notification 레코드를 하나씩 생성한다(docs/dev/ongoing/refund-event-messaging.md).
+ * 각각에게 Notification 레코드를 하나씩 생성한다(docs/dev/ongoing/refund-event-messaging.md). 읽음 처리
+ * (2026-08-19 추가, 알림 벨 UI)도 여기서 같이 담당 — 구매자/판매자 마이페이지 양쪽에서 공용으로 쓴다.
+ * 알림은 역할과 무관하게 회원 단위라 WishlistService처럼 역할 제약을 여기서 걸지 않는다 — 역할 게이트는
+ * 호출부인 {@code Buyer,SellerMypageService}가 각자 requireBuyer/requireSeller로 이미 하고, 여기서는
+ * "이 알림이 진짜 이 회원 것인지"(소유권)만 확인한다.
  */
 @Slf4j
 @Service
@@ -60,5 +67,21 @@ public class NotificationService {
 
         log.info("공구팀 환불 알림 생성 완료: teamId={}, sellerId={}, buyerCount={}",
                 event.teamId(), event.sellerId(), distinctBuyerIds.size());
+    }
+
+    // 클래스 기본이 @Transactional(readOnly = true)라 명시적으로 덮어쓴다.
+    @Transactional
+    public void markAsRead(MemberUserDetails principal, Long notificationId) {
+        Notification notification = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOTIFICATION_NOT_FOUND));
+        if (!notification.getMember().getId().equals(principal.getMember().getId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+        notification.markAsRead();
+    }
+
+    @Transactional
+    public void markAllAsRead(MemberUserDetails principal) {
+        notificationRepository.markAllAsReadByMemberId(principal.getMember().getId());
     }
 }

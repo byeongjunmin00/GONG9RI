@@ -29,6 +29,7 @@ public class SellerMypageService {
     private final SellerRevenueSummaryRepository sellerRevenueSummaryRepository;
     private final NotificationRepository notificationRepository;
     private final RefundRequestRepository refundRequestRepository;
+    private final NotificationService notificationService;
 
     public List<SellerProductResponse> products(MemberUserDetails principal) {
         requireSeller(principal);
@@ -65,6 +66,20 @@ public class SellerMypageService {
         return notificationRepository.findAllByMemberIdOrderByCreatedAtDesc(principal.getMember().getId()).stream()
                 .map(NotificationResponse::from)
                 .toList();
+    }
+
+    // 클래스 기본이 @Transactional(readOnly = true)라, 실제 쓰기가 필요한 이 두 메서드는 명시적으로
+    // 덮어써야 한다(BuyerMypageService와 동일한 이유).
+    @Transactional
+    public void markNotificationAsRead(MemberUserDetails principal, Long notificationId) {
+        requireSeller(principal);
+        notificationService.markAsRead(principal, notificationId);
+    }
+
+    @Transactional
+    public void markAllNotificationsAsRead(MemberUserDetails principal) {
+        requireSeller(principal);
+        notificationService.markAllAsRead(principal);
     }
 
     // 내가 등록한 상품에 대한 환불 요청 전체(대기/승인/거절 포함) — 승인/거절 액션 자체는
