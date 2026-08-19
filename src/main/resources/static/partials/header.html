@@ -45,7 +45,7 @@
       </form>
 
       <!-- 실시간 인기 검색어 슬라이드(product/search-trends) — 한 번에 하나씩 순위가 자동으로
-           바뀌는 티커. 클릭하면 팀원이 만든 전체 목록 팝업(#header-search-trends-panel)을 그대로 연다
+           바뀌는 티커. 클릭하면 아래 통합 검색 오버레이(#header-search-trends-panel)를 연다
            (같은 데이터를 한 번만 불러와 재사용, js/header-search.js). 검색어를 10자로 잘라서
            표시하므로(js/header-search.js) 별도 고정폭 예약 없이 내용 길이만큼만 차지한다. -->
       <button
@@ -56,12 +56,32 @@
         hidden
       ></button>
 
-      <div id="header-search-trends-panel" class="header-search-trends" hidden>
-        <p class="header-search-trends__label">실시간 인기 검색어</p>
-        <!-- 검색어 집계는 실시간(Redis, product/search-trends)이지만, 화면에 뜬 이 순위 자체는 방금
-             불러온 시점 스냅샷이라 "몇 시 기준"인지 명시한다 — js/header-search.js가 채운다. -->
-        <p id="header-search-trends-updated" class="header-search-trends__updated"></p>
-        <ol id="header-search-trends-list" class="header-search-trends__list"></ol>
+      <!-- 통합 검색 오버레이 — 검색창 포커스/클릭 시 열린다(js/header-search.js). 최근 검색어(로그인
+           무관, 브라우저 localStorage 기준) → 카테고리 바로가기 → 실시간 인기 검색어 순으로 3개 섹션.
+           최근검색어/카테고리는 API 없이 즉시 렌더링, 인기 검색어만 최초 오픈 시 1회 로드해서 재사용한다. -->
+      <div id="header-search-trends-panel" class="header-search-overlay" hidden>
+        <section class="header-search-overlay__section">
+          <div class="header-search-overlay__section-head">
+            <p class="header-search-overlay__label">최근 검색어</p>
+            <button type="button" id="header-search-recent-clear" class="header-search-overlay__clear" hidden>전체삭제</button>
+          </div>
+          <ul id="header-search-recent-list" class="header-search-recent__list"></ul>
+        </section>
+
+        <section class="header-search-overlay__section">
+          <p class="header-search-overlay__label">카테고리</p>
+          <ul id="header-search-category-list" class="header-search-overlay__category-list"></ul>
+        </section>
+
+        <section class="header-search-overlay__section">
+          <div class="header-search-overlay__section-head">
+            <p class="header-search-overlay__label">실시간 인기 검색어</p>
+            <!-- 검색어 집계는 실시간(Redis, product/search-trends)이지만, 화면에 뜬 이 순위 자체는
+                 방금 불러온 시점 스냅샷이라 "몇 시 기준"인지 명시한다 — js/header-search.js가 채운다. -->
+            <p id="header-search-trends-updated" class="header-search-trends__updated"></p>
+          </div>
+          <ol id="header-search-trends-list" class="header-search-trends__list"></ol>
+        </section>
       </div>
     </div>
 

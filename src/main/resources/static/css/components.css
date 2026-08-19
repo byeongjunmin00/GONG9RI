@@ -845,12 +845,15 @@
 }
 
 /* .site-header가 position: sticky라 이 패널의 포지셔닝 컨텍스트가 되어, absolute + top:100%로
-   검색바 바로 아래에 붙는다. */
-.header-search-trends {
+   검색바 바로 아래에 붙는다. 최근검색어/카테고리/실시간 인기검색어 3개 섹션을 담는 통합 오버레이라
+   세로로 길어질 수 있어 max-height + 스크롤 안전장치를 둔다(특히 좁은 화면). */
+.header-search-overlay {
   position: absolute;
   top: calc(100% + var(--space-2));
   left: 0;
   right: 0;
+  max-height: min(70vh, 560px);
+  overflow-y: auto;
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -859,8 +862,114 @@
   z-index: 99;
 }
 
-.header-search-trends[hidden] {
+.header-search-overlay[hidden] {
   display: none;
+}
+
+.header-search-overlay__section + .header-search-overlay__section {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.header-search-overlay__section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.header-search-overlay__label {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.header-search-overlay__clear {
+  border: none;
+  background: none;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.header-search-overlay__clear:hover {
+  color: var(--color-pink);
+}
+
+.header-search-overlay__clear[hidden] {
+  display: none;
+}
+
+/* ---------- 최근 검색어 ---------- */
+.header-search-recent__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+}
+
+.header-search-recent__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+.header-search-recent__keyword {
+  border: none;
+  background: none;
+  padding: 6px 4px 6px 14px;
+  font-size: var(--fs-sm);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.header-search-recent__item:hover .header-search-recent__keyword {
+  color: var(--color-pink);
+}
+
+.header-search-recent__remove {
+  border: none;
+  background: none;
+  padding: 6px 12px 6px 4px;
+  font-size: var(--fs-sm);
+  line-height: 1;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.header-search-recent__remove:hover {
+  color: var(--color-error);
+}
+
+.header-search-recent__empty {
+  font-size: var(--fs-sm);
+  color: var(--color-text-muted);
+  padding: var(--space-2) 0 0;
+}
+
+/* ---------- 카테고리 바로가기 ---------- */
+.header-search-overlay__category-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+}
+
+/* .category-pill(product/list-search)을 그대로 재사용하되, 오버레이 안에서는 살짝 더 작게 — 이미
+   확립된 필 스타일과 시각적으로 같은 컴포넌트임을 유지하면서 좁은 공간에 맞춘다. */
+.category-pill--sm {
+  padding: 6px 14px;
+  font-size: var(--fs-xs);
 }
 
 .header-search-trends__label {
@@ -873,7 +982,6 @@
   font-size: 11px;
   color: var(--color-text-muted);
   opacity: 0.8;
-  margin-bottom: var(--space-3);
 }
 
 .header-search-trends__list {
