@@ -185,9 +185,14 @@ class TeamDeadlineEventFlowTest {
                 () -> groupBuyTeamRepository.findById(team.getId()).orElseThrow().getStatus() == TeamStatus.FAILED,
                 "5초 내에 팀이 FAILED로 전환되지 않았다(비동기 리스너 미동작 가능성)");
 
-        Payment refreshedPayment = paymentRepository.findById(payment.getId()).orElseThrow();
-        assertEquals(PaymentStatus.REFUNDED, refreshedPayment.getStatus(),
-                "이벤트 경유로도 결제가 REFUNDED로 전환돼야 한다");
+        // 팀 상태 전환(TeamDeadlineEventListener)과 결제 REFUNDED 전환(TeamPaymentsRefundRequestedEventListener
+        // → PaymentRefundService)은 서로 다른 두 개의 비동기 훕이라(클래스 주석 참고), 팀이 FAILED가 됐다고
+        // 결제가 이미 REFUNDED라는 보장이 없다 — 로컬처럼 빠른 환경에서는 그 간격이 우연히 좁아 바로 통과했지만
+        // CI처럼 느린/부하 있는 러너에서는 간격이 벌어져 간헐적으로 실패했다(2026-08-19). 다른 모든 비동기
+        // 검증과 동일하게 waitUntil로 감싼다.
+        waitUntil(
+                () -> paymentRepository.findById(payment.getId()).orElseThrow().getStatus() == PaymentStatus.REFUNDED,
+                "5초 내에 결제가 REFUNDED로 전환되지 않았다(이벤트 경유)");
 
         // 환불 완료 알림(AFTER_COMMIT)까지 끝나길 기다린다 — 내용 검증은 (c)에서 하고, 여기서는
         // cleanUp이 team/member를 지우기 전에 알림이 이미 존재해야(그래서 함께 정리되어야) 함을 보장한다.
