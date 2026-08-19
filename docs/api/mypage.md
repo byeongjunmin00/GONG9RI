@@ -150,6 +150,19 @@
 > **알림 종류(`type`)는 9종이다**(2026-08-20 확장) — `TEAM_REFUNDED`, `TEAM_SUCCESS`, `INQUIRY_CREATED`, `INQUIRY_ANSWERED`, `PAYMENT_RECEIVED`, `REVIEW_CREATED`, `REFUND_REQUESTED`, `REFUND_REQUEST_APPROVED`, `REFUND_REQUEST_REJECTED`. 각 종류가 누구에게 가는지는 `docs/dev/notification/refund-alert/design.md` 참고.
 >
 > **`linkUrl`**(2026-08-20 추가)은 알림을 눌렀을 때 이동할 앱 내부 경로다. 이 필드가 생기기 전에 만들어진 알림은 `null`이므로 클라이언트는 `null`을 정상 처리해야 한다(이동하지 않음).
+>
+> **목록 응답이 배열이 아니라 객체다**(2026-08-20 페이지네이션 도입). `?page=0&size=20`(기본값)으로 최신순 페이지를 받는다.
+>
+> ```json
+> {
+>   "unreadCount": 5,
+>   "totalCount": 25,
+>   "hasNext": true,
+>   "notifications": [ ... ]
+> }
+> ```
+>
+> `unreadCount`는 **현재 페이지가 아니라 그 회원 전체 기준**이다 — 목록이 잘려 오므로 클라이언트가 받아온 목록에서 세면 틀린다. `hasNext`가 참이면 다음 페이지가 남아있다.
 
 ### GET /api/buyer/mypage/notifications — 구매자 알림 목록
 

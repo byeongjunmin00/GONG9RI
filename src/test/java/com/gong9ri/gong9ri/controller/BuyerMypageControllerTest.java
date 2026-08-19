@@ -175,9 +175,9 @@ class BuyerMypageControllerTest {
 
         mockMvc.perform(get("/api/buyer/mypage/notifications").with(asUser(buyer)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.length()").value(1))
-                .andExpect(jsonPath("$.data[0].type").value("TEAM_REFUNDED"))
-                .andExpect(jsonPath("$.data[0].isRead").value(false));
+                .andExpect(jsonPath("$.data.notifications.length()").value(1))
+                .andExpect(jsonPath("$.data.notifications[0].type").value("TEAM_REFUNDED"))
+                .andExpect(jsonPath("$.data.notifications[0].isRead").value(false));
     }
 
     @Test
@@ -190,8 +190,60 @@ class BuyerMypageControllerTest {
 
         mockMvc.perform(get("/api/buyer/mypage/notifications").with(asUser(buyerA)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.length()").value(1))
-                .andExpect(jsonPath("$.data[0].message").value("A 알림"));
+                .andExpect(jsonPath("$.data.notifications.length()").value(1))
+                .andExpect(jsonPath("$.data.notifications[0].message").value("A 알림"));
+    }
+
+    @Test
+    @DisplayName("안읽음이 페이지 크기보다 많아도 unreadCount는 전체 기준으로 정확하다")
+    void notifications_unreadCount_isNotLimitedByPageSize() throws Exception {
+        Member buyer = saveMember("mpBuyerPage1", Role.BUYER);
+        for (int i = 0; i < 5; i++) {
+            notificationRepository.save(new Notification(
+                    buyer, NotificationType.TEAM_REFUNDED, "알림" + i, null));
+        }
+
+        // 페이지 크기를 2로 줄여 목록은 잘리게 만든다 — 그래도 안읽음 개수는 5여야 한다.
+        // (프론트가 받아온 목록에서 세던 방식이면 2가 나오고, 그 2개를 읽는 순간 뱃지가 0이 되면서
+        //  실제로는 3개가 남는 버그가 된다. 이 단언이 그걸 막는다.)
+        mockMvc.perform(get("/api/buyer/mypage/notifications?page=0&size=2").with(asUser(buyer)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.notifications.length()").value(2))
+                .andExpect(jsonPath("$.data.unreadCount").value(5))
+                .andExpect(jsonPath("$.data.totalCount").value(5))
+                .andExpect(jsonPath("$.data.hasNext").value(true));
+    }
+
+    @Test
+    @DisplayName("다음 페이지는 이전 페이지와 겹치지 않고, 마지막 페이지에서는 hasNext가 false다")
+    void notifications_pagination_lastPageHasNoNext() throws Exception {
+        Member buyer = saveMember("mpBuyerPage2", Role.BUYER);
+        for (int i = 0; i < 3; i++) {
+            notificationRepository.save(new Notification(
+                    buyer, NotificationType.TEAM_REFUNDED, "알림" + i, null));
+        }
+
+        mockMvc.perform(get("/api/buyer/mypage/notifications?page=1&size=2").with(asUser(buyer)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.notifications.length()").value(1))
+                .andExpect(jsonPath("$.data.hasNext").value(false));
+    }
+
+    @Test
+    @DisplayName("모두 읽음 처리 후 unreadCount가 0이 된다")
+    void notifications_markAllAsRead_unreadCountBecomesZero() throws Exception {
+        Member buyer = saveMember("mpBuyerPage3", Role.BUYER);
+        for (int i = 0; i < 3; i++) {
+            notificationRepository.save(new Notification(
+                    buyer, NotificationType.TEAM_REFUNDED, "알림" + i, null));
+        }
+
+        mockMvc.perform(post("/api/buyer/mypage/notifications/read-all").with(asUser(buyer)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/buyer/mypage/notifications").with(asUser(buyer)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.unreadCount").value(0));
     }
 
     @Test
@@ -224,7 +276,7 @@ class BuyerMypageControllerTest {
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/buyer/mypage/notifications").with(asUser(buyer)))
-                .andExpect(jsonPath("$.data[0].isRead").value(true));
+                .andExpect(jsonPath("$.data.notifications[0].isRead").value(true));
     }
 
     @Test
@@ -262,8 +314,8 @@ class BuyerMypageControllerTest {
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/buyer/mypage/notifications").with(asUser(buyer)))
-                .andExpect(jsonPath("$.data[0].isRead").value(true))
-                .andExpect(jsonPath("$.data[1].isRead").value(true));
+                .andExpect(jsonPath("$.data.notifications[0].isRead").value(true))
+                .andExpect(jsonPath("$.data.notifications[1].isRead").value(true));
     }
 
     @Test

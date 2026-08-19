@@ -3,6 +3,7 @@ package com.gong9ri.gong9ri.service;
 import com.gong9ri.gong9ri.common.exception.BusinessException;
 import com.gong9ri.gong9ri.common.exception.ErrorCode;
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
+import com.gong9ri.gong9ri.dto.NotificationListResponse;
 import com.gong9ri.gong9ri.dto.NotificationResponse;
 import com.gong9ri.gong9ri.dto.RefundRequestResponse;
 import com.gong9ri.gong9ri.dto.RevenueResponse;
@@ -16,6 +17,7 @@ import com.gong9ri.gong9ri.repository.RefundRequestRepository;
 import com.gong9ri.gong9ri.repository.SellerRevenueSummaryRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,11 +63,12 @@ public class SellerMypageService {
                 .toList();
     }
 
-    public List<NotificationResponse> notifications(MemberUserDetails principal) {
+    public NotificationListResponse notifications(MemberUserDetails principal, int page, int size) {
         requireSeller(principal);
-        return notificationRepository.findAllByMemberIdOrderByCreatedAtDesc(principal.getMember().getId()).stream()
-                .map(NotificationResponse::from)
-                .toList();
+        Long memberId = principal.getMember().getId();
+        return NotificationListResponse.of(
+                notificationRepository.findByMemberIdOrderByCreatedAtDesc(memberId, PageRequest.of(page, size)),
+                notificationRepository.countByMemberIdAndIsReadFalse(memberId));
     }
 
     // 클래스 기본이 @Transactional(readOnly = true)라, 실제 쓰기가 필요한 이 두 메서드는 명시적으로

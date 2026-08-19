@@ -213,9 +213,9 @@ class SellerMypageControllerTest {
 
         mockMvc.perform(get("/api/seller/mypage/notifications").with(asUser(seller)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.length()").value(1))
-                .andExpect(jsonPath("$.data[0].type").value("TEAM_REFUNDED"))
-                .andExpect(jsonPath("$.data[0].isRead").value(false));
+                .andExpect(jsonPath("$.data.notifications.length()").value(1))
+                .andExpect(jsonPath("$.data.notifications[0].type").value("TEAM_REFUNDED"))
+                .andExpect(jsonPath("$.data.notifications[0].isRead").value(false));
     }
 
     @Test
@@ -228,8 +228,8 @@ class SellerMypageControllerTest {
 
         mockMvc.perform(get("/api/seller/mypage/notifications").with(asUser(sellerA)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.length()").value(1))
-                .andExpect(jsonPath("$.data[0].message").value("A 알림"));
+                .andExpect(jsonPath("$.data.notifications.length()").value(1))
+                .andExpect(jsonPath("$.data.notifications[0].message").value("A 알림"));
     }
 
     @Test
@@ -262,7 +262,7 @@ class SellerMypageControllerTest {
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/seller/mypage/notifications").with(asUser(seller)))
-                .andExpect(jsonPath("$.data[0].isRead").value(true));
+                .andExpect(jsonPath("$.data.notifications[0].isRead").value(true));
     }
 
     @Test
@@ -290,8 +290,8 @@ class SellerMypageControllerTest {
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/seller/mypage/notifications").with(asUser(seller)))
-                .andExpect(jsonPath("$.data[0].isRead").value(true))
-                .andExpect(jsonPath("$.data[1].isRead").value(true));
+                .andExpect(jsonPath("$.data.notifications[0].isRead").value(true))
+                .andExpect(jsonPath("$.data.notifications[1].isRead").value(true));
     }
 
     @Test

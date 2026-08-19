@@ -126,6 +126,9 @@
             <button type="button" id="header-notifications-mark-all" class="header-notifications-panel__mark-all" hidden>모두 읽음</button>
           </div>
           <ul id="header-notifications-list" class="header-notifications-panel__list"></ul>
+          <!-- 알림 종류가 9종이 되면서 목록이 길어질 수 있어 한 번에 다 내리지 않는다(2026-08-20).
+               상품 목록의 "더 보기"와 같은 패턴 — 무한 스크롤 대신 버튼으로 통일한다. -->
+          <button type="button" id="header-notifications-more" class="header-notifications-panel__more" hidden>더 보기</button>
         </div>
       </div>
 

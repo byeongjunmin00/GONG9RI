@@ -3,7 +3,7 @@ package com.gong9ri.gong9ri.controller;
 import com.gong9ri.gong9ri.common.response.ApiResponse;
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.dto.BuyerTeamResponse;
-import com.gong9ri.gong9ri.dto.NotificationResponse;
+import com.gong9ri.gong9ri.dto.NotificationListResponse;
 import com.gong9ri.gong9ri.dto.PurchaseResponse;
 import com.gong9ri.gong9ri.dto.RefundRequestResponse;
 import com.gong9ri.gong9ri.dto.WishlistItemResponse;
@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -38,9 +39,11 @@ public class BuyerMypageController {
     }
 
     @GetMapping("/notifications")
-    public ResponseEntity<ApiResponse<List<NotificationResponse>>> notifications(
-            @AuthenticationPrincipal MemberUserDetails principal) {
-        return ResponseEntity.ok(ApiResponse.success(buyerMypageService.notifications(principal)));
+    public ResponseEntity<ApiResponse<NotificationListResponse>> notifications(
+            @AuthenticationPrincipal MemberUserDetails principal,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(ApiResponse.success(buyerMypageService.notifications(principal, page, size)));
     }
 
     @PostMapping("/notifications/{notificationId}/read")

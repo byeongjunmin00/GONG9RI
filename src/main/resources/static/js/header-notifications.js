@@ -19,16 +19,24 @@
     var panelEl = document.getElementById('header-notifications-panel');
     var listEl = document.getElementById('header-notifications-list');
     var markAllBtn = document.getElementById('header-notifications-mark-all');
+    var moreBtn = document.getElementById('header-notifications-more');
 
-    if (!wrapEl || !bellBtn || !badgeEl || !panelEl || !listEl || !markAllBtn || !window.Api) {
+    if (!wrapEl || !bellBtn || !badgeEl || !panelEl || !listEl || !markAllBtn || !moreBtn || !window.Api) {
       return;
     }
 
+    var PAGE_SIZE = 20;
+
     var basePath = null; // '/buyer/mypage' | '/seller/mypage' — 로그인한 역할에 따라 정해짐
     var notifications = [];
+    // 안 읽은 개수는 목록에서 세지 않고 서버가 준 값을 쓴다 — 목록이 잘려 오기 때문에 여기서 세면
+    // 틀린다(안읽음 30개인데 20개만 받으면 20으로 세고, 그 20개를 읽으면 0이 되지만 실제론 10개 남음).
+    var unreadCount = 0;
+    var loadedPage = -1;
+    var hasNext = false;
+    var loading = false;
 
     function updateBadge() {
-      var unreadCount = notifications.filter(function (n) { return !n.isRead; }).length;
       if (unreadCount > 0) {
         badgeEl.textContent = unreadCount > 9 ? '9+' : String(unreadCount);
         badgeEl.hidden = false;
@@ -46,6 +54,7 @@
         emptyEl.className = 'header-notifications-panel__empty';
         emptyEl.textContent = '알림이 없습니다.';
         listEl.appendChild(emptyEl);
+        moreBtn.hidden = true;
         return;
       }
 
@@ -89,17 +98,38 @@
         itemEl.appendChild(btnEl);
         listEl.appendChild(itemEl);
       });
+
+      moreBtn.hidden = !hasNext;
     }
 
-    function loadNotifications() {
-      return window.Api.get(basePath + '/notifications')
+    /**
+     * 알림 목록을 한 페이지 불러온다. reset이면 처음부터 다시, 아니면 다음 페이지를 이어붙인다.
+     * "더 보기"로 이어보는 이유 — 오래된 알림을 볼 곳이 이 드롭다운밖에 없어서(마이페이지에 알림
+     * 화면이 없다) 그냥 잘라내면 이전 알림에 접근할 방법이 사라진다.
+     */
+    function loadNotifications(reset) {
+      if (loading) {
+        return Promise.resolve();
+      }
+      loading = true;
+      var nextPage = reset ? 0 : loadedPage + 1;
+
+      return window.Api.get(basePath + '/notifications?page=' + nextPage + '&size=' + PAGE_SIZE)
         .then(function (data) {
-          notifications = data || [];
+          var payload = data || {};
+          var page = payload.notifications || [];
+          notifications = reset ? page : notifications.concat(page);
+          unreadCount = payload.unreadCount || 0;
+          hasNext = !!payload.hasNext;
+          loadedPage = nextPage;
           renderList();
           updateBadge();
         })
         .catch(function (err) {
           console.error('[header-notifications.js] 알림 목록 조회 실패:', err);
+        })
+        .then(function () {
+          loading = false;
         });
     }
 
@@ -125,8 +155,10 @@
       return window.Api.post(basePath + '/notifications/' + notificationId + '/read')
         .then(function () {
           var target = notifications.find(function (n) { return n.notificationId === notificationId; });
-          if (target) {
+          if (target && !target.isRead) {
             target.isRead = true;
+            // 서버가 준 개수를 로컬에서 같이 줄인다(목록을 다시 불러오지 않는 기존 원칙 유지).
+            unreadCount = Math.max(0, unreadCount - 1);
           }
           renderList();
           updateBadge();
@@ -140,6 +172,8 @@
       window.Api.post(basePath + '/notifications/read-all')
         .then(function () {
           notifications.forEach(function (n) { n.isRead = true; });
+          // 서버는 이 회원의 안 읽은 알림을 전부 처리했으므로, 아직 안 불러온 페이지의 것까지 0이 된다.
+          unreadCount = 0;
           renderList();
           updateBadge();
         })
@@ -166,6 +200,10 @@
 
     markAllBtn.addEventListener('click', markAllAsRead);
 
+    moreBtn.addEventListener('click', function () {
+      loadNotifications(false);
+    });
+
     document.addEventListener('keydown', function (event) {
       if (event.key === 'Escape') {
         closePanel();
@@ -189,7 +227,7 @@
 
       basePath = role === 'BUYER' ? '/buyer/mypage' : '/seller/mypage';
       wrapEl.hidden = false;
-      loadNotifications();
+      loadNotifications(true);
     });
   });
 })();

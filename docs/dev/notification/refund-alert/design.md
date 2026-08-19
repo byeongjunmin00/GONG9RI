@@ -14,8 +14,9 @@
 
 ## API / 인터페이스
 
-- `GET /api/buyer/mypage/notifications` — 구매자 본인 알림 목록
-- `GET /api/seller/mypage/notifications` — 판매자 본인 알림 목록
+- `GET /api/{buyer,seller}/mypage/notifications?page=0&size=20` — 본인 알림 목록(최신순, 페이지네이션 2026-08-20 도입)
+  - 응답은 배열이 아니라 `{ unreadCount, totalCount, hasNext, notifications[] }` 객체다. **`unreadCount`를 서버가 세는 게 핵심** — 목록을 잘라서 내리면 프론트가 받아온 목록에서 안 읽은 개수를 셀 수 없다(20개만 받았는데 안읽음이 30개면 20으로 세고, 그 20개를 읽는 순간 뱃지가 0이 되지만 실제로는 10개가 남는다). 로컬 실서버로 이 시나리오를 실측해 확인했다(`changes/004`).
+  - 오래된 알림을 볼 곳이 헤더 벨 드롭다운밖에 없어서(마이페이지에 알림 화면이 없다) 그냥 자르지 않고 벨 안 "더 보기"로 이어보게 했다.
 - `POST /api/{buyer,seller}/mypage/notifications/{notificationId}/read` — 알림 1건 읽음 처리(2026-08-19 추가)
 - `POST /api/{buyer,seller}/mypage/notifications/read-all` — 본인의 안 읽은 알림 전체 읽음 처리(2026-08-19 추가)
 - 상세 요청/응답/에러 스펙: `docs/api/mypage.md`의 "## 알림" 섹션이 원천.
