@@ -777,18 +777,19 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  flex: none;
-  /* flex 아이템은 기본 min-width:auto라 white-space:nowrap 텍스트의 전체 너비를 최소폭으로
-     요구한다 — 검색어가 길면(예: 반복 문자) 이 최소폭이 max-width:150px를 이겨버려서 박스가
-     실제로 150px보다 넓게 그려지고, 옆 그리드 칸(nav)까지 침범해 겹쳐 보이는 버그가 있었다
-     (사용자 스크린샷으로 실제 확인, 2026-08-19). min-width:0으로 그 기본값을 꺼서 max-width가
-     항상 이기게 한다. */
+  /* 1차 수정(margin-right만 추가)으로는 부족했다 — 검색창(고정 480px)+티커가 그리드 중간 열의
+     실제 렌더링 폭보다 넓어질 수 있는 상황(nav 열이 넓어지는 판매자 계정 등) 자체는 안 막혀서,
+     검색어가 길어 티커가 최대폭(150px)에 가까워지면 여전히 옆 nav 열을 침범했다(2026-08-19,
+     사용자가 짧은/긴 검색어 두 스크린샷을 비교해 확정). flex-shrink를 허용해서, 공간이 부족하면
+     검색창은 그대로 두고 이 티커만(이미 회전마다 폭이 바뀌는 요소라 자연스럽다) 줄어들게 한다 —
+     그래도 안 쓴 min-width:0이 없으면 아래 shrink가 실제로 안 먹는다(flex 기본 min-width:auto가
+     내용 전체 너비를 최소로 강제해서 줄어들 수 없게 막기 때문).
+     검색창(.search-bar)은 여전히 flex:none으로 고정 — 이 요소가 줄어들면 지터가 재발한다(과거에
+     이미 겪음, 위 site-header__search 주석 참고). */
+  flex: 0 1 150px;
   min-width: 0;
   max-width: 150px;
-  /* 그리드 전체 gap(로고-검색창 사이 여백을 좁히려고 이미 12px로 줄여둔 값, layout.css)을 그대로
-     쓰면 티커 오른쪽과 nav 사이가 너무 붙어 답답해 보인다(사용자 피드백, 2026-08-19) — 이 요소만
-     오른쪽 여백을 추가로 준다(로고-검색창 간격에는 영향 없음). */
-  margin-right: var(--space-3);
+  margin-right: var(--space-2);
   padding: 6px 12px;
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-full);
