@@ -95,9 +95,14 @@
         <a href="/seller/mypage.html" data-role="SELLER" hidden>판매자 마이페이지</a>
         <a href="/buyer/mypage.html" data-role="BUYER" hidden>구매자 마이페이지</a>
         <!-- 찜(product/wishlist) 지름길 — 구매자 마이페이지의 "찜한 상품" 섹션(#wishlist-section)으로
-             바로 이동. 다른 nav 링크와 동일하게 header-auth.js의 data-role 매칭으로 노출된다. -->
+             바로 이동. 노출 자체는 다른 nav 링크와 동일하게 header-auth.js의 data-role 매칭을 쓰고,
+             옆의 숫자 뱃지(몇 개 찜했는지)만 알림 벨과 같은 패턴(gong9ri:auth-resolved 구독)으로
+             js/header-wishlist-badge.js가 별도로 채운다 — 목록 자체를 드롭다운으로 또 만들지는 않기로
+             함(찜 목록은 이미지·가격 등 정보가 많아 마이페이지의 카드형 목록이 더 적합하다는 판단,
+             2026-08-19 사용자와 논의). -->
         <a href="/buyer/mypage.html#wishlist-section" class="site-header__wishlist-link" data-role="BUYER" hidden aria-label="찜한 상품">
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 21s-7.5-4.6-10.2-9.1C.1 8.8 1.4 5 5 4.2c2.1-.5 4.1.4 5.2 2.1a.9.9 0 0 0 1.6 0C13 4.6 15 3.7 17.1 4.2c3.5.8 4.9 4.6 3.1 7.7C19.5 16.4 12 21 12 21z"/></svg>
+          <span id="header-wishlist-badge" class="site-header__wishlist-badge" hidden></span>
         </a>
         <a href="/admin/dashboard.html" data-role="ADMIN" hidden>관리자 대시보드</a>
       </nav>

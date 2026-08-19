@@ -90,6 +90,7 @@
 
 /* 찜(product/wishlist) 헤더 지름길 — 텍스트 링크가 아니라 아이콘 버튼이라 별도 스타일. */
 .site-header__wishlist-link {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -104,6 +105,30 @@
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
+}
+
+/* 알림 벨(.site-header__notifications-badge)과 동일한 스타일 — 몇 개 찜했는지 숫자만 보여준다
+   (목록 자체는 드롭다운으로 안 만들기로 함, 2026-08-19 사용자와 논의 — header.html 주석 참고). */
+.site-header__wishlist-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: var(--gradient-brand);
+  color: var(--color-text-on-brand);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.site-header__wishlist-badge[hidden] {
+  display: none;
 }
 
 .site-header__wishlist-link:hover {
