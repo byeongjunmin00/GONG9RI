@@ -137,7 +137,7 @@
   | basePrice | int | Y | 정가 (1인 구매 시 가격) |
   | maxParticipants | int | Y | 팀 최대 인원 |
   | priceTiers | List | Y | 가격 구간표 (최소 1개) |
-  | priceTiers[].minCount | int | Y | 해당 가격 적용 최소 인원 |
+  | priceTiers[].minCount | int | Y | 해당 가격 적용 최소 인원 (2 이상) |
   | priceTiers[].price | int | Y | 1인당 가격 |
   | imageUrl | String | N | 상품 이미지 URL (없으면 프론트에서 그라디언트 placeholder 표시) |
   | autoRefundOnCancel | boolean | N | 참여 취소로 생긴 환불 요청을 승인 절차 없이 즉시 처리할지 여부. 생략하면 `false`(`docs/api/refund.md`) |

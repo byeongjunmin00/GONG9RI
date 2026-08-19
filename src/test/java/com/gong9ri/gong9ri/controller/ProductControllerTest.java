@@ -218,6 +218,26 @@ class ProductControllerTest {
     }
 
     @Test
+    @DisplayName("priceTiers의 minCount가 2 미만이면 400 VALIDATION_FAILED")
+    void register_minCountBelowTwo_validationFailed() throws Exception {
+        Member seller = saveMember("seller24", Role.SELLER);
+        Map<String, Object> invalid = Map.of(
+                "name", "제주 감귤 5kg",
+                "basePrice", 25000,
+                "maxParticipants", 10,
+                "priceTiers", List.of(Map.of("minCount", 1, "price", 22000)),
+                "category", "FOOD"
+        );
+
+        mockMvc.perform(post("/api/products")
+                        .with(asUser(seller))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(invalid)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    }
+
+    @Test
     @DisplayName("openAt에 미래 시각을 넣어 등록하면 201이고 응답에 그대로 반영된다")
     void register_withFutureOpenAt_success() throws Exception {
         Member seller = saveMember("seller18", Role.SELLER);

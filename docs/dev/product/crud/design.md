@@ -21,6 +21,7 @@
 - 등록/수정/삭제는 `Role.SELLER`만 가능, 수정/삭제는 본인 소유 상품만(순서: 역할 확인 → 존재 확인 → 소유권 확인) — 위반 시 `403 FORBIDDEN`
 - 존재하지 않는 상품 조회/수정/삭제 시 `404 PRODUCT_NOT_FOUND`
 - 목록/상세 조회는 인증 불필요(`SecurityConfig`에서 `GET /api/products/**` permitAll)
+- `priceTiers[].minCount`(가격 구간이 적용되는 최소 참여 인원)는 2 이상이어야 한다(`@Min(2)`, `PriceTierRequest`) — 1은 혼자구매와 동일해 팀 개념이 성립하지 않음. 위반 시 `400 VALIDATION_FAILED`
 - 비로그인으로 등록/수정/삭제 시도 시 `401 UNAUTHORIZED`(공통 응답 형식, `ApiAuthenticationEntryPoint`가 처리)
 - 목록의 `bestPrice`는 해당 상품 `price_tier` 중 최저가(`MIN(price)`) — product/seller를 fetch join하는 페이지네이션 쿼리와, price_tier는 페이지에 속한 상품 id들로 별도 집계 쿼리를 날려서 계산(컬렉션 fetch join + 페이지네이션을 같이 쓰면 생기는 함정을 피함)
 - 상품 수정 시 기존 `price_tier`를 전부 삭제하고 요청받은 구간표로 재삽입(`docs/db/price_tier.md` 정책)
