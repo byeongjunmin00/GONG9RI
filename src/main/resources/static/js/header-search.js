@@ -29,10 +29,11 @@
     var recentListEl = document.getElementById('header-search-recent-list');
     var recentClearBtn = document.getElementById('header-search-recent-clear');
     var categoryListEl = document.getElementById('header-search-category-list');
+    var overlayCloseBtn = document.getElementById('header-search-overlay-close');
 
     if (
       !formEl || !inputEl || !panelEl || !listEl || !updatedEl || !tickerEl || !wrapEl ||
-      !recentListEl || !recentClearBtn || !categoryListEl || !window.Api
+      !recentListEl || !recentClearBtn || !categoryListEl || !overlayCloseBtn || !window.Api
     ) {
       return;
     }
@@ -242,6 +243,8 @@
     function closePanel() {
       panelEl.hidden = true;
     }
+
+    overlayCloseBtn.addEventListener('click', closePanel);
 
     formEl.addEventListener('submit', function (event) {
       event.preventDefault();
