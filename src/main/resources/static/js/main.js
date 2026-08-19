@@ -273,6 +273,9 @@
         } else {
           wishlistedProductIds.add(productId);
         }
+        // 헤더 찜 아이콘 옆 개수 뱃지(js/header-wishlist-badge.js)가 새로고침 없이도 바로 갱신되게
+        // 알린다 — 전에는 페이지를 새로고침해야만 반영돼서 사용자가 "안 눌리나?" 헷갈렸음(2026-08-20).
+        document.dispatchEvent(new CustomEvent('gong9ri:wishlist-changed'));
       })
       .catch(function (err) {
         // 찜은 구매자 전용(WishlistService.requireBuyer) — 판매자 계정으로 시도하면 403이 온다.

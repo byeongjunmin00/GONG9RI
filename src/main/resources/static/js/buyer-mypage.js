@@ -579,6 +579,9 @@
       window.Api.del('/products/' + item.productId + '/wishlist')
         .then(function () {
           loadWishlist();
+          // 헤더 찜 아이콘 뱃지도 같이 갱신(js/header-wishlist-badge.js) — js/main.js의 하트 토글과
+          // 동일한 이벤트를 재사용한다.
+          document.dispatchEvent(new CustomEvent('gong9ri:wishlist-changed'));
         })
         .catch(function (err) {
           console.error('[buyer-mypage.js] failed to remove wishlist item:', err);
