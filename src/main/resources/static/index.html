@@ -54,19 +54,40 @@
         </button>
       </form>
 
-      <!-- 광고 배너 — 슬림 공지 바(프론트 전용, 백엔드 연동 없음). 자동 순환 + 점 클릭. js/main.js가 제어한다. -->
-      <div id="promo-bar" class="promo-bar">
-        <div id="promo-bar-track" class="promo-bar-track"></div>
-        <div id="promo-bar-dots" class="promo-bar-dots"></div>
-        <a id="promo-bar-cta" href="#product-grid" class="promo-bar-cta">자세히 보기 →</a>
-      </div>
+      <!-- 메인 히어로 캐러셀 — 3장. 1번은 고정 소개, 2번(실시간 인기 공구)은 js/main.js가 인기순 1위
+           상품 이미지/이름/참여인원/가격으로 채우고(없으면 기본 문구 유지, 가짜 데이터 금지),
+           3번은 고정 마케팅 문구. 전 슬라이드 공통으로 배경 풀블리드 + 흰 글씨 + 하단 그라디언트
+           스크림. translateX로 왼쪽으로 넘어가는 자동 슬라이드 + 점 클릭. js/main.js가 제어한다. -->
+      <div id="hero-carousel" class="hero-carousel">
+        <div id="hero-carousel-track" class="hero-carousel-track">
+          <a href="#product-grid" class="hero-carousel-slide hero-carousel-slide--intro">
+            <div class="hero-carousel-slide__content">
+              <p class="hero-carousel-slide__kicker">같이 사면, 더 싸니까</p>
+              <h1 class="hero-carousel-slide__title">사람이 모일수록 더 저렴해지는 공동구매</h1>
+              <p class="hero-carousel-slide__desc">
+                GONG9RI에서 함께 사고, 더 좋은 가격을 만나보세요.
+              </p>
+            </div>
+          </a>
 
-      <div class="section__head">
-        <p class="text-muted" style="font-weight:700; letter-spacing: 0.08em; text-transform: uppercase; font-size: var(--fs-xs);">Group Buy</p>
-        <h1><span class="text-gradient">함께 사면</span> 더 저렴하게, GONG9RI</h1>
-        <p class="text-muted" style="margin-top: var(--space-2); max-width: 640px;">
-          지금 진행 중인 공동구매 상품을 둘러보세요. 참여자가 모일수록 1인당 가격이 낮아집니다.
-        </p>
+          <a id="hero-carousel-popular-slide" href="#product-grid" class="hero-carousel-slide hero-carousel-slide--popular">
+            <img id="hero-carousel-popular-image" class="hero-carousel-slide__bg-image" alt="" hidden />
+            <div class="hero-carousel-slide__content">
+              <p class="hero-carousel-slide__kicker">🔥 실시간 인기 공구</p>
+              <h2 id="hero-carousel-popular-title" class="hero-carousel-slide__title">지금 가장 많이 모인 상품 보러가기</h2>
+              <p id="hero-carousel-popular-desc" class="hero-carousel-slide__desc" hidden></p>
+            </div>
+          </a>
+
+          <a href="/api/auth/kakao/login" class="hero-carousel-slide hero-carousel-slide--signup">
+            <img src="/images/kakaofriends.webp" alt="" class="hero-carousel-slide__bg-image hero-carousel-slide__bg-image--contain" />
+            <div class="hero-carousel-slide__content">
+              <p class="hero-carousel-slide__kicker">🎉 신규 가입하면</p>
+              <h2 class="hero-carousel-slide__title">카카오톡으로 3초만에 시작</h2>
+            </div>
+          </a>
+        </div>
+        <div id="hero-carousel-dots" class="hero-carousel-dots"></div>
       </div>
 
       <!-- 카테고리 바 + 정렬 — 클릭/선택 시 ?category=, ?sort= 쿼리파라미터로 목록을 다시 불러온다(js/main.js). -->

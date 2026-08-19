@@ -1261,87 +1261,149 @@
   cursor: pointer;
 }
 
-/* ---------- 메인 페이지 광고 배너 — 슬림 공지 바 (main-page) ----------
-   초기에는 220px 높이의 큰 그라디언트 히어로로 만들었는데, 실제 이미지 애셋이 없어 텍스트만 있는
-   슬라이드는 미완성처럼 보인다는 피드백(친구 목업 참고)을 받아 한 줄짜리 공지/이벤트 바로 교체했다
-   — 실제 쇼핑몰(쿠팡·배민 등)이 이미지 없이도 정보값 있는 문구만으로 완성도 있게 보이려고 쓰는 패턴. */
-.promo-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  background: var(--color-text);
-  color: var(--color-text-on-brand);
-  border-radius: var(--radius-md);
-  padding: 12px var(--space-5);
-  margin-bottom: var(--space-6);
-}
-
-.promo-bar-track {
-  flex: 1;
+/* ---------- 메인 페이지 히어로 캐러셀 (main-page) ----------
+   3장 고정(1.소개 2.실시간 인기 공구 3.신규 가입). 원래 이 소개 캐러셀과
+   별도로 "슬림 공지 바"(promo-bar)가 바로 위에 있어 둘 다 자동 순환하며 겹쳐 보여 난잡했다는
+   피드백으로 하나로 합쳤다 — 크기(고정 높이 배너)는 이 소개 캐러셀, 테마(어두운 배경 + 흰 글씨)는
+   기존 공지 바를 따른다. 전 슬라이드가 배경을 꽉 채운다: 2번(인기 공구)은 실제 상품 이미지가
+   있으면 그걸 쓰고(js/main.js), 그 외(1·3번, 그리고 2번의 이미지 없는 기본 상태)는 브랜드
+   그라디언트(--gradient-brand)로 채운다 — 실제 이미지가 없는 슬라이드에 무관한 스톡 사진을
+   지어 넣지 않기 위함. 하단 그라디언트 스크림으로 흰 글씨 가독성을 보장한다. 오토 순환은 opacity가
+   아니라 트랙을 translateX로 밀어 "왼쪽으로 넘어가는" 모션으로 구현한다(사용자 요청). */
+.hero-carousel {
   position: relative;
   overflow: hidden;
-  height: 22px;
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-6);
+  height: 300px;
 }
 
-.promo-bar-slide {
+.hero-carousel-track {
+  display: flex;
+  height: 100%;
+  transition: transform 0.5s ease;
+}
+
+.hero-carousel-slide {
+  flex: 0 0 100%;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  background: var(--gradient-brand);
+  color: var(--color-text-on-brand);
+  text-decoration: none;
+  overflow: hidden;
+}
+
+.hero-carousel-slide::before {
+  content: '';
   position: absolute;
   inset: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--fs-sm);
-  white-space: nowrap;
-  opacity: 0;
-  transition: opacity 0.4s ease;
-  pointer-events: none;
+  z-index: 1;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.6) 100%);
 }
 
-.promo-bar-slide.active {
+.hero-carousel-slide__bg-image {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hero-carousel-slide__bg-image--contain {
+  object-fit: contain;
+  background-color: #ffde3b;
+}
+/* 1번(소개) 슬라이드 전용 배경 — 전체를 브랜드 그라디언트로 칠하면 화려하기만 하고 촌스러워 보인다는
+   피드백으로, "내 테마에 맞춘" 딥톤 배경(브랜드 퍼플 80% + 다크 텍스트 컬러 20% 블렌드, color-mix)을
+   쓴다. 로고 패턴은 여러 차례 조정 끝에(간격 좁게/로고 크게/색 여러 개) DOM에 아이콘을 하나하나
+   배치하는 대신 ::after 의사요소 하나로 해결한다 — mask-image로 로고 실루엣을 촘촘하게(60px 타일)
+   반복시키고, 그 마스크를 통해 보이는 실제 배경은 브랜드 그라디언트 4색을 순환하는
+   repeating-linear-gradient로 채운다. 마스크 타일 간격(60px)과 그라디언트 밴드 폭(24px)이 서로
+   딱 안 맞아떨어져서, 로고 하나하나가 우연히 걸치는 색 밴드가 자연스럽게 달라져 옆 로고와 다른
+   색으로 보인다(수작업으로 각 로고에 색을 지정할 필요 없음). */
+.hero-carousel-slide--intro {
+  background: color-mix(in srgb, var(--color-purple) 80%, var(--color-text) 20%);
+}
+
+.hero-carousel-slide--intro::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.55;
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--color-orange) 0 24px,
+    var(--color-coral) 24px 48px,
+    var(--color-pink) 48px 72px,
+    var(--color-purple) 72px 96px
+  );
+  -webkit-mask-image: url('/images/logo-icon-white.png');
+  mask-image: url('/images/logo-icon-white.png');
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: 60px 60px;
+  mask-size: 60px 60px;
+}
+
+.hero-carousel-slide__content {
+  position: relative;
+  z-index: 3;
+  padding: var(--space-6);
+  max-width: 640px;
+}
+
+.hero-carousel-slide__kicker {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: var(--fs-xs);
+  opacity: 0.9;
+}
+
+.hero-carousel-slide--intro .hero-carousel-slide__kicker {
+  color: var(--color-brand);
   opacity: 1;
-  pointer-events: auto;
 }
 
-.promo-bar-slide__emoji {
-  flex: none;
-}
-
-.promo-bar-slide__text b {
+.hero-carousel-slide__title {
+  margin-top: var(--space-2);
+  font-size: var(--fs-3xl);
   color: var(--color-text-on-brand);
-  text-decoration: underline;
 }
 
-.promo-bar-dots {
+.hero-carousel-slide__desc {
+  margin-top: var(--space-2);
+  font-size: var(--fs-base);
+  opacity: 0.9;
+}
+
+.hero-carousel-dots {
+  position: absolute;
+  bottom: var(--space-3);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
   display: flex;
-  gap: 5px;
-  flex: none;
+  gap: 6px;
 }
 
-.promo-bar-dot {
-  width: 6px;
-  height: 6px;
+.hero-carousel-dot {
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   border: none;
-  background: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.4);
   cursor: pointer;
   padding: 0;
 }
 
-.promo-bar-dot.active {
+.hero-carousel-dot.active {
   background: #fff;
-}
-
-.promo-bar-cta {
-  flex: none;
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  color: var(--color-text-on-brand);
-  white-space: nowrap;
-  text-decoration: none;
-}
-
-.promo-bar-cta:hover {
-  color: var(--color-text-on-brand);
-  text-decoration: underline;
 }
 
 /* ---------- 메인 페이지 카테고리 바 + 정렬 (main-page) ---------- */

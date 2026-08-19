@@ -8,10 +8,11 @@
  * - 상품명/판매자명 등 사용자(판매자) 입력 문자열은 textContent로만 넣어 XSS를 방지한다.
  * - `?kakaoRoleMismatch=BUYER|SELLER` 쿼리파라미터가 있으면 카카오 로그인 role 불일치 안내
  *   배너(#page-alert)를 표시한다(login.js의 ?signup=success와 같은 패턴).
- * - 광고 배너(#promo-bar): 프론트 전용 장식(백엔드 연동 없음, product/category와 무관). 한 줄짜리
- *   공지 문구 3개를 4초 간격으로 자동 순환하고(opacity 페이드), 점 클릭으로 수동 전환도 가능하다.
- *   `prefers-reduced-motion: reduce`면 자동 순환을 시작하지 않는다. "자세히 보기"는 실제 이벤트
- *   페이지가 없어 상품 그리드로 스크롤 이동하는 앵커 링크로 둔다(죽은 링크를 만들지 않기 위함).
+ * - 메인 히어로 캐러셀(#hero-carousel): 3장 고정(1.소개 2.실시간 인기 공구 3.신규 가입), 배경
+ *   풀블리드 + 흰 글씨 + 하단 그라디언트 스크림, 5초 간격 자동 순환(translateX,
+ *   왼쪽으로 넘어가는 모션) + 점 클릭으로 수동 전환. `prefers-reduced-motion: reduce`면 자동 순환을
+ *   시작하지 않는다. 2번(인기 공구) 슬라이드만 실제 인기순 1위 상품이 있을 때 이미지/이름/참여인원/
+ *   가격으로 채운다(product/category와 무관, 없으면 기본 문구 유지 — 가짜 상품을 지어내지 않음).
  * - 카테고리 바(#category-bar): product/category. 클릭 시 `?category=`를 URL에 반영하고
  *   목록을 처음부터(page 0) 다시 불러온다. 새로고침해도 선택이 유지되게 URL 쿼리파라미터를
  *   진실의 원천으로 쓴다(뒤로가기 히스토리 대응은 스코프 밖 — replaceState만 쓴다).
@@ -57,88 +58,47 @@
     pageAlertTextEl.textContent = '이미 ' + roleLabel + '로 가입되어 있어 ' + roleLabel + '로 로그인되었습니다.';
   })();
 
-  // 광고 배너 — 슬림 공지 바. 프론트 전용 장식이지만 "자세히 보기"는 각 슬라이드 내용과 실제로
-  // 연결되는 링크여야 한다(죽은 링크 금지, design.md 참고) — product-grid와 무관하게 독립적으로
-  // 동작해야 해서 별도 IIFE로 분리한다.
-  (function setUpPromoBar() {
-    var barEl = document.getElementById('promo-bar');
-    var trackEl = document.getElementById('promo-bar-track');
-    var dotsEl = document.getElementById('promo-bar-dots');
-    var ctaEl = document.getElementById('promo-bar-cta');
-    if (!barEl || !trackEl || !dotsEl || !ctaEl) {
+  // 메인 히어로 캐러셀 — 3장 고정(1.소개 2.실시간 인기 공구 3.신규 가입).
+  // 원래 "슬림 공지 바"(promo-bar)와 소개 캐러셀 두 개가 나란히 있어 난잡해 보인다는 피드백으로
+  // 하나로 합쳤다 — 크기는 기존 소개 캐러셀(큰 배너), 테마는 기존 공지 바(어두운 배경 + 흰 글씨)를
+  // 따르고, 전 슬라이드가 배경을 꽉 채운다(2번은 실제 상품 이미지, 나머지는 브랜드 그라디언트).
+  // 2·3번은 정적 마크업(index.html)에 이미 있고, 2번(인기 공구)만 실제 인기순 1위 상품이 있을 때
+  // 이미지/이름/참여인원/가격으로 덮어쓴다 — 없으면 기본 문구(그리드 스크롤 링크) 그대로 둔다(가짜
+  // 상품/이벤트를 지어내지 않음). 트랙을 translateX로 밀어 왼쪽으로 넘어가는 모션으로 자동 순환한다.
+  (function setUpHeroCarousel() {
+    var carouselEl = document.getElementById('hero-carousel');
+    var trackEl = document.getElementById('hero-carousel-track');
+    var dotsEl = document.getElementById('hero-carousel-dots');
+    var popularSlideEl = document.getElementById('hero-carousel-popular-slide');
+    var popularImageEl = document.getElementById('hero-carousel-popular-image');
+    var popularTitleEl = document.getElementById('hero-carousel-popular-title');
+    var popularDescEl = document.getElementById('hero-carousel-popular-desc');
+    if (!carouselEl || !trackEl || !dotsEl) {
       return;
     }
 
-    // 1번 슬라이드(인기 상품)는 실제 데이터가 없으면 "인기 급상승" 같은 근거 없는 문구를 지어내지
-    // 않는다 — fetchPopularProductSlide()가 실제 인기순 1위 상품을 찾으면 그때 이 자리를 채운다.
-    var SLIDES = [
-      { emoji: '🔥', text: '실시간 인기 공구', highlight: '지금 가장 많이 모인 상품 보러가기', link: '#product-grid', ctaLabel: '자세히 보기 →' },
-      { emoji: '🎉', text: '신규 가입하면', highlight: '카카오톡으로 3초만에 시작', link: '/api/auth/kakao/login', ctaLabel: '가입하기 →' },
-      { emoji: '💸', text: '모일수록 저렴해지는', highlight: '지금 진행 중인 공구팀 둘러보기', link: '#product-grid', ctaLabel: '자세히 보기 →' },
-    ];
-    var AUTO_ROTATE_MS = 4000;
+    var AUTO_ROTATE_MS = 5000;
     var current = 0;
     var timer = null;
+    var dots = [];
+    var slideEls = Array.prototype.slice.call(trackEl.children);
     var prefersReducedMotion =
       window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    var slideEls = [];
-    var textEls = [];
-    var boldEls = [];
-    var dots = [];
-    SLIDES.forEach(function (slide, index) {
-      var slideEl = document.createElement('div');
-      slideEl.className = 'promo-bar-slide';
-
-      var emojiEl = document.createElement('span');
-      emojiEl.className = 'promo-bar-slide__emoji';
-      emojiEl.textContent = slide.emoji;
-      slideEl.appendChild(emojiEl);
-
-      var textEl = document.createElement('span');
-      textEl.className = 'promo-bar-slide__text';
-      textEl.textContent = slide.text + ' ';
-      var boldEl = document.createElement('b');
-      boldEl.textContent = slide.highlight;
-      textEl.appendChild(boldEl);
-      slideEl.appendChild(textEl);
-
-      trackEl.appendChild(slideEl);
-      slideEls.push(slideEl);
-      textEls.push(textEl);
-      boldEls.push(boldEl);
-
-      var dotEl = document.createElement('button');
-      dotEl.type = 'button';
-      dotEl.className = 'promo-bar-dot';
-      dotEl.setAttribute('aria-label', (index + 1) + '번째 공지로 이동');
-      dotEl.addEventListener('click', function () {
-        goTo(index);
-        stopAutoRotate();
-        startAutoRotate();
-      });
-      dotsEl.appendChild(dotEl);
-      dots.push(dotEl);
-    });
-
     function render() {
-      slideEls.forEach(function (slideEl, index) {
-        slideEl.classList.toggle('active', index === current);
-      });
+      trackEl.style.transform = 'translateX(-' + current * 100 + '%)';
       dots.forEach(function (dot, index) {
         dot.classList.toggle('active', index === current);
       });
-      ctaEl.href = SLIDES[current].link;
-      ctaEl.textContent = SLIDES[current].ctaLabel;
     }
 
     function goTo(index) {
-      current = (index + SLIDES.length) % SLIDES.length;
+      current = (index + slideEls.length) % slideEls.length;
       render();
     }
 
     function startAutoRotate() {
-      if (prefersReducedMotion || timer) {
+      if (prefersReducedMotion || timer || slideEls.length <= 1) {
         return;
       }
       timer = window.setInterval(function () {
@@ -153,30 +113,54 @@
       }
     }
 
-    barEl.addEventListener('mouseenter', stopAutoRotate);
-    barEl.addEventListener('mouseleave', startAutoRotate);
+    slideEls.forEach(function (_, index) {
+      var dotEl = document.createElement('button');
+      dotEl.type = 'button';
+      dotEl.className = 'hero-carousel-dot';
+      dotEl.setAttribute('aria-label', (index + 1) + '번째 슬라이드로 이동');
+      dotEl.addEventListener('click', function () {
+        goTo(index);
+        stopAutoRotate();
+        startAutoRotate();
+      });
+      dotsEl.appendChild(dotEl);
+      dots.push(dotEl);
+    });
 
-    // 실제 인기순 1위 상품을 찾아 1번 슬라이드를 채운다 — 진행 중인 팀이 있는 상품이 하나도 없으면
-    // (RECRUITING 팀 없음) 그 슬라이드는 일반 문구로 그대로 둔다(가짜 상품/이벤트를 지어내지 않음).
-    if (window.Api && typeof window.Api.get === 'function') {
+    // 실제 인기순 1위 상품을 찾아 2번 슬라이드를 채운다 — 진행 중인 팀이 있는 상품이 하나도 없으면
+    // (RECRUITING 팀 없음) 그 슬라이드는 기본 문구(그리드 스크롤 링크) 그대로 둔다(가짜 상품 금지).
+    if (popularSlideEl && window.Api && typeof window.Api.get === 'function') {
       window.Api.get('/products?sort=POPULAR&size=1')
         .then(function (data) {
           var top = data && data.content && data.content[0];
           if (!top || typeof top.activeTeamCurrentCount !== 'number') {
             return;
           }
-          SLIDES[0].highlight = top.name + ' · ' + top.activeTeamCurrentCount + '명 참여 중';
-          SLIDES[0].link = 'product.html?id=' + top.productId;
-          textEls[0].firstChild.textContent = SLIDES[0].text + ' ';
-          boldEls[0].textContent = SLIDES[0].highlight;
-          if (current === 0) {
-            ctaEl.href = SLIDES[0].link;
+          popularSlideEl.href = 'product.html?id=' + top.productId;
+          if (popularTitleEl) {
+            popularTitleEl.textContent = top.name || popularTitleEl.textContent;
+          }
+          if (popularImageEl && top.imageUrl) {
+            popularImageEl.src = top.imageUrl;
+            popularImageEl.alt = top.name || '';
+            popularImageEl.hidden = false;
+          }
+          if (popularDescEl) {
+            var descParts = [top.activeTeamCurrentCount + '명 참여 중'];
+            if (typeof top.basePrice === 'number' && typeof top.bestPrice === 'number') {
+              descParts.push(formatPrice(top.basePrice) + ' → ' + formatPrice(top.bestPrice));
+            }
+            popularDescEl.textContent = descParts.join(' · ');
+            popularDescEl.hidden = false;
           }
         })
         .catch(function () {
-          // 실패해도 조용히 기본 문구(그리드 스크롤 링크)로 유지 — 배너는 장식이라 에러를 노출하지 않는다.
+          // 실패해도 조용히 기본 문구로 유지 — 캐러셀은 장식적 요소라 에러를 노출하지 않는다.
         });
     }
+
+    carouselEl.addEventListener('mouseenter', stopAutoRotate);
+    carouselEl.addEventListener('mouseleave', startAutoRotate);
 
     render();
     startAutoRotate();

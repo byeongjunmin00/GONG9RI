@@ -375,13 +375,15 @@
   }
 
   function updateCreateTeamButtonState() {
+    createTeamBtn.hidden = productNotYetOpen;
     createTeamBtn.disabled = productNotYetOpen || selectedTargetParticipants === null || !refundNoticeAccepted();
   }
 
   /**
    * 오픈예정(product/product-launch) 안내 — product.openAt이 미래면 배너를 띄우고 구매/신설 버튼을
-   * 막는다. 실제 최종 판정은 항상 서버(PRODUCT_NOT_YET_OPEN)이고, 이건 UX 보조일 뿐이다 — 예를 들어
-   * 페이지를 열어둔 채로 오픈 시각이 지나도 새로고침 전까진 여기서 다시 활성화하지 않는다(그 경우
+   * 숨긴다(비활성화만으로는 회색 버튼이 계속 눈에 띄어 완전히 안 보이게 처리하기로 했다, design.md
+   * 결정). 실제 최종 판정은 항상 서버(PRODUCT_NOT_YET_OPEN)이고, 이건 UX 보조일 뿐이다 — 예를 들어
+   * 페이지를 열어둔 채로 오픈 시각이 지나도 새로고침 전까진 여기서 다시 노출하지 않는다(그 경우
    * 서버가 정상 처리하므로 기능상 문제는 없음, 다음 새로고침에서 배너가 사라짐).
    */
   function updateOpenAtNotice(openAtIso) {
@@ -390,6 +392,7 @@
 
     if (!productNotYetOpen) {
       openAtNoticeEl.hidden = true;
+      buyAloneBtn.hidden = false;
       buyAloneBtn.disabled = false;
       return;
     }
@@ -398,6 +401,7 @@
     openAtNoticeEl.className = 'form-alert form-alert--error';
     openAtNoticeEl.textContent =
       '오픈예정 상품입니다(' + openAt.toLocaleString('ko-KR') + ' 공개 예정). 그 전까지는 구매·팀 신설이 불가합니다.';
+    buyAloneBtn.hidden = true;
     buyAloneBtn.disabled = true;
   }
 
