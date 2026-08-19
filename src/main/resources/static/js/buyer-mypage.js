@@ -202,6 +202,9 @@
           panel.hidden = true;
           requestBtn.disabled = true;
           requestBtn.textContent = '요청됨';
+          // 버튼 텍스트만 바뀌는 걸로는 잘 안 보인다는 피드백(2026-08-19) — 구매 목록 상단에
+          // 눈에 띄는 성공 안내를 띄운다(에러 안내와 같은 자리, showStatus 재사용).
+          showStatus(purchasesStatusEl, '환불 요청을 보냈습니다. 판매자 승인을 기다려주세요.', 'success');
           loadRefundRequests();
         })
         .catch(function (err) {

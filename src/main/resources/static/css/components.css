@@ -437,6 +437,11 @@
   font-weight: 600;
 }
 
+.product-status--success {
+  color: var(--color-success);
+  font-weight: 600;
+}
+
 /* ---------- Load more (상품 더 보기) ---------- */
 .load-more-wrap {
   display: flex;
