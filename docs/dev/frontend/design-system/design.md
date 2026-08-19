@@ -70,6 +70,9 @@ src/main/resources/static/
 - **헤더 로그인 상태 스코프**: 헤더 로그인 상태 연동은 `docs/dev/frontend/header-auth/design.md` 참고(이 문서 범위 밖). 002 작업으로 로고가 이미지로 바뀌었지만 `header-auth.js`가 참조하는 id/`[data-role]`은 변경되지 않았다.
 - **partial 재사용**: 페이지는 `<div data-include="header"></div>` / `<div data-include="footer"></div>`를 두고 `js/include.js`를 로드하면 헤더/푸터가 자동 삽입된다. `file://`로 직접 열면 fetch가 실패할 수 있어, 반드시 `./gradlew bootRun` 기동 후 `http://localhost:8080/...`으로 접속해야 한다.
 - **디자인 방향성(현재)**: 무신사(대형 패션 이커머스) 톤을 참고한 화이트·라이트 그레이 무채색 베이스 + 다크 세이지 그린 브랜드 포인트, Pretendard 헤딩+본문 통일, 카드 기반 그리드, 모바일 우선. 무신사의 로고·이미지·문구·CSS·HTML·폰트 파일은 참고하지 않았다(색 배합/폰트 스타일 같은 업계 통용 수준만 참고). 정성적 목표라 자동화 기준으로 완결 검증되지 않으며, 사용자 육안 확인을 거쳤다(`docs/logs/frontend/design-system/002-showcase-rebrand.md` 참고).
+- **네이티브 `[hidden]`은 전역 안전장치로 항상 이긴다**(2026-08-20 추가, `base.css`). `display`를 선언하는 클래스(`.btn`의 `inline-flex` 등)를 가진 요소에 JS가 `hidden` 속성을 걸어도, 브라우저 기본 스타일시트의 `[hidden] { display: none }`은 명시도가 가장 낮아 밀려버린다. 이 함정을 여섯 번 겪고(`.btn` / `.product-detail` / `.site-header__auth` / `.chat-widget*` / `.card-seller-trust` / `.site-header__wishlist-link`) 매번 개별 `.클래스[hidden]` 규칙을 사후 추가해온 끝에, `base.css`에 `[hidden] { display: none !important; }`를 전역으로 두기로 했다.
+  - `!important`가 정당한 근거: "`hidden` 속성이 걸린 요소는 예외 없이 숨겨진다"는 뒤집힐 이유가 없는 규칙이다. 도입 전 전수 확인한 것 — `style.display`를 직접 조작하는 JS 0건(인라인 스타일 충돌 없음), `hidden` 토글은 전부 `el.hidden = true/false`로 일관(`setAttribute`/`removeAttribute` 0건), `display`에 `!important`를 쓰는 다른 규칙 0건, `[hidden]` 요소를 다시 보이게 하려는 CSS 규칙 0건.
+  - **새 컴포넌트를 만들 때 `.클래스[hidden]` 보정을 따로 넣을 필요가 없다.** 기존 17개 보정 규칙은 이제 중복이지만, 전역 규칙이 프로덕션에서 실제로 도는 걸 확인한 뒤 별도로 정리한다(한 번에 둘 다 바꾸면 문제 발생 시 원인 분리가 안 된다).
 - **레이아웃 구조는 001 이후 변경 없음**: 헤더 1단 구조, 그리드 컬럼 수, 푸터 2블록 구조, 상세 페이지 세로 1컬럼 구조가 그대로 유지된다. `css/layout.css`는 002 작업에서도 diff 없음(단, 위 "헤더 배경" 섹션에서 설명한 캐스케이드 오버라이드로 시각적 배경색만 실질적으로 바뀜 — 파일 자체는 미변경).
 
 ## 관련 코드 위치
