@@ -24,7 +24,10 @@
 - `SellerRatingProjection`/`SellerRatingProjectionImpl` — `BestPriceProjection`과 동일한 QueryDSL 생성자 프로젝션 패턴(인터페이스는 QueryDSL이 직접 지원 안 해서 구체 클래스 필요).
 - `ReviewRepositoryCustom.findSellerRatingSummaries(List<Long> sellerIds)` — `review.product.seller.id`로 `groupBy`, `avg(rating)`/`count()` 한 번의 쿼리로 여러 판매자를 집계(N+1 회피, product/list-progress의 bestPrices와 동일한 이유).
 - `ProductService.trustedSellerMap(sellerIds)` → `isTrustedSeller(rating)` — `list()`/`detail()`/`register()`/`update()` 네 곳 모두 이 헬퍼로 계산한다.
-- **캐시 안에 포함**: 목록/상세 캐시(`PRODUCT_LIST_CACHE`/`PRODUCT_DETAIL_CACHE`, TTL 30분) 응답에 그대로 실어 보낸다 — activeTeamCurrentCount처럼 캐시 밖으로 뺀 별도 조회를 만들지 않는다. 리뷰 평균은 사용자가 실시간으로 지켜보는 값이 아니라 참고 지표라, 최대 30분 낡아도 되는 신선도로 판단(sort=POPULAR와 같은 이유).
+- **캐시 안에 포함**: 목록/상세 캐시(`PRODUCT_LIST_CACHE`/`PRODUCT_DETAIL_CACHE`, TTL 30분) 응답에 그대로 실어 보낸다 — activeTeamCurrentCount처럼 캐시 밖으로 뺀 별도 조회를 만들지 않는다. 이 결정(배지를 캐시 안에 둔다)은 유지한다.
+- **리뷰 작성·수정·삭제 시 캐시 무효화**(2026-08-20 추가). 원래는 "리뷰 평균은 실시간으로 지켜보는 값이 아니라 참고 지표"라는 이유로 최대 30분 staleness를 의도적으로 허용했었다. 그런데 실제로 배지 조건(리뷰 3개·평균 4.5)을 갓 채운 판매자 화면에서 배지가 안 뜨는 걸 확인하고, 이 트레이드오프를 바꿨다 — "조건을 만족시켰는데 아무 일도 안 일어난다"는 체감이 나쁘고, 리뷰 작성은 상품 조회에 비해 훨씬 드물어 캐시 적중률 손해가 거의 없다.
+  - `ReviewService.create/update/delete`에 `@CacheEvict`. 상세 캐시는 `key = "#productId"`가 아니라 **`allEntries = true`** — 배지는 판매자의 *전체 상품* 리뷰를 합산해 판정하므로, 상품 A에 리뷰가 달리면 같은 판매자의 상품 B·C 배지까지 바뀐다. 리뷰가 달린 상품 하나만 날리면 나머지가 낡은 값으로 남는다.
+  - 검증: `ReviewCachingTest` — 5점 리뷰 3개로 조건을 채운 뒤 `detail()`이 캐시된 `false`가 아니라 `true`를 돌려주는지 확인한다(무효화를 제거하면 실제로 실패하는 것까지 확인함).
 
 ## 프론트
 
