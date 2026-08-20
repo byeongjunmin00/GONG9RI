@@ -86,10 +86,14 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
         }
         orders.addAll(List.of(toOrderSpecifiers(pageable.getSort())));
 
+        // 관리자가 숨긴 상품은 공개 목록에서 뺀다(product/admin). 관리자 화면은 별도 조회
+        // (findAllForAdmin)를 쓰므로 여기서 빼도 숨김 해제 경로가 막히지 않는다.
+        BooleanExpression notHidden = product.hidden.isFalse();
+
         List<Product> content = queryFactory
                 .selectFrom(product)
                 .join(product.seller).fetchJoin()
-                .where(categoryCondition, keywordCondition, openSoonCondition)
+                .where(categoryCondition, keywordCondition, openSoonCondition, notHidden)
                 .orderBy(orders.toArray(new OrderSpecifier<?>[0]))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
@@ -99,9 +103,25 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
                 .select(product.count())
                 .from(product)
                 .join(product.seller)
-                .where(categoryCondition, keywordCondition, openSoonCondition)
+                .where(categoryCondition, keywordCondition, openSoonCondition, notHidden)
                 .fetchOne();
 
+        return new PageImpl<>(content, pageable, Objects.requireNonNullElse(total, 0L));
+    }
+
+    // 관리자 상품 현황(product/admin) — **숨김 상품까지 전부** 본다. 숨김을 되돌리려면 목록에
+    // 보여야 하므로 공개 목록과 같은 쿼리를 쓸 수 없다.
+    @Override
+    public Page<Product> findAllForAdmin(Pageable pageable) {
+        List<Product> content = queryFactory
+                .selectFrom(product)
+                .join(product.seller).fetchJoin()
+                .orderBy(product.createdAt.desc())
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
+
+        Long total = queryFactory.select(product.count()).from(product).fetchOne();
         return new PageImpl<>(content, pageable, Objects.requireNonNullElse(total, 0L));
     }
 

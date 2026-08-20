@@ -41,4 +41,17 @@ public interface SellerRevenueSummaryRepository
             + "updated_at = CURRENT_TIMESTAMP",
             nativeQuery = true)
     void incrementPaid(@Param("sellerId") Long sellerId, @Param("amount") Integer amount);
+
+    // 관리자 강제 삭제(product/admin) 후 보정 — 이 테이블은 결제마다 누적(incrementPaid)만 하는 집계라
+    // 결제를 지워도 저절로 줄지 않는다. 남은 결제 기준으로 다시 계산한 값을 통째로 덮어쓴다.
+    // 엔티티 세터가 아니라 UPDATE 쿼리로 바꾸는 건 이 테이블의 기존 규칙(원자적 UPDATE로만 변경)을
+    // 그대로 따르기 위해서다.
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE SellerRevenueSummary s "
+            + "SET s.totalRevenue = :totalRevenue, s.paidCount = :paidCount, s.refundedCount = :refundedCount "
+            + "WHERE s.seller.id = :sellerId")
+    int overwrite(@Param("sellerId") Long sellerId,
+            @Param("totalRevenue") Integer totalRevenue,
+            @Param("paidCount") Long paidCount,
+            @Param("refundedCount") Long refundedCount);
 }

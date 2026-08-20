@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.transaction.annotation.Transactional;
 
 public interface RefundRequestRepository extends JpaRepository<RefundRequest, Long>, RefundRequestRepositoryCustom {
 
@@ -18,6 +19,11 @@ public interface RefundRequestRepository extends JpaRepository<RefundRequest, Lo
 
     // 관리자 회원 삭제 — 요청한 환불 요청이 하나라도 있으면 하드 삭제를 막는다(product/admin).
     boolean existsByRequester_Id(Long requesterId);
+
+    // 관리자 강제 삭제(product/admin) — 장난성 게시물처럼 결제·리뷰가 붙어도 지워야 할 때만 쓴다.
+    // 결제를 지우기 전에 그 결제를 참조하는 환불 요청부터 지운다(FK 순서).
+    @Transactional
+    void deleteByPayment_Product_Id(Long productId);
 
     // 관리자 대시보드(product/admin) 요약 카드용 — 대기 중 환불 요청 개수.
     long countByStatus(RefundRequestStatus status);

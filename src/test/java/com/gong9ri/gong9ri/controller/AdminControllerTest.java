@@ -3,6 +3,7 @@ package com.gong9ri.gong9ri.controller;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -320,5 +321,77 @@ class AdminControllerTest {
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
 
         org.junit.jupiter.api.Assertions.assertTrue(productRepository.findById(product.getId()).isPresent());
+    }
+
+    @Test
+    @DisplayName("관리자가 상품을 숨기면 공개 목록·상세에서 사라지고, 해제하면 돌아온다")
+    void hideProduct_removesFromPublicListAndDetail() throws Exception {
+        Member admin = saveMember("admin-test-h1", Role.ADMIN);
+        Member seller = saveMember("admin-test-h-seller1", Role.SELLER);
+        Product product = saveProduct(seller);
+
+        mockMvc.perform(patch("/api/admin/products/" + product.getId() + "/hidden")
+                        .param("hidden", "true").with(asUser(admin)))
+                .andExpect(status().isNoContent());
+
+        // 숨김 상품은 **직접 링크로도** 열리지 않는다 — 목록에서만 빼면 주소를 아는 사람은 계속 본다.
+        mockMvc.perform(get("/api/products/" + product.getId()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("PRODUCT_NOT_FOUND"));
+
+        mockMvc.perform(patch("/api/admin/products/" + product.getId() + "/hidden")
+                        .param("hidden", "false").with(asUser(admin)))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/products/" + product.getId()))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("관리자 상품 목록은 숨김 상품까지 보여준다 — 안 그러면 되돌릴 방법이 없다")
+    void adminProductList_includesHidden() throws Exception {
+        Member admin = saveMember("admin-test-h2", Role.ADMIN);
+        Member seller = saveMember("admin-test-h-seller2", Role.SELLER);
+        Product product = saveProduct(seller);
+        mockMvc.perform(patch("/api/admin/products/" + product.getId() + "/hidden")
+                .param("hidden", "true").with(asUser(admin)));
+
+        mockMvc.perform(get("/api/admin/products").param("size", "100").with(asUser(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[?(@.productId == " + product.getId() + ")].hidden")
+                        .value(org.hamcrest.Matchers.hasItem(true)));
+    }
+
+    @Test
+    @DisplayName("관리자가 아니면 숨김 처리는 403 FORBIDDEN")
+    void hideProduct_forbidden_whenNotAdmin() throws Exception {
+        Member seller = saveMember("admin-test-h-seller3", Role.SELLER);
+        Product product = saveProduct(seller);
+
+        mockMvc.perform(patch("/api/admin/products/" + product.getId() + "/hidden")
+                        .param("hidden", "true").with(asUser(seller)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("force=true면 결제가 있어도 상품과 결제를 함께 삭제한다")
+    void forceDeleteProduct_removesPaymentsToo() throws Exception {
+        Member admin = saveMember("admin-test-f1", Role.ADMIN);
+        Member seller = saveMember("admin-test-f-seller1", Role.SELLER);
+        Member buyer = saveMember("admin-test-f-buyer1", Role.BUYER);
+        Product product = saveProduct(seller);
+        Payment payment = paymentRepository.save(new Payment(buyer, product, null, 10000));
+
+        // 강제 아니면 거절되는 상황인지 먼저 확인 — 그래야 force가 실제로 다른 일을 한다는 게 성립한다.
+        mockMvc.perform(delete("/api/admin/products/" + product.getId()).with(asUser(admin)))
+                .andExpect(status().isConflict());
+
+        mockMvc.perform(delete("/api/admin/products/" + product.getId())
+                        .param("force", "true").with(asUser(admin)))
+                .andExpect(status().isNoContent());
+
+        org.junit.jupiter.api.Assertions.assertTrue(productRepository.findById(product.getId()).isEmpty());
+        org.junit.jupiter.api.Assertions.assertTrue(paymentRepository.findById(payment.getId()).isEmpty(),
+                "강제 삭제는 그 상품의 결제까지 지운다");
     }
 }

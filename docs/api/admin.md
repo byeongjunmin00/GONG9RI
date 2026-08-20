@@ -89,11 +89,44 @@
   | `FORBIDDEN` | 403 | 관리자가 아니거나, 관리자 본인 계정을 대상으로 시도 |
 
 
+### GET /api/admin/products — 상품 현황(숨김 포함)
+
+공개 목록(`GET /api/products`)은 숨김 상품을 제외하므로, 그걸 쓰면 **숨긴 상품을 되돌릴 방법이 없다.** 관리자 화면은 이 경로를 쓴다.
+
+- 쿼리: `page`(기본 0), `size`(기본 20)
+- 응답: `200 OK` — 공개 목록과 같은 `ProductPageResponse`. 각 항목에 `hidden`(Boolean)이 실린다.
+- 신뢰배지·리뷰 평점은 채우지 않는다(관리자 화면이 쓰지 않아, 불필요한 집계 쿼리를 아낀다).
+
+---
+
+### PATCH /api/admin/products/{productId}/hidden — 상품 숨김/해제
+
+- 쿼리: `hidden`(필수, boolean)
+- 응답: `204 No Content`
+- **삭제와 다르다**: 되돌릴 수 있고 데이터가 그대로 남는다. 결제·리뷰가 붙어 삭제할 수 없는 상품을 목록에서 치울 때 쓴다.
+- 숨김 상품은 목록뿐 아니라 **상세(`GET /api/products/{id}`)에서도 404**다 — 목록에서만 빼면 주소를 아는 사람은 계속 볼 수 있다. 관리자에게도 동일하게 404인데, 상세 응답이 `productId`만으로 캐싱되기 때문이다(요청자 역할에 따라 결과가 달라지면 관리자가 조회한 값이 캐시에 남아 모두에게 나간다).
+
+---
+
 ### DELETE /api/admin/products/{productId} — 상품 삭제
 
 관리자가 상품을 삭제한다(판매자 본인이 아니어도 가능).
 
+- 쿼리: `force`(기본 false)
 - 응답: `204 No Content`
+
+#### `force=true` — 강제 삭제
+
+장난성 게시물처럼 **기록을 남길 가치가 없다고 관리자가 판단한 경우**에만 쓴다. 결제·리뷰·공구팀까지 전부 지우고 **되돌릴 수 없다.**
+
+삭제 순서가 곧 정확성이다. FK(NO ACTION)로 묶여 있어 참조하는 쪽을 먼저 지우지 않으면 그 자리에서 실패한다.
+
+```
+refund_request → payment → product
+notification, team_participation, payment → group_buy_team → product
+```
+
+> **매출 요약도 함께 바로잡는다.** `seller_revenue_summary`는 결제마다 누적만 하는 집계 테이블이라 결제를 지워도 저절로 줄지 않는다. 강제 삭제 후 남은 결제 기준으로 재계산해 덮어쓴다 — 안 하면 판매자 수익이 실제보다 부풀려진 채로 남는다.
 
 - 삭제 정책 — **회원 삭제와 같은 결**이다. 돈·기록이 걸린 상품은 지우지 못한다.
 
@@ -108,7 +141,7 @@
 - 에러:
   | 코드 | HTTP | 설명 |
   |------|------|------|
-  | `PRODUCT_HAS_ACTIVITY` | 409 | 결제·공구팀·리뷰가 있는 상품 |
+  | `PRODUCT_HAS_ACTIVITY` | 409 | 결제·공구팀·리뷰가 있는 상품 (`force=true`로 우회 가능) |
   | `PRODUCT_NOT_FOUND` | 404 | 존재하지 않는 상품 |
   | `FORBIDDEN` | 403 | 관리자가 아님 |
   | `UNAUTHORIZED` | 401 | 미인증 |

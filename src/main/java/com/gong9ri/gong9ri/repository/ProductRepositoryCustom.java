@@ -25,5 +25,8 @@ public interface ProductRepositoryCustom {
     Page<Product> findAllWithSeller(Pageable pageable, ProductCategory category, ProductSort sort, String keyword,
             boolean openSoon);
 
+    // 관리자 상품 현황(product/admin) — 숨김 상품까지 포함해 전부 조회한다.
+    Page<Product> findAllForAdmin(Pageable pageable);
+
     Optional<Product> findByIdWithSeller(Long id);
 }
