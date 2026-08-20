@@ -65,6 +65,7 @@ public class SellerMypageService {
 
     public NotificationListResponse notifications(MemberUserDetails principal, int page, int size) {
         requireSeller(principal);
+        validatePageRequest(page, size);
         Long memberId = principal.getMember().getId();
         return NotificationListResponse.of(
                 notificationRepository.findByMemberIdOrderByCreatedAtDesc(memberId, PageRequest.of(page, size)),
@@ -97,6 +98,14 @@ public class SellerMypageService {
     private void requireSeller(MemberUserDetails principal) {
         if (principal.getMember().getRole() != Role.SELLER) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+    }
+
+    // BuyerMypageService와 동일한 이유(page<0/size<1이면 PageRequest.of가 던지는 IllegalArgumentException이
+    // 500으로 새던 버그, docs/dev/ongoing/notification-pagination-param-validation.md).
+    private void validatePageRequest(int page, int size) {
+        if (page < 0 || size < 1) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED);
         }
     }
 }

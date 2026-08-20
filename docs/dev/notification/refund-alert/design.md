@@ -17,6 +17,7 @@
 - `GET /api/{buyer,seller}/mypage/notifications?page=0&size=20` — 본인 알림 목록(최신순, 페이지네이션 2026-08-20 도입)
   - 응답은 배열이 아니라 `{ unreadCount, totalCount, hasNext, notifications[] }` 객체다. **`unreadCount`를 서버가 세는 게 핵심** — 목록을 잘라서 내리면 프론트가 받아온 목록에서 안 읽은 개수를 셀 수 없다(20개만 받았는데 안읽음이 30개면 20으로 세고, 그 20개를 읽는 순간 뱃지가 0이 되지만 실제로는 10개가 남는다). 로컬 실서버로 이 시나리오를 실측해 확인했다(`changes/004`).
   - 오래된 알림을 볼 곳이 헤더 벨 드롭다운밖에 없어서(마이페이지에 알림 화면이 없다) 그냥 자르지 않고 벨 안 "더 보기"로 이어보게 했다.
+  - **`page`/`size` 유효성 검증(2026-08-20)**: `page<0` 또는 `size<1`이면 `PageRequest.of`가 던지는 `IllegalArgumentException`을 잡아주는 핸들러가 없어 500이 나가던 버그가 있었다(코드리뷰 발견). `Buyer,SellerMypageService.notifications()`가 이 조건이면 `BusinessException(ErrorCode.VALIDATION_FAILED)`를 던져 400으로 정리한다(`changes/005-pagination-param-validation.md`). 상한(`size` 최댓값)은 이 변경의 스코프 밖 — 별도 이슈.
 - `POST /api/{buyer,seller}/mypage/notifications/{notificationId}/read` — 알림 1건 읽음 처리(2026-08-19 추가)
 - `POST /api/{buyer,seller}/mypage/notifications/read-all` — 본인의 안 읽은 알림 전체 읽음 처리(2026-08-19 추가)
 - 상세 요청/응답/에러 스펙: `docs/api/mypage.md`의 "## 알림" 섹션이 원천.
@@ -67,11 +68,11 @@
 - `repository/NotificationRepository.java` — `findAllByMemberIdOrderByCreatedAtDesc(memberId)`, `markAllAsReadByMemberId(memberId)`(신규)
 - `dto/NotificationResponse.java`
 - `service/NotificationService.java` — `createTeamRefundedNotifications(TeamRefundedEvent)`, `markAsRead(principal, notificationId)`/`markAllAsRead(principal)`(신규)
-- `service/BuyerMypageService.java`, `service/SellerMypageService.java` — `notifications(principal)`, `markNotificationAsRead`/`markAllNotificationsAsRead`(신규, 각각 역할 게이트 후 `NotificationService`에 위임)
+- `service/BuyerMypageService.java`, `service/SellerMypageService.java` — `notifications(principal)`, `markNotificationAsRead`/`markAllNotificationsAsRead`(신규, 각각 역할 게이트 후 `NotificationService`에 위임), `validatePageRequest(page, size)`(신규, 2026-08-20 — `page`/`size` 값 검증)
 - `controller/BuyerMypageController.java`, `controller/SellerMypageController.java` — `GET .../notifications`, `POST .../notifications/{id}/read`·`POST .../notifications/read-all`(신규)
 - `common/exception/ErrorCode.java` — `NOTIFICATION_NOT_FOUND`(신규)
 - 소비하는 이벤트: `event/TeamRefundedEvent.java`, `event/TeamRefundedEventListener.java` (발행 쪽은 `docs/dev/payment/portone/design.md`의 `PaymentRefundService` 참고)
 - **프론트(신규, 2026-08-19)**: `partials/header.html`(`#header-notifications` 벨+뱃지+드롭다운 패널), `js/header-notifications.js`, `css/layout.css`(`.site-header__notifications*`), `css/components.css`(`.header-notifications-panel*`). 헤더가 삽입되는 17개 페이지 전부에 `<script src="/js/header-notifications.js">`를 `header-search.js` 바로 뒤에 추가.
 - 테스트:
-  - `controller/BuyerMypageControllerTest.java`, `controller/SellerMypageControllerTest.java` — 조회 성공, 본인만 조회(스코핑), 반대 역할 403, 비로그인 401, **개별 읽음 성공/타인 알림 403/존재하지 않는 알림 404, 전체 읽음 성공(신규, 각 파일에 4케이스씩 추가)**
+  - `controller/BuyerMypageControllerTest.java`, `controller/SellerMypageControllerTest.java` — 조회 성공, 본인만 조회(스코핑), 반대 역할 403, 비로그인 401, **개별 읽음 성공/타인 알림 403/존재하지 않는 알림 404, 전체 읽음 성공(신규, 각 파일에 4케이스씩 추가)**, `page`/`size` 잘못된 값 → 400 `VALIDATION_FAILED`(신규, 2026-08-20, `changes/005`)
   - `NotificationService` 자체의 별도 단위 테스트는 없음 — 이벤트 발행 없이는 단독 호출되지 않는 메서드라(오케스트레이션이 전부 이벤트 경유) `event/TeamDeadlineEventFlowTest.java`에서 end-to-end로 검증한다. 읽음 처리 메서드는 컨트롤러 테스트로 커버.

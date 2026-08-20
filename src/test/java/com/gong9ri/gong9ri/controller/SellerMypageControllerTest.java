@@ -233,6 +233,20 @@ class SellerMypageControllerTest {
     }
 
     @Test
+    @DisplayName("page/size가 잘못되면 400 VALIDATION_FAILED (PageRequest.of가 던지는 예외가 500으로 새던 버그)")
+    void notifications_invalidPageOrSize_returns400() throws Exception {
+        Member seller = saveMember("mpSellerInvalidPage", Role.SELLER);
+
+        mockMvc.perform(get("/api/seller/mypage/notifications?page=-1").with(asUser(seller)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+
+        mockMvc.perform(get("/api/seller/mypage/notifications?size=0").with(asUser(seller)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    }
+
+    @Test
     @DisplayName("구매자 계정으로 알림 목록 조회 시 403 FORBIDDEN")
     void notifications_forbidden_buyer() throws Exception {
         Member buyer = saveMember("mpBuyerC4", Role.BUYER);

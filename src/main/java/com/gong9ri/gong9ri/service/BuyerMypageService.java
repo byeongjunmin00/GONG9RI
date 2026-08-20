@@ -48,6 +48,7 @@ public class BuyerMypageService {
 
     public NotificationListResponse notifications(MemberUserDetails principal, int page, int size) {
         requireBuyer(principal);
+        validatePageRequest(page, size);
         Long memberId = principal.getMember().getId();
         return NotificationListResponse.of(
                 notificationRepository.findByMemberIdOrderByCreatedAtDesc(memberId, PageRequest.of(page, size)),
@@ -85,6 +86,16 @@ public class BuyerMypageService {
     private void requireBuyer(MemberUserDetails principal) {
         if (principal.getMember().getRole() != Role.BUYER) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+    }
+
+    // page/size는 요청 파라미터로 그대로 들어와 검증 없이 PageRequest.of(page, size)에 넘기면
+    // page<0 또는 size<1일 때 IllegalArgumentException이 던져지는데, 이걸 잡는 핸들러가 없어
+    // 클라이언트에 400이 아니라 500이 나갔다(코드리뷰 2026-08-20 발견, docs/dev/ongoing/
+    // notification-pagination-param-validation.md).
+    private void validatePageRequest(int page, int size) {
+        if (page < 0 || size < 1) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED);
         }
     }
 }
