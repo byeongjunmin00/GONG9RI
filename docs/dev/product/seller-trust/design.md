@@ -28,6 +28,7 @@
 - **리뷰 작성·수정·삭제 시 캐시 무효화**(2026-08-20 추가). 원래는 "리뷰 평균은 실시간으로 지켜보는 값이 아니라 참고 지표"라는 이유로 최대 30분 staleness를 의도적으로 허용했었다. 그런데 실제로 배지 조건(리뷰 3개·평균 4.5)을 갓 채운 판매자 화면에서 배지가 안 뜨는 걸 확인하고, 이 트레이드오프를 바꿨다 — "조건을 만족시켰는데 아무 일도 안 일어난다"는 체감이 나쁘고, 리뷰 작성은 상품 조회에 비해 훨씬 드물어 캐시 적중률 손해가 거의 없다.
   - `ReviewService.create/update/delete`에 `@CacheEvict`. 상세 캐시는 `key = "#productId"`가 아니라 **`allEntries = true`** — 배지는 판매자의 *전체 상품* 리뷰를 합산해 판정하므로, 상품 A에 리뷰가 달리면 같은 판매자의 상품 B·C 배지까지 바뀐다. 리뷰가 달린 상품 하나만 날리면 나머지가 낡은 값으로 남는다.
   - 검증: `ReviewCachingTest` — 5점 리뷰 3개로 조건을 채운 뒤 `detail()`이 캐시된 `false`가 아니라 `true`를 돌려주는지 확인한다(무효화를 제거하면 실제로 실패하는 것까지 확인함).
+  - **캐시 무효화가 트랜잭션 커밋 이후에만 실행되도록 순서 고정(2026-08-20, `changes/003`)**: `@Transactional`과 `@CacheEvict`를 같은 메서드에 함께 쓰면 AOP 어드바이저 순서를 명시하지 않는 한 무효화가 커밋보다 먼저 실행될 수 있어(그 틈에 동시 조회가 커밋 전 값으로 캐시를 다시 채우는 레이스), 리뷰로 배지 조건을 채워도 배지가 안 뜨는 버그가 좁은 확률로 재발할 수 있었다. `CacheConfig`의 `@EnableCaching(order = Ordered.HIGHEST_PRECEDENCE)`로 캐싱 어드바이저를 트랜잭션 어드바이저(기본값)보다 항상 바깥쪽에 둬서 "커밋 → 무효화" 순서를 구조적으로 보장한다(`ProductService`의 동일 패턴에도 함께 적용됨 — `docs/policy/caching.md` 참고). `CacheEvictionOrderingTest`가 이 순서를 고정 검증한다.
 
 ## 프론트
 
@@ -36,4 +37,6 @@
 
 ## 관련 코드
 
-`repository/SellerRatingProjection.java`/`SellerRatingProjectionImpl.java`, `repository/ReviewRepositoryCustom.java`/`ReviewRepositoryImpl.java`, `repository/ReviewRepository.java`, `service/ProductService.java`(`trustedSellerMap`/`isTrustedSeller`), `dto/ProductResponse.java`/`ProductSummaryResponse.java`(`sellerTrustedBadge`), `static/js/main.js`(`createProductCard`), `static/product.html`+`js/product.js`, `static/css/components.css`(`.card-seller-row`/`.card-seller-trust`).
+`repository/SellerRatingProjection.java`/`SellerRatingProjectionImpl.java`, `repository/ReviewRepositoryCustom.java`/`ReviewRepositoryImpl.java`, `repository/ReviewRepository.java`, `service/ProductService.java`(`trustedSellerMap`/`isTrustedSeller`), `dto/ProductResponse.java`/`ProductSummaryResponse.java`(`sellerTrustedBadge`), `static/js/main.js`(`createProductCard`), `static/product.html`+`js/product.js`, `static/css/components.css`(`.card-seller-row`/`.card-seller-trust`), `config/CacheConfig.java`(`@EnableCaching(order = ...)`, 캐시 무효화 순서 고정, 2026-08-20).
+
+테스트: `ReviewCachingTest`, `config/CacheEvictionOrderingTest.java`(신규, 2026-08-20 — 캐싱 어드바이저가 트랜잭션 어드바이저보다 항상 바깥쪽인지 검증).

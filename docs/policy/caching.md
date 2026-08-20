@@ -31,6 +31,7 @@
 - `group_buy_team.current_count`는 이미 DB 컬럼 레벨 캐싱으로 확정됐다 (`docs/ERD.md`).
 - 무효화 로직이 어딘가 누락되면(버그) 캐시가 옛 값을 영구히 반환할 위험이 있어, TTL을 안전장치로 병행한다.
 - **캐시된 응답이 "그 엔티티" 말고 다른 데이터에도 의존하면, 그 데이터를 바꾸는 쪽에서도 무효화해야 한다**(2026-08-20 추가). 상품 응답의 `sellerTrustedBadge`(product/seller-trust)는 상품이 아니라 **리뷰**로 결정되는데, 처음엔 무효화 트리거를 상품 수정·삭제에만 걸어둬서 리뷰로 배지 조건을 채워도 최대 30분간 배지가 안 떴다. 캐시 키(상품)와 의존 데이터(리뷰)가 다를 수 있다는 걸 표에서 놓치기 쉽다.
+- **`@CacheEvict`는 트랜잭션 커밋 이후에만 실행되도록 순서가 고정돼 있다**(2026-08-20 추가, `CacheConfig`의 `@EnableCaching(order = Ordered.HIGHEST_PRECEDENCE)`). `@Transactional`과 `@CacheEvict`를 같은 메서드에 함께 쓰면(`ReviewService`, `ProductService` 등) AOP 어드바이저 순서를 명시하지 않는 한 캐시 무효화가 커밋보다 먼저 실행될 수 있어, 그 틈에 동시 조회가 아직 커밋 안 된 옛 값으로 캐시를 다시 채우는 레이스가 생긴다. 이 설정으로 캐싱 어드바이저가 항상 트랜잭션 어드바이저보다 바깥쪽에 있어 "커밋 → 무효화" 순서가 모든 `@CacheEvict` 호출부에 구조적으로 보장된다(개별 메서드가 신경 쓸 필요 없음) — `CacheEvictionOrderingTest`가 이 순서를 고정 검증한다.
 
 ## 적용 대상
 

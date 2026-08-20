@@ -7,6 +7,7 @@ import org.springframework.boot.cache.autoconfigure.RedisCacheManagerBuilderCust
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.serializer.JacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
@@ -19,7 +20,13 @@ import org.springframework.data.redis.serializer.RedisSerializationContext;
  * 전환했다(docs/db/seller_revenue_summary.md, 2026-08-05).
  */
 @Configuration
-@EnableCaching
+// order = HIGHEST_PRECEDENCE — 캐싱 AOP 어드바이저를 트랜잭션 어드바이저(기본값 LOWEST_PRECEDENCE)보다
+// 항상 바깥쪽에 둔다. 순서를 안 정하면 둘 다 기본값이 동률이라 스프링이 임의로 결정하는데, 만약
+// 캐시 무효화가 안쪽(커밋 전)에서 실행되면 커밋 전에 캐시가 비고, 그 틈에 동시 조회가 아직 안 커밋된
+// 옛 값으로 캐시를 다시 채울 수 있다(review/product 캐시 어디서든 재발 가능한 레이스, 2026-08-20
+// 코드리뷰 발견 — docs/dev/product/seller-trust/changes/003-cache-evict-transaction-ordering.md).
+// 이 순서로 "트랜잭션 커밋 → 캐시 무효화"가 항상 보장된다.
+@EnableCaching(order = Ordered.HIGHEST_PRECEDENCE)
 public class CacheConfig {
 
     /** 상품 목록(product/list) 캐시 이름. 키: page+size 조합. */
