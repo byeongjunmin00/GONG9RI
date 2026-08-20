@@ -41,3 +41,7 @@ out/
 ### Antigravity Local Customizations ###
 .agents/
 
+### Claude Code Local State ###
+.claude/
+
+

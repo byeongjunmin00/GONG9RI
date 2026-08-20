@@ -703,7 +703,6 @@ class ProductControllerTest {
     @Test
     @DisplayName("상품 목록 조회 시 각 상품의 리뷰 평균 평점(ratingAverage)과 리뷰 개수(reviewCount)가 정상 포함된다")
     void list_includesRatingAverageAndReviewCount() throws Exception {
-        int size = 208;
         Member seller = saveMember("sellerRatingList", Role.SELLER);
         Product product = saveProduct(seller, "평점목록테스트", ProductCategory.ETC);
 
@@ -712,7 +711,7 @@ class ProductControllerTest {
         reviewRepository.save(new Review(product, buyer1, 5, "최고예요"));
         reviewRepository.save(new Review(product, buyer2, 4, "좋아요"));
 
-        mockMvc.perform(get("/api/products").param("category", "ETC").param("size", String.valueOf(size)))
+        mockMvc.perform(get("/api/products").param("keyword", "평점목록테스트"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content[0].ratingAverage").value(4.5))
                 .andExpect(jsonPath("$.data.content[0].reviewCount").value(2));
