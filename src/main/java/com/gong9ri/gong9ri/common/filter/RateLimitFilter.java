@@ -62,7 +62,14 @@ public class RateLimitFilter extends OncePerRequestFilter {
             // 트래픽 제어 규칙이 없었던 걸 뒤늦게 발견해서(2026-08-19) 추가한다. 정상적인 채팅 사용 패턴
             // (한 번에 메시지 하나씩, 답변 기다렸다 다음 질문)은 1분에 10회면 절대 못 채우지만, 스크립트로
             // 반복 호출하는 건 확실히 막는다.
-            new RateLimitRule("POST", Pattern.compile("^/api/buyer/chat/messages$"), "buyer-chat", Duration.ofMinutes(1), 10));
+            new RateLimitRule("POST", Pattern.compile("^/api/buyer/chat/messages$"), "buyer-chat", Duration.ofMinutes(1), 10),
+            // 판매자 상품등록 도우미 — 챗봇과 함께 OpenAI를 호출하는 나머지 한 곳이다. 위 챗봇 규칙을
+            // 추가할 때 "여기도 같은 갭"이라고 확인해놓고 그때 함께 처리하지 않아, 한동안 AI 호출 경로
+            // 둘 중 하나만 막혀 있었다(2026-08-20 마무리). 챗봇보다 한도를 낮게(1분/5회) 잡은 이유 —
+            // 이건 상품 하나를 등록하기 전에 초안을 받아보는 용도라 연속 호출할 일이 챗봇보다 적고,
+            // 한 번의 호출이 더 긴 프롬프트(카테고리별 템플릿 + 사용자 입력)를 태워 단가가 높다.
+            new RateLimitRule("POST", Pattern.compile("^/api/seller/products/ai-suggest$"), "ai-suggest",
+                    Duration.ofMinutes(1), 5));
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
