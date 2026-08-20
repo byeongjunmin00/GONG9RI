@@ -439,11 +439,15 @@
     labelEl.textContent = formatPriceLabel(product.maxParticipants);
     bodyEl.appendChild(labelEl);
 
-    var progressEl = createProgressBar(product);
-    if (progressEl) {
-      bodyEl.appendChild(progressEl);
+    if (isUpcomingProduct(product.openAt)) {
+      bodyEl.appendChild(createOpenSoonNotice(product.openAt));
     } else {
-      bodyEl.appendChild(createEmptyTeamBadge());
+      var progressEl = createProgressBar(product);
+      if (progressEl) {
+        bodyEl.appendChild(progressEl);
+      } else {
+        bodyEl.appendChild(createEmptyTeamBadge());
+      }
     }
 
     link.appendChild(bodyEl);
@@ -579,6 +583,36 @@
     rowEl.appendChild(countEl);
 
     return rowEl;
+  }
+
+  function isUpcomingProduct(openAtIso) {
+    if (!openAtIso) {
+      return false;
+    }
+    var d = new Date(openAtIso);
+    return !isNaN(d.getTime()) && d.getTime() > Date.now();
+  }
+
+  function formatOpenAtDate(openAtIso) {
+    if (!openAtIso) {
+      return '오픈 예정';
+    }
+    var d = new Date(openAtIso);
+    if (isNaN(d.getTime())) {
+      return '오픈 예정';
+    }
+    var month = d.getMonth() + 1;
+    var date = d.getDate();
+    var hours = String(d.getHours()).padStart(2, '0');
+    var minutes = String(d.getMinutes()).padStart(2, '0');
+    return month + '월 ' + date + '일 ' + hours + ':' + minutes + ' 오픈 예정';
+  }
+
+  function createOpenSoonNotice(openAtIso) {
+    var noticeEl = document.createElement('div');
+    noticeEl.className = 'card-open-soon-notice';
+    noticeEl.textContent = formatOpenAtDate(openAtIso);
+    return noticeEl;
   }
 
   function renderProducts(products) {

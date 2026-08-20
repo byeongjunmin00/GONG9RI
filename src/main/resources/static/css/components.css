@@ -328,6 +328,16 @@
   color: var(--color-pink);
 }
 
+/* ---------- 오픈예정 상품 카드 안내 텍스트 (card-open-soon-notice) ---------- */
+.card-open-soon-notice {
+  margin-top: var(--space-2);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+
+
 
 
 /* ---------- Badge (공구 상태) ---------- */
