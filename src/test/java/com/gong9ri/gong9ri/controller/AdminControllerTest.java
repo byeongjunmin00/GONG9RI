@@ -258,4 +258,67 @@ class AdminControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content[0].status").value("PENDING"));
     }
+
+    @Test
+    @DisplayName("관리자는 활동 기록이 없는 상품을 삭제할 수 있다")
+    void deleteProduct_success() throws Exception {
+        Member admin = saveMember("admin-test-p1", Role.ADMIN);
+        Member seller = saveMember("admin-test-p-seller1", Role.SELLER);
+        Product product = saveProduct(seller);
+
+        mockMvc.perform(delete("/api/admin/products/" + product.getId()).with(asUser(admin)))
+                .andExpect(status().isNoContent());
+
+        org.junit.jupiter.api.Assertions.assertTrue(productRepository.findById(product.getId()).isEmpty());
+    }
+
+    @Test
+    @DisplayName("결제가 있는 상품은 500이 아니라 409 PRODUCT_HAS_ACTIVITY로 거절한다")
+    void deleteProduct_conflict_whenPaymentExists() throws Exception {
+        // 회원 삭제(MEMBER_HAS_ACTIVITY)와 같은 정책이다.
+        //
+        // 가드가 없으면 payment.product_id의 FK(NO ACTION)가 DELETE를 거부해 500이 된다 —
+        // 로컬 DB에서 직접 재현해 확인했다: ERROR 1451 (23000) Cannot delete or update a parent row.
+        // 단, **이 테스트로는 그 경로를 보일 수 없다**. 테스트가 트랜잭션 롤백이라 DELETE가 DB까지
+        // 가지 않아서, 가드를 지우면 500이 아니라 204가 나온다(실제로 확인함). 그래서 이 테스트가
+        // 고정하는 건 "409로 거절한다"는 계약이고, FK가 막는다는 사실은 위 실측이 근거다.
+        Member admin = saveMember("admin-test-p2", Role.ADMIN);
+        Member seller = saveMember("admin-test-p-seller2", Role.SELLER);
+        Member buyer = saveMember("admin-test-p-buyer2", Role.BUYER);
+        Product product = saveProduct(seller);
+        paymentRepository.save(new Payment(buyer, product, null, 10000));
+
+        mockMvc.perform(delete("/api/admin/products/" + product.getId()).with(asUser(admin)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PRODUCT_HAS_ACTIVITY"));
+
+        org.junit.jupiter.api.Assertions.assertTrue(productRepository.findById(product.getId()).isPresent());
+    }
+
+    @Test
+    @DisplayName("리뷰가 있는 상품도 409로 거절한다")
+    void deleteProduct_conflict_whenReviewExists() throws Exception {
+        Member admin = saveMember("admin-test-p3", Role.ADMIN);
+        Member seller = saveMember("admin-test-p-seller3", Role.SELLER);
+        Member reviewer = saveMember("admin-test-p-buyer3", Role.BUYER);
+        Product product = saveProduct(seller);
+        reviewRepository.save(new Review(product, reviewer, 5, "좋아요"));
+
+        mockMvc.perform(delete("/api/admin/products/" + product.getId()).with(asUser(admin)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PRODUCT_HAS_ACTIVITY"));
+    }
+
+    @Test
+    @DisplayName("관리자가 아니면 상품 삭제는 403 FORBIDDEN")
+    void deleteProduct_forbidden_whenNotAdmin() throws Exception {
+        Member seller = saveMember("admin-test-p-seller4", Role.SELLER);
+        Product product = saveProduct(seller);
+
+        mockMvc.perform(delete("/api/admin/products/" + product.getId()).with(asUser(seller)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+
+        org.junit.jupiter.api.Assertions.assertTrue(productRepository.findById(product.getId()).isPresent());
+    }
 }

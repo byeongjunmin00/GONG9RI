@@ -88,6 +88,31 @@
   | `MEMBER_HAS_ACTIVITY` | 409 | 상품·결제·리뷰 등 활동 기록이 있어 삭제할 수 없음 — 정지를 이용할 것 |
   | `FORBIDDEN` | 403 | 관리자가 아니거나, 관리자 본인 계정을 대상으로 시도 |
 
+
+### DELETE /api/admin/products/{productId} — 상품 삭제
+
+관리자가 상품을 삭제한다(판매자 본인이 아니어도 가능).
+
+- 응답: `204 No Content`
+
+- 삭제 정책 — **회원 삭제와 같은 결**이다. 돈·기록이 걸린 상품은 지우지 못한다.
+
+  | 참조 데이터 | 처리 |
+  |---|---|
+  | 결제(payment) / 공구팀(group_buy_team) / 리뷰(review) | **삭제 거절**(409) |
+  | 찜(wishlist) / 문의(inquiry) / 가격구간(price_tier) / 이미지(product_image) | 상품과 함께 삭제 |
+
+  > 찜은 북마크일 뿐이고, 문의는 그 상품에 대한 질문이라 상품이 사라지면 의미가 없다. 둘 다 다른 테이블이 참조하지 않는 leaf 데이터다.
+  > 볼륨에 저장된 실제 이미지 파일은 지우지 않는다(알려진 한계, `docs/dev/product/image/design.md`).
+
+- 에러:
+  | 코드 | HTTP | 설명 |
+  |------|------|------|
+  | `PRODUCT_HAS_ACTIVITY` | 409 | 결제·공구팀·리뷰가 있는 상품 |
+  | `PRODUCT_NOT_FOUND` | 404 | 존재하지 않는 상품 |
+  | `FORBIDDEN` | 403 | 관리자가 아님 |
+  | `UNAUTHORIZED` | 401 | 미인증 |
+
 ---
 
 ## GET /api/admin/refund-requests — 환불 요청 전체 현황 (읽기 전용)

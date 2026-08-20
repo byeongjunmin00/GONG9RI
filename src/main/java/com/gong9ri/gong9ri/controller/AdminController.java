@@ -63,6 +63,16 @@ public class AdminController {
         return ResponseEntity.noContent().build();
     }
 
+    // 관리자 상품 삭제(product/admin) — 목록 조회는 공개 API(GET /api/products)를 그대로 쓰지만,
+    // 삭제는 남의 상품을 지우는 것이라 관리자 전용 경로로 둔다.
+    @DeleteMapping("/products/{productId}")
+    public ResponseEntity<Void> deleteProduct(
+            @AuthenticationPrincipal MemberUserDetails principal,
+            @PathVariable Long productId) {
+        adminService.deleteProduct(principal, productId);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/refund-requests")
     public ResponseEntity<ApiResponse<AdminRefundPageResponse>> refundRequests(
             @AuthenticationPrincipal MemberUserDetails principal,

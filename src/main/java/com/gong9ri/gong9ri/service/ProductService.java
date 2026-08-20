@@ -22,6 +22,9 @@ import com.gong9ri.gong9ri.repository.BestPriceProjection;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.PriceTierRepository;
 import com.gong9ri.gong9ri.repository.ProductImageRepository;
+import com.gong9ri.gong9ri.repository.PaymentRepository;
+import com.gong9ri.gong9ri.repository.WishlistRepository;
+import com.gong9ri.gong9ri.repository.InquiryRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
 import com.gong9ri.gong9ri.repository.ProductReviewStatProjection;
 import com.gong9ri.gong9ri.repository.ReviewRepository;
@@ -52,6 +55,10 @@ public class ProductService {
     private final ProductImageRepository productImageRepository;
     private final GroupBuyTeamRepository groupBuyTeamRepository;
     private final ReviewRepository reviewRepository;
+    // 상품 삭제 가드/정리용(product/admin)
+    private final PaymentRepository paymentRepository;
+    private final WishlistRepository wishlistRepository;
+    private final InquiryRepository inquiryRepository;
     private final SearchTrendService searchTrendService;
 
     @Value("${kakao.js-key}")
@@ -277,14 +284,53 @@ public class ProductService {
         requireSeller(principal);
         Product product = findProductWithSeller(productId);
         requireOwner(principal, product);
+        deleteInternal(product, productId);
+        log.info("상품 삭제 완료: productId={}", productId);
+    }
 
+    /**
+     * 관리자 상품 삭제 (product/admin). 판매자 본인이 아니어도 지울 수 있다는 점만 다르고, 삭제 정책과
+     * 캐시 무효화는 판매자 삭제와 완전히 동일하다 — 두 경로가 갈라지면 한쪽만 고쳐지는 일이 생긴다.
+     *
+     * <p>권한 검사는 {@code AdminService}가 하지만, 이 메서드만 따로 호출돼도 안전하도록 여기서도 확인한다.
+     */
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CacheConfig.PRODUCT_DETAIL_CACHE, key = "#productId"),
+            @CacheEvict(cacheNames = CacheConfig.PRODUCT_LIST_CACHE, allEntries = true)
+    })
+    public void deleteByAdmin(MemberUserDetails principal, Long productId) {
+        if (principal.getMember().getRole() != Role.ADMIN) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+        Product product = findProductWithSeller(productId);
+        deleteInternal(product, productId);
+        log.info("관리자 상품 삭제: adminId={}, productId={}", principal.getMember().getId(), productId);
+    }
+
+    /**
+     * 실제 삭제. <b>돈·기록이 걸린 상품은 지우지 못하게 막는다</b> — 관리자 회원 삭제(MEMBER_HAS_ACTIVITY)와
+     * 같은 정책이다.
+     *
+     * <p>이 가드가 없으면 결제·공구팀·리뷰가 달린 상품을 지울 때 FK 위반이 그대로 새어나가 <b>500</b>이 된다
+     * (2026-08-21 관리자 삭제를 만들며 발견 — 판매자 삭제에도 원래 있던 구멍이라 같이 막았다).
+     * 찜·문의는 그 상품에 종속된 데이터라 막지 않고 함께 지운다.
+     */
+    private void deleteInternal(Product product, Long productId) {
+        if (paymentRepository.existsByProduct_Id(productId)
+                || groupBuyTeamRepository.existsByProduct_Id(productId)
+                || reviewRepository.existsByProductId(productId)) {
+            throw new BusinessException(ErrorCode.PRODUCT_HAS_ACTIVITY);
+        }
+
+        wishlistRepository.deleteByProduct_Id(productId);
+        inquiryRepository.deleteByProduct_Id(productId);
         priceTierRepository.deleteByProductId(productId);
         // 상품을 지우면 이미지 행도 함께 지운다 — 남겨두면 FK 위반으로 삭제 자체가 실패한다.
         // (볼륨의 실제 파일은 지우지 않는다 — 삭제 실패 시 파일만 사라지는 상태를 만들지 않기 위해,
         //  파일 정리는 별도 관심사로 남겨둔다. 알려진 한계로 design.md에 기록.)
         productImageRepository.deleteByProductId(productId);
         productRepository.delete(product);
-        log.info("상품 삭제 완료: productId={}", productId);
     }
 
     private int calculateMaxParticipants(List<PriceTierRequest> requests) {

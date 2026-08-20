@@ -51,6 +51,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AdminService {
 
     private final MemberRepository memberRepository;
+    private final ProductService productService;
     private final ProductRepository productRepository;
     private final PaymentRepository paymentRepository;
     private final ReviewRepository reviewRepository;
@@ -104,6 +105,14 @@ public class AdminService {
         sellerRevenueSummaryRepository.deleteBySellerId(memberId);
         memberRepository.delete(target);
         log.info("관리자 회원 삭제: adminId={}, memberId={}", principal.getMember().getId(), memberId);
+    }
+
+    // 상품 삭제는 ProductService에 맡긴다 — 삭제 정책(결제·팀·리뷰가 있으면 거절)과 캐시 무효화가
+    // 판매자 삭제와 완전히 같아야 하는데, 여기서 따로 구현하면 한쪽만 고쳐지는 일이 생긴다.
+    @Transactional
+    public void deleteProduct(MemberUserDetails principal, Long productId) {
+        requireAdmin(principal);
+        productService.deleteByAdmin(principal, productId);
     }
 
     public AdminDashboardResponse dashboard(MemberUserDetails principal) {

@@ -12,4 +12,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long>, ReviewRep
 
     // 관리자 회원 삭제 — 작성한 리뷰가 하나라도 있으면 하드 삭제를 막는다(product/admin).
     boolean existsByMemberId(Long memberId);
+
+    // 상품 삭제 가드(product/admin) — 그 상품에 달린 리뷰가 하나라도 있으면 삭제를 막는다.
+    boolean existsByProductId(Long productId);
 }

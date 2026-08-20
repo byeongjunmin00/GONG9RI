@@ -15,4 +15,7 @@ public interface GroupBuyTeamRepository extends JpaRepository<GroupBuyTeam, Long
 
     // 관리자 회원 삭제 — 팀 리더로 신설한 공구팀이 하나라도 있으면 하드 삭제를 막는다(product/admin).
     boolean existsByLeader_Id(Long leaderId);
+
+    // 상품 삭제 가드(product/admin) — 그 상품에 개설된 공구팀이 하나라도 있으면 삭제를 막는다.
+    boolean existsByProduct_Id(Long productId);
 }
