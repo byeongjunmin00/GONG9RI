@@ -235,3 +235,7 @@ PAID --(PortOne 취소 SUCCEEDED, 즉시)--------------------------> REFUNDED
   - `service/PaymentConfirmConcurrencyTest.java`(신규, 2026-08-20) — 클라이언트 `confirm()`과 웹훅
     `confirmByPgPaymentId()`가 같은 결제를 동시에 확정 시도해도 비관적 락으로 정확히 한 번만 확정되고,
     알림도 정확히 1회만 발행되는지 검증
+  - `service/SellerRevenueSummaryConcurrencyTest.java`의 정리(`@AfterEach`) 대기는 고정
+    `Thread.sleep`이 아니라 "판매자 알림이 결제 건수만큼 도착"을 폴링한다(2026-08-20,
+    `changes/003-revenue-summary-test-flaky-sleep.md` — 고정 sleep은 부하가 크면 놓쳐 FK 위반으로
+    간헐적 실패할 수 있었다)

@@ -2,6 +2,7 @@ package com.gong9ri.gong9ri.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
@@ -95,16 +96,23 @@ class SellerRevenueSummaryConcurrencyTest {
         });
     }
 
+    private static final long ASYNC_WAIT_TIMEOUT_MS = 5_000L;
+    private static final long ASYNC_WAIT_INTERVAL_MS = 50L;
+
     private final List<Long> memberIdsToClean = new ArrayList<>();
     private final List<Long> paymentIdsToClean = new ArrayList<>();
     private Long productIdToClean;
     private Long summaryIdToClean;
+    private Long sellerIdForAsyncWait;
+    private int expectedNotificationCount;
 
     @AfterEach
     void cleanUp() {
         // 결제가 확정되면 판매자에게 "결제 발생" 알림이 생긴다(notification) — member를 FK로 참조하므로
-        // 회원보다 먼저 지운다. 알림 생성이 @Async라 아직 안 왔을 수 있어서, 커넥션이 다 풀린 뒤
-        // 잠깐 기다렸다가 지운다(이 테스트는 알림 자체를 검증하지 않는다 — NotificationTypesFlowTest 담당).
+        // 회원보다 먼저 지운다. 알림 생성이 @Async라 아직 안 왔을 수 있어서, 실제로 다 들어올 때까지
+        // 폴링한다(NotificationTypesFlowTest.waitUntil과 동일 패턴 — 고정 sleep은 부하가 크면 놓칠 수
+        // 있어 간헐적 FK 위반 실패의 원인이었다, 코드리뷰 2026-08-20 발견). 이 테스트는 알림 내용 자체를
+        // 검증하지 않는다 — NotificationTypesFlowTest 담당.
         waitForAsyncNotifications();
         memberIdsToClean.forEach(memberId ->
                 notificationRepository.findAllByMemberIdOrderByCreatedAtDesc(memberId)
@@ -121,13 +129,27 @@ class SellerRevenueSummaryConcurrencyTest {
         memberIdsToClean.clear();
     }
 
-    // @Async 알림 리스너가 정리 도중에 뒤늦게 INSERT해서 FK 위반을 일으키지 않도록 짧게 기다린다.
+    // @Async 알림 리스너가 정리 도중에 뒤늦게 INSERT해서 FK 위반을 일으키지 않도록, 판매자에게
+    // 기대한 알림 건수가 실제로 다 들어올 때까지 폴링한다. 아직 결제를 만들지 않은 상태(예: 테스트
+    // 준비 단계에서 실패)에서는 기다릴 대상이 없으므로 곧바로 반환한다.
     private void waitForAsyncNotifications() {
-        try {
-            Thread.sleep(1_000L);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+        if (sellerIdForAsyncWait == null) {
+            return;
         }
+        long deadline = System.currentTimeMillis() + ASYNC_WAIT_TIMEOUT_MS;
+        while (System.currentTimeMillis() < deadline) {
+            int actual = notificationRepository.findAllByMemberIdOrderByCreatedAtDesc(sellerIdForAsyncWait).size();
+            if (actual >= expectedNotificationCount) {
+                return;
+            }
+            try {
+                Thread.sleep(ASYNC_WAIT_INTERVAL_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                fail("알림 대기 중 인터럽트됨");
+            }
+        }
+        fail("판매자 알림이 제한시간 안에 기대한 건수(" + expectedNotificationCount + ")만큼 도착하지 않음");
     }
 
     @Test
@@ -138,6 +160,8 @@ class SellerRevenueSummaryConcurrencyTest {
         Member seller = memberRepository.save(
                 new Member("concRevenueSeller", "pw", "판매자", "concRevenueSeller@test.com", Role.SELLER));
         memberIdsToClean.add(seller.getId());
+        sellerIdForAsyncWait = seller.getId();
+        expectedNotificationCount = threadCount; // 결제(스레드) 건수만큼 판매자에게 PAYMENT_RECEIVED가 하나씩 간다.
 
         Product product = productRepository.save(
                 new Product(seller, "동시성매출테스트상품", "설명", 10000, 100, null));
