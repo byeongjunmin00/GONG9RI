@@ -1,8 +1,11 @@
 package com.gong9ri.gong9ri.common.exception;
 
 import com.gong9ri.gong9ri.common.response.ApiResponse;
+import com.gong9ri.gong9ri.common.web.BrowserRequests;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -49,7 +52,16 @@ public class GlobalExceptionHandler {
     // 오류가 아니다 — Exception.class catch-all이 이걸 500으로 바꿔버리는 걸 실제로 Railway 프로덕션
     // 로그에서 발견했다(2026-08-12, GET /favicon.ico -> 500). 원래 스프링이 의도한 404로 되돌린다.
     @ExceptionHandler(NoResourceFoundException.class)
-    public ResponseEntity<ApiResponse<Void>> handleNoResourceFound(NoResourceFoundException e) {
+    public ResponseEntity<ApiResponse<Void>> handleNoResourceFound(NoResourceFoundException e,
+            HttpServletRequest request) {
+        // 사람이 주소창에 오타를 내고 들어온 경우 — 날 JSON 대신 에러 페이지로 보낸다. 프로그램 호출
+        // (fetch 등)은 Accept에 text/html이 없어 이 분기를 타지 않으므로 기존 JSON 응답 그대로다
+        // (2026-08-20, docs/dev/frontend/error-page/design.md).
+        if (BrowserRequests.isBrowserNavigation(request)) {
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header(HttpHeaders.LOCATION, "/error.html")
+                    .build();
+        }
         return ResponseEntity
                 .status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.failure("NOT_FOUND", "요청한 리소스를 찾을 수 없습니다."));
