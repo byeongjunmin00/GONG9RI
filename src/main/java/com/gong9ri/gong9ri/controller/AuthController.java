@@ -136,23 +136,39 @@ public class AuthController {
     }
 
     // 세션의 SecurityContext가 들고 있는 principal은 로그인 시점에 로드된 Member 스냅샷이라, DB만
-    // 바꾸고 세션을 안 갱신하면 이후 GET /me나 헤더 표시가 수정 전 값을 계속 보여주게 된다 —
-    // login()/kakaoCallback()과 동일하게 갱신된 principal로 SecurityContext를 다시 세팅한다.
+    // 바꾸고 세션을 안 갱신하면 이후 GET /me나 헤더 표시가 수정 전 값을 계속 보여주게 된다.
+    // 단, 이메일이 실제로 변경된 경우는 emailVerified가 false가 되므로 세션을 무효화하고
+    // 로그아웃 처리하여 새 이메일 인증 후 다시 로그인하도록 유도한다.
     @PatchMapping("/me")
     public ResponseEntity<ApiResponse<MemberResponse>> updateMe(
             @AuthenticationPrincipal MemberUserDetails principal,
             @Valid @RequestBody MemberInfoUpdateRequest request,
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
+        boolean emailChanged = !principal.getMember().getEmail().equals(request.email());
         Member updated = memberService.updateInfo(principal.getMember().getId(), request);
 
-        MemberUserDetails newPrincipal = new MemberUserDetails(updated);
-        Authentication authentication =
-                new UsernamePasswordAuthenticationToken(newPrincipal, null, newPrincipal.getAuthorities());
-        SecurityContext context = SecurityContextHolder.createEmptyContext();
-        context.setAuthentication(authentication);
-        SecurityContextHolder.setContext(context);
-        securityContextRepository.saveContext(context, httpRequest, httpResponse);
+        if (emailChanged) {
+            HttpSession session = httpRequest.getSession(false);
+            if (session != null) {
+                session.invalidate();
+            }
+            SecurityContextHolder.clearContext();
+
+            Cookie sessionCookie = new Cookie("JSESSIONID", null);
+            sessionCookie.setPath("/");
+            sessionCookie.setHttpOnly(true);
+            sessionCookie.setMaxAge(0);
+            httpResponse.addCookie(sessionCookie);
+        } else {
+            MemberUserDetails newPrincipal = new MemberUserDetails(updated);
+            Authentication authentication =
+                    new UsernamePasswordAuthenticationToken(newPrincipal, null, newPrincipal.getAuthorities());
+            SecurityContext context = SecurityContextHolder.createEmptyContext();
+            context.setAuthentication(authentication);
+            SecurityContextHolder.setContext(context);
+            securityContextRepository.saveContext(context, httpRequest, httpResponse);
+        }
 
         return ResponseEntity.ok(ApiResponse.success(MemberResponse.from(updated)));
     }

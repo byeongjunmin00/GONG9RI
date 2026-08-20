@@ -74,7 +74,10 @@
     window.Api.patch('/auth/me', { name: name, email: email })
       .then(function (member) {
         if (member && member.emailVerified === false) {
-          showAlert('저장했습니다. 이메일을 변경해서 재인증이 필요해요 — 새 주소로 발송된 인증 메일을 확인해주세요.', 'success');
+          showAlert('이메일이 변경되어 재인증이 필요합니다. 새 주소로 발송된 인증 메일을 확인하신 후 다시 로그인해주세요.', 'success');
+          setTimeout(function () {
+            window.location.href = '/login.html';
+          }, 1500);
         } else {
           showAlert('저장했습니다.', 'success');
         }

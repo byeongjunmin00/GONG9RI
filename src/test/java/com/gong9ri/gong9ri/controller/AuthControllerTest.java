@@ -316,7 +316,7 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("정보수정: 이메일을 바꾸면 200이고 이메일 인증 상태가 false로 초기화된다")
+    @DisplayName("정보수정: 이메일을 바꾸면 200이고 이메일 인증 상태가 false로 초기화되며 세션이 무효화(로그아웃)된다")
     void updateMe_success_emailChanged() throws Exception {
         signup("gonguri9", "password123");
         MockHttpSession session = loginAndGetSession("gonguri9", "password123");
@@ -330,6 +330,10 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.email").value("gonguri9-new@test.com"))
                 .andExpect(jsonPath("$.data.emailVerified").value(false));
+
+        // 이메일 변경으로 세션이 무효화되었는지 확인 — 기존 세션으로 GET /api/auth/me를 호출하면 401을 반환해야 함
+        mockMvc.perform(get("/api/auth/me").session(session))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
