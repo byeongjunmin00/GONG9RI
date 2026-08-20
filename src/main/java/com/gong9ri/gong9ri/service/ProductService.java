@@ -104,12 +104,19 @@ public class ProductService {
         Page<ProductSummaryResponse> mapped = products.map(
                 product -> {
                     ProductReviewStatProjection stat = reviewStats.get(product.getId());
-                    Double avg = stat != null ? stat.averageRating() : null;
+                    Double avg = stat != null ? roundRating(stat.averageRating()) : null;
                     Integer cnt = stat != null && stat.reviewCount() != null ? stat.reviewCount().intValue() : 0;
                     return ProductSummaryResponse.of(product, bestPrices.get(product.getId()),
                             trustedSellers.getOrDefault(product.getSeller().getId(), false), avg, cnt);
                 });
         return ProductPageResponse.of(mapped);
+    }
+
+    private Double roundRating(Double rating) {
+        if (rating == null) {
+            return null;
+        }
+        return Math.round(rating * 10.0) / 10.0;
     }
 
     private Map<Long, ProductReviewStatProjection> reviewStatMap(List<Long> productIds) {
@@ -188,7 +195,7 @@ public class ProductService {
                 .getOrDefault(product.getSeller().getId(), false);
         ProductResponse baseResponse = ProductResponse.of(product, priceTiers, kakaoJsKey, trusted);
         ProductReviewStatProjection reviewStat = reviewStatMap(List.of(productId)).get(productId);
-        Double ratingAvg = reviewStat != null ? reviewStat.averageRating() : null;
+        Double ratingAvg = reviewStat != null ? roundRating(reviewStat.averageRating()) : null;
         Integer reviewCnt = reviewStat != null && reviewStat.reviewCount() != null ? reviewStat.reviewCount().intValue() : 0;
         return baseResponse.withReviewStats(ratingAvg, reviewCnt);
     }

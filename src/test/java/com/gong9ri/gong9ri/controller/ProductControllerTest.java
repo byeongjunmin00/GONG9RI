@@ -701,6 +701,41 @@ class ProductControllerTest {
     }
 
     @Test
+    @DisplayName("상품 목록 조회 시 각 상품의 리뷰 평균 평점(ratingAverage)과 리뷰 개수(reviewCount)가 정상 포함된다")
+    void list_includesRatingAverageAndReviewCount() throws Exception {
+        int size = 208;
+        Member seller = saveMember("sellerRatingList", Role.SELLER);
+        Product product = saveProduct(seller, "평점목록테스트", ProductCategory.ETC);
+
+        Member buyer1 = saveMember("ratingListBuyer1", Role.BUYER);
+        Member buyer2 = saveMember("ratingListBuyer2", Role.BUYER);
+        reviewRepository.save(new Review(product, buyer1, 5, "최고예요"));
+        reviewRepository.save(new Review(product, buyer2, 4, "좋아요"));
+
+        mockMvc.perform(get("/api/products").param("category", "ETC").param("size", String.valueOf(size)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].ratingAverage").value(4.5))
+                .andExpect(jsonPath("$.data.content[0].reviewCount").value(2));
+    }
+
+    @Test
+    @DisplayName("상품 상세 조회 시 리뷰 평균 평점과 리뷰 개수가 정상 포함된다")
+    void detail_includesRatingAverageAndReviewCount() throws Exception {
+        Member seller = saveMember("sellerRatingDetail", Role.SELLER);
+        Product product = saveProduct(seller);
+
+        Member buyer1 = saveMember("ratingDetailBuyer1", Role.BUYER);
+        Member buyer2 = saveMember("ratingDetailBuyer2", Role.BUYER);
+        reviewRepository.save(new Review(product, buyer1, 5, "최고예요"));
+        reviewRepository.save(new Review(product, buyer2, 4, "좋아요"));
+
+        mockMvc.perform(get("/api/products/" + product.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.ratingAverage").value(4.5))
+                .andExpect(jsonPath("$.data.reviewCount").value(2));
+    }
+
+    @Test
     @DisplayName("keyword로 검색하면 실시간 인기 검색어 집계에 반영되고, 해당 엔드포인트에서 조회된다")
     void list_withKeyword_recordsSearchTrend_andSearchTrendsEndpointReturnsIt() throws Exception {
         // /api/products/{productId}가 아니라 /api/products/search-trends(리터럴 경로)가 우선 매칭되는지도
