@@ -701,7 +701,10 @@
   border: none;
   border-bottom: 2px solid transparent;
   font-family: var(--font-heading);
-  font-size: var(--fs-md);
+  /* --fs-md는 tokens.css에 없는 이름이라(스케일이 xs/sm/base/lg/xl...) 선언이 무효가 되어
+     font-size가 부모값으로 떨어지고 있었다(2026-08-20 코드리뷰 발견). 이 스케일에서 "md"에
+     해당하는 건 --fs-base(16px)다. */
+  font-size: var(--fs-base);
   font-weight: 700;
   color: var(--color-text-muted);
   cursor: pointer;
@@ -1892,7 +1895,7 @@
 .product-detail-media .product-detail-image {
   width: 100%;
   aspect-ratio: 1 / 1;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: var(--shadow-md);
   border: 1px solid var(--color-border);
@@ -1904,7 +1907,7 @@
   gap: var(--space-4);
   background: var(--color-surface);
   padding: var(--space-6);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   border: 1px solid var(--color-border);
   box-shadow: var(--shadow-sm);
 }
@@ -1914,14 +1917,14 @@
   margin-top: var(--space-6);
 }
 
-.product-price-box {
+.product-detail-summary .product-price-box {
   background-color: var(--color-surface-alt);
   padding: var(--space-5);
   border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border-subtle);
+  border: 1px solid var(--color-border);
 }
 
-.price-tiers-table {
+.product-detail-summary .price-tiers-table {
   width: 100%;
   margin-top: var(--space-3);
   border-collapse: collapse;
@@ -1931,33 +1934,33 @@
   border: 1px solid var(--color-border);
 }
 
-.price-tiers-table th,
-.price-tiers-table td {
+.product-detail-summary .price-tiers-table th,
+.product-detail-summary .price-tiers-table td {
   padding: var(--space-3) var(--space-4);
   font-size: var(--fs-sm);
   text-align: left;
-  border-bottom: 1px solid var(--color-border-subtle);
+  border-bottom: 1px solid var(--color-border);
 }
 
-.price-tiers-table th {
+.product-detail-summary .price-tiers-table th {
   background-color: rgba(139, 92, 246, 0.06);
   font-weight: 700;
   color: var(--color-purple);
 }
 
-.price-tiers-table td:last-child {
+.product-detail-summary .price-tiers-table td:last-child {
   font-weight: 800;
   color: var(--color-coral);
 }
 
-.product-actions {
+.product-detail-summary .product-actions {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   margin-top: var(--space-2);
 }
 
-.product-actions .btn-lg {
+.product-detail-summary .product-actions .btn-lg {
   padding: var(--space-4) var(--space-5);
   font-size: var(--fs-base);
   font-weight: 800;
@@ -1965,14 +1968,14 @@
   box-shadow: 0 4px 12px rgba(255, 107, 107, 0.25);
 }
 
-.target-participants-options {
+.product-detail-summary .target-participants-options {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
   margin-top: var(--space-2);
 }
 
-.target-participants-options label {
+.product-detail-summary .target-participants-options label {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1986,7 +1989,7 @@
   transition: all 0.15s ease;
 }
 
-.target-participants-options label:hover {
+.product-detail-summary .target-participants-options label:hover {
   border-color: var(--color-pink);
   background-color: rgba(255, 107, 107, 0.05);
 }

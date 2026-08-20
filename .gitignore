@@ -42,6 +42,10 @@ out/
 .agents/
 
 ### Claude Code Local State ###
-.claude/
+# .claude/ 전체가 아니라 이 파일 하나만 무시한다 — .claude/ 아래에는 팀 공용 하네스 설정
+# (agents/planner|generator|evaluator.md, hooks/, settings.json)이 함께 들어있고 이건 저장소에
+# 남아야 한다(AGENTS.md의 Plan→Generate→Evaluate 흐름이 이 파일들에 의존). 머신마다 값이
+# 달라져 diff를 오염시키는 건 아래 커밋 해시 한 줄뿐이다.
+.claude/.last-marked-commit
 
 
