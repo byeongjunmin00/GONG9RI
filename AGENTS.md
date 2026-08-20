@@ -72,9 +72,28 @@ wrapper(`./gradlew`)를 사용한다. 전역 gradle 사용 금지.
 ./gradlew build          # 전체 빌드 + 테스트
 ./gradlew test           # 테스트만
 ./gradlew compileJava    # 빠른 컴파일 검증
-./gradlew bootRun        # 앱 실행 (로컬 MySQL 가동 필요)
+./gradlew bootRun        # 앱 실행 (로컬 MySQL + Redis 둘 다 가동 필요)
 ./gradlew clean          # 산출물 정리
 ```
+
+### 로컬 실행 전제 — MySQL **과 Redis** 둘 다 필요하다
+
+`Redis 없이 띄우면 상품 목록·상세가 500이 나서 사이트가 사실상 안 열린다`(2026-08-21 실측). 캐시(`@Cacheable`)에 `CacheErrorHandler`가 없어 Redis 예외가 그대로 올라오기 때문이다.
+
+| 기능 | Redis 없을 때 |
+|---|---|
+| 상품 목록 / 상세 | **500** (캐시 예외가 그대로 올라옴) |
+| 실시간 인기 검색어 | 200이지만 **항상 빈 목록** (fail-open 설계) |
+| 로그인 | 200 (rate limit이 fail-open) |
+
+```bash
+# macOS 예시
+brew services start mysql
+brew services start redis
+```
+
+> [!note] "실시간 검색어는 배포 환경에서만 되는 기능"이 아니다
+> 로컬에서 비어 보이는 건 **검색 기록이 없어서**다. `SearchTrendService`는 오늘 날짜 키(`search-trend:yyyyMMdd`)의 ZSET에 검색어 점수를 쌓는 구조라, **검색을 직접 해봐야 순위가 생긴다.** TTL 2일이라 어제 것도 남지 않는다. 배포 환경에는 실사용 검색이 쌓여 있어서 보이는 것뿐이다.
 
 ## 컨텍스트 맵 (Context Map)
 
