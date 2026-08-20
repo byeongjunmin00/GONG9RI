@@ -1,6 +1,8 @@
 package com.gong9ri.gong9ri.config;
 
+import java.nio.file.Path;
 import java.time.Duration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.CacheControl;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
@@ -24,10 +26,31 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     private static final Duration STATIC_ASSET_CACHE_DURATION = Duration.ofMinutes(10);
 
+    /**
+     * 업로드된 상품 이미지 캐싱 기간. 파일명이 UUID라 <b>같은 URL의 내용이 바뀌는 일이 없어서</b>
+     * (수정하면 새 파일이 새 이름으로 생긴다) css/js와 달리 길게 캐싱해도 스테일 위험이 없다.
+     */
+    private static final Duration UPLOADED_IMAGE_CACHE_DURATION = Duration.ofDays(30);
+
+    private final String uploadDir;
+
+    public WebMvcConfig(@Value("${app.upload.dir}") String uploadDir) {
+        this.uploadDir = uploadDir;
+    }
+
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         registry.addResourceHandler("/css/**", "/js/**", "/images/**")
                 .addResourceLocations("classpath:/static/css/", "classpath:/static/js/", "classpath:/static/images/")
                 .setCacheControl(CacheControl.maxAge(STATIC_ASSET_CACHE_DURATION).cachePublic());
+
+        // 업로드된 상품 이미지(product/image) — classpath가 아니라 디스크(프로덕션은 Railway 볼륨)에서
+        // 서빙한다. 경로를 절대경로로 정규화(normalize)해서 넘기는 게 중요하다 — 스프링의 리소스 핸들러가
+        // 요청 경로를 이 루트 아래로 제한해 상위 디렉터리 탈출(../)을 막는데, 그 판정이 정규화된 루트를
+        // 전제로 하기 때문이다. 저장 시에도 파일명을 서버가 UUID로 만들어 클라이언트 입력이 경로에
+        // 섞이지 않게 하고 있다(ProductImageStorage) — 저장·서빙 양쪽에서 막는 이중 방어.
+        registry.addResourceHandler("/uploads/**")
+                .addResourceLocations(Path.of(uploadDir).toAbsolutePath().normalize().toUri().toString())
+                .setCacheControl(CacheControl.maxAge(UPLOADED_IMAGE_CACHE_DURATION).cachePublic());
     }
 }

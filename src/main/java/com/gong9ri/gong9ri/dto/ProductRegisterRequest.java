@@ -17,6 +17,10 @@ public record ProductRegisterRequest(
         @Min(2) Integer maxParticipants,
         @NotEmpty @Valid List<PriceTierRequest> priceTiers,
         String imageUrl,
+        // 상품 이미지 여러 장(product/image, 2026-08-20). 업로드된 파일 경로(/uploads/...)와 외부 URL을
+        // 섞어 담을 수 있다. 생략(null)하면 기존처럼 imageUrl 한 장만 쓰는 동작 그대로다 — 기존 상품
+        // 대부분이 imageUrl만 갖고 있어서 하위호환이 필수였다.
+        List<String> imageUrls,
         // 참여 취소(team/leave) 시 생기는 환불 요청을 판매자 승인 없이 즉시 처리할지 여부. 생략(null)하면
         // false로 취급한다(docs/dev/ongoing/team-leave-and-refund-request.md).
         Boolean autoRefundOnCancel,

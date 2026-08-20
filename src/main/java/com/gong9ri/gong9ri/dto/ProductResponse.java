@@ -35,7 +35,10 @@ public record ProductResponse(
         // 이 필드 추가 이전에 캐시된 상세 응답을 배포 직후 읽으면 primitive는 역직렬화 시 500을 낸다).
         Boolean sellerTrustedBadge,
         Double ratingAverage,
-        Integer reviewCount
+        Integer reviewCount,
+        // 상품 이미지 여러 장(product/image, 2026-08-20). product_image 행이 없으면 대표 이미지
+        // 한 장짜리 목록으로 채워지므로, 클라이언트는 imageUrl 유무와 무관하게 이 목록만 보면 된다.
+        List<String> imageUrls
 ) {
     public static ProductResponse of(Product product, List<PriceTier> priceTiers, String kakaoJsKey,
             boolean sellerTrustedBadge) {
@@ -56,7 +59,8 @@ public record ProductResponse(
                 product.getOpenAt(),
                 sellerTrustedBadge,
                 null,
-                null
+                null,
+                List.of()
         );
     }
 
@@ -64,7 +68,25 @@ public record ProductResponse(
         return new ProductResponse(
                 productId, sellerId, sellerName, name, description, basePrice, maxParticipants,
                 priceTiers, createdAt, imageUrl, autoRefundOnCancel, kakaoJsKey, category, openAt,
-                sellerTrustedBadge, ratingAverage, reviewCount
+                sellerTrustedBadge, ratingAverage, reviewCount, imageUrls
+        );
+    }
+
+    /**
+     * 이미지 목록을 채운다 (product/image).
+     *
+     * <p>{@code product_image} 행이 없는 상품(이 기능 이전에 등록된 대부분)은 <b>대표 이미지 한 장짜리
+     * 목록</b>으로 채운다 — 그래서 기존 데이터를 옮기는 마이그레이션 없이도 클라이언트는 이 목록만 보면
+     * 된다. 대표 이미지조차 없으면 빈 목록이다.
+     */
+    public ProductResponse withImages(List<String> images) {
+        List<String> resolved = (images != null && !images.isEmpty())
+                ? images
+                : (imageUrl != null && !imageUrl.isBlank() ? List.of(imageUrl) : List.of());
+        return new ProductResponse(
+                productId, sellerId, sellerName, name, description, basePrice, maxParticipants,
+                priceTiers, createdAt, imageUrl, autoRefundOnCancel, kakaoJsKey, category, openAt,
+                sellerTrustedBadge, ratingAverage, reviewCount, resolved
         );
     }
 }

@@ -24,6 +24,13 @@ spring:
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:1234}
     driver-class-name: com.mysql.cj.jdbc.Driver
+  servlet:
+    multipart:
+      # 스프링 기본 상한이 파일 1MB / 요청 10MB라, 그대로 두면 휴대폰 사진(3~5MB) 업로드가 전부
+      # 실패한다. 한 장 5MB까지 받아들이되 저장은 축소해서 한다(ProductImageStorage).
+      # 요청 상한은 여러 장 동시 업로드를 감안해 넉넉히 잡는다.
+      max-file-size: 5MB
+      max-request-size: 30MB
   jpa:
     hibernate:
       ddl-auto: update
@@ -70,6 +77,12 @@ app:
   # 이메일 안의 인증/재설정 링크를 만들 때 쓰는 서버 공개 URL. Railway엔
   # APP_BASE_URL=https://gong9ri-production.up.railway.app 환경변수 추가 필요(docs/deploy-guide.md).
   base-url: ${APP_BASE_URL:http://localhost:8080}
+
+  # 상품 이미지 업로드(product/image) 저장 위치. 프로덕션은 Railway 볼륨 마운트 경로를 환경변수로
+  # 주입한다 — 컨테이너 파일시스템은 재배포 시 초기화되므로 볼륨 밖에 저장하면 업로드한 사진이
+  # 사라진다. 로컬은 프로젝트 아래 uploads/(.gitignore 대상)를 쓴다.
+  upload:
+    dir: ${UPLOAD_DIR:./uploads}
 
 sendgrid:
   # 이메일 인증/비밀번호 재설정 메일 발송(HTTP API). 처음엔 Gmail SMTP 직접 연결(JavaMailSender)을

@@ -129,6 +129,17 @@ public class Product {
 
     // 아직 공개 전(오픈예정 시각이 미래)인지 — PaymentService.create()/TeamService.create()가 이걸로
     // 혼자구매·신규 팀 신설을 거절한다(PRODUCT_NOT_YET_OPEN).
+    /**
+     * 대표 이미지를 이미지 목록의 첫 장으로 맞춘다 (product/image).
+     *
+     * <p>{@code imageUrl}은 {@code product_image} 테이블이 생긴 뒤에도 남아 있는 <b>의도적인 비정규화</b>다 —
+     * 목록 조회가 상품 20개를 한 번에 내리는데 이미지를 매번 조인하면 N+1이 되므로, 카드에 쓸 한 장만
+     * 상품 행에 들고 있는다.
+     */
+    public void changeRepresentativeImage(String imageUrl) {
+        this.imageUrl = imageUrl;
+    }
+
     public boolean isNotYetOpen() {
         return openAt != null && openAt.isAfter(LocalDateTime.now());
     }

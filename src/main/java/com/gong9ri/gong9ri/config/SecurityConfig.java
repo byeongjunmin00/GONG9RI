@@ -45,6 +45,9 @@ public class SecurityConfig {
                         // "/*.html"은 단일 세그먼트만 매칭하므로(예: /login.html), 서브디렉토리 정적 페이지
                         // (예: /seller/products/new.html)까지 허용하도록 "/**/*.html"을 나란히 추가한다.
                         .requestMatchers("/", "/*.html", "/**/*.html", "/css/**", "/js/**", "/partials/**", "/images/**").permitAll()
+                        // 업로드된 상품 이미지(product/image) — 상품 목록·상세가 비로그인에도 공개되므로
+                        // 그 이미지도 같은 등급으로 열어야 한다(로그인해야 상품 사진이 보이면 안 된다).
+                        .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
                         // 검색엔진 크롤러가 인증 없이 읽어야 하는 것들(SEO).
                         .requestMatchers(HttpMethod.GET, "/robots.txt", "/sitemap.xml").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login").permitAll()

@@ -83,7 +83,7 @@ class ProductCachingTest {
 
     private ProductRegisterRequest registerRequest(String name, Integer basePrice) {
         return new ProductRegisterRequest(name, "설명", basePrice, 10,
-                List.of(new PriceTierRequest(2, basePrice - 1000)), null, null, ProductCategory.FOOD, null);
+                List.of(new PriceTierRequest(2, basePrice - 1000)), null, null, null, ProductCategory.FOOD, null);
     }
 
     @Test

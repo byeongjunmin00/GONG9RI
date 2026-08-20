@@ -15,11 +15,13 @@ import com.gong9ri.gong9ri.entity.Member;
 import com.gong9ri.gong9ri.entity.PriceTier;
 import com.gong9ri.gong9ri.entity.Product;
 import com.gong9ri.gong9ri.entity.ProductCategory;
+import com.gong9ri.gong9ri.entity.ProductImage;
 import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.entity.TeamStatus;
 import com.gong9ri.gong9ri.repository.BestPriceProjection;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.PriceTierRepository;
+import com.gong9ri.gong9ri.repository.ProductImageRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
 import com.gong9ri.gong9ri.repository.ProductReviewStatProjection;
 import com.gong9ri.gong9ri.repository.ReviewRepository;
@@ -47,6 +49,7 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final PriceTierRepository priceTierRepository;
+    private final ProductImageRepository productImageRepository;
     private final GroupBuyTeamRepository groupBuyTeamRepository;
     private final ReviewRepository reviewRepository;
     private final SearchTrendService searchTrendService;
@@ -56,6 +59,9 @@ public class ProductService {
 
     // 판매자 신뢰 배지(product/seller-trust) 기준 — 실측 근거 없는 초기값, 운영하며 조정 예정.
     // 평균 평점만 보면 리뷰 1~2개짜리 판매자도 배지를 달 수 있어 최소 리뷰 개수도 함께 요구한다.
+    // 상품당 이미지 장수 상한(product/image) — 슬라이더로 넘겨 보기에 적당하고 볼륨 용량도 통제된다.
+    private static final int MAX_IMAGES_PER_PRODUCT = 5;
+
     private static final double TRUSTED_SELLER_MIN_RATING = 4.5;
     private static final long TRUSTED_SELLER_MIN_REVIEW_COUNT = 3L;
 
@@ -197,7 +203,12 @@ public class ProductService {
         ProductReviewStatProjection reviewStat = reviewStatMap(List.of(productId)).get(productId);
         Double ratingAvg = reviewStat != null ? roundRating(reviewStat.averageRating()) : null;
         Integer reviewCnt = reviewStat != null && reviewStat.reviewCount() != null ? reviewStat.reviewCount().intValue() : 0;
-        return baseResponse.withReviewStats(ratingAvg, reviewCnt);
+        // 이미지 목록은 상세에서만 채운다 — 목록 조회(list)는 상품 20개를 한 번에 내리므로 여기서
+        // 이미지까지 조회하면 N+1이 된다. 카드에는 대표 이미지(product.imageUrl) 한 장이면 충분하다.
+        List<String> imageUrls = productImageRepository.findByProductIdOrderByDisplayOrderAsc(productId).stream()
+                .map(ProductImage::getUrl)
+                .toList();
+        return baseResponse.withReviewStats(ratingAvg, reviewCnt).withImages(imageUrls);
     }
 
     // 신규 상품이 어느 페이지에 들어갈지 특정할 수 없어(ORDER BY 없음) 목록 캐시를 전체 무효화한다.
@@ -217,6 +228,7 @@ public class ProductService {
         Product saved = productRepository.save(product);
 
         List<PriceTier> priceTiers = savePriceTiers(saved, request.priceTiers());
+        saveProductImages(saved, request.imageUrls());
         log.info("상품 등록 완료: productId={}, sellerId={}", saved.getId(), seller.getId());
         boolean trusted = trustedSellerMap(List.of(seller.getId())).getOrDefault(seller.getId(), false);
         return ProductResponse.of(saved, priceTiers, kakaoJsKey, trusted);
@@ -242,6 +254,8 @@ public class ProductService {
                 request.openAt());
         priceTierRepository.deleteByProductId(productId);
         List<PriceTier> priceTiers = savePriceTiers(product, request.priceTiers());
+        productImageRepository.deleteByProductId(productId);
+        saveProductImages(product, request.imageUrls());
 
         log.info("상품 수정 완료: productId={}", productId);
         Long sellerId = product.getSeller().getId();
@@ -261,6 +275,10 @@ public class ProductService {
         requireOwner(principal, product);
 
         priceTierRepository.deleteByProductId(productId);
+        // 상품을 지우면 이미지 행도 함께 지운다 — 남겨두면 FK 위반으로 삭제 자체가 실패한다.
+        // (볼륨의 실제 파일은 지우지 않는다 — 삭제 실패 시 파일만 사라지는 상태를 만들지 않기 위해,
+        //  파일 정리는 별도 관심사로 남겨둔다. 알려진 한계로 design.md에 기록.)
+        productImageRepository.deleteByProductId(productId);
         productRepository.delete(product);
         log.info("상품 삭제 완료: productId={}", productId);
     }
@@ -317,6 +335,41 @@ public class ProductService {
     private Product findProductWithSeller(Long productId) {
         return productRepository.findByIdWithSeller(productId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND));
+    }
+
+    /**
+     * 상품 이미지 목록을 저장하고 대표 이미지({@code Product.imageUrl})를 첫 장으로 맞춘다.
+     *
+     * <p>대표 이미지를 상품 행에 따로 들고 있는 건 의도적인 비정규화다 — 목록 조회는 상품 20개를 한 번에
+     * 내리는데 이미지를 매번 조인하면 N+1이 된다({@code group_buy_team.current_count}와 같은 결).
+     *
+     * <p>{@code imageUrls}가 비어 있으면 아무것도 하지 않는다. 즉 이 필드를 안 보내는 기존 클라이언트는
+     * 예전처럼 {@code imageUrl} 한 장만 쓰는 동작 그대로다.
+     */
+    private void saveProductImages(Product product, List<String> imageUrls) {
+        if (imageUrls == null || imageUrls.isEmpty()) {
+            return;
+        }
+        List<String> urls = imageUrls.stream()
+                .filter(url -> url != null && !url.isBlank())
+                .map(String::trim)
+                .distinct()
+                .toList();
+        if (urls.isEmpty()) {
+            return;
+        }
+        // 프론트에서도 막지만 서버가 다시 강제한다 — 프론트 가드는 우회 가능하고, 장수 제한은
+        // 볼륨 용량과 직결된 제약이다.
+        if (urls.size() > MAX_IMAGES_PER_PRODUCT) {
+            throw new BusinessException(ErrorCode.TOO_MANY_IMAGES);
+        }
+
+        List<ProductImage> images = new java.util.ArrayList<>();
+        for (int order = 0; order < urls.size(); order++) {
+            images.add(new ProductImage(product, urls.get(order), order));
+        }
+        productImageRepository.saveAll(images);
+        product.changeRepresentativeImage(urls.get(0));
     }
 
     private List<PriceTier> savePriceTiers(Product product, List<PriceTierRequest> requests) {

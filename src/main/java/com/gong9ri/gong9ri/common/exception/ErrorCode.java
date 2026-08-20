@@ -48,6 +48,12 @@ public enum ErrorCode {
     MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 회원입니다."),
     MEMBER_HAS_ACTIVITY(HttpStatus.CONFLICT,
             "상품·결제·리뷰 등 활동 기록이 있는 회원은 삭제할 수 없습니다. 정지 처리를 이용해주세요."),
+    // 상품 이미지 업로드(product/image) — 확장자·Content-Type이 아니라 실제 디코딩 가능 여부로 판정한다.
+    INVALID_IMAGE_FILE(HttpStatus.BAD_REQUEST, "이미지 파일이 아니거나 지원하지 않는 형식입니다."),
+    IMAGE_FILE_TOO_LARGE(HttpStatus.BAD_REQUEST, "이미지 한 장은 5MB까지 올릴 수 있습니다."),
+    TOO_MANY_IMAGES(HttpStatus.BAD_REQUEST, "상품 이미지는 최대 5장까지 등록할 수 있습니다."),
+    IMAGE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "이미지 저장에 실패했습니다."),
+
     NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 알림입니다.");
 
     private final HttpStatus httpStatus;
