@@ -93,6 +93,11 @@ class ProductControllerTest {
         return productRepository.save(product);
     }
 
+    private Product saveProduct(Member seller, String name, ProductCategory category, LocalDateTime openAt) {
+        Product product = new Product(seller, name, "설명", 10000, 10, null, false, category, openAt);
+        return productRepository.save(product);
+    }
+
     private Map<String, Object> registerRequestBody() {
         return Map.of(
                 "name", "제주 감귤 5kg",
@@ -292,6 +297,66 @@ class ProductControllerTest {
                 .andExpect(jsonPath("$.data.content.length()").value(1))
                 .andExpect(jsonPath("$.data.content[0].name").value("식품상품"))
                 .andExpect(jsonPath("$.data.content[0].category").value("FOOD"));
+    }
+
+    @Test
+    @DisplayName("category 지정 시 아직 오픈 전(openAt이 미래)인 그 카테고리 상품은 결과에서 제외되고, "
+            + "openAt이 지난(과거) 상품은 그대로 포함된다")
+    void list_filterByCategory_excludesNotYetOpenProductsOfThatCategory() throws Exception {
+        int size = 205; // 다른 테스트와 캐시 키(page+size+category+sort+openSoon)가 겹치지 않게 전용 size 사용
+        Member seller = saveMember("seller25", Role.SELLER);
+        saveProduct(seller, "오픈예정식품상품", ProductCategory.FOOD, LocalDateTime.now().plusDays(3));
+        saveProduct(seller, "이미공개된식품상품", ProductCategory.FOOD, LocalDateTime.now().minusDays(1));
+        saveProduct(seller, "오픈시각없는식품상품", ProductCategory.FOOD);
+
+        mockMvc.perform(get("/api/products").param("category", "FOOD").param("size", String.valueOf(size)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(2))
+                .andExpect(jsonPath("$.data.content[*].name",
+                        hasItem("이미공개된식품상품")))
+                .andExpect(jsonPath("$.data.content[*].name",
+                        hasItem("오픈시각없는식품상품")));
+    }
+
+    @Test
+    @DisplayName("openSoon=true면 openAt이 설정돼 있고 아직 미래인 상품만 반환된다")
+    void list_openSoonTrue_returnsOnlyNotYetOpenProducts() throws Exception {
+        int size = 206;
+        Member seller = saveMember("seller26", Role.SELLER);
+        saveProduct(seller, "오픈예정뷰티상품", ProductCategory.BEAUTY, LocalDateTime.now().plusDays(3));
+        saveProduct(seller, "이미공개된뷰티상품", ProductCategory.BEAUTY, LocalDateTime.now().minusDays(1));
+        saveProduct(seller, "오픈시각없는뷰티상품", ProductCategory.BEAUTY);
+
+        mockMvc.perform(get("/api/products").param("openSoon", "true").param("size", String.valueOf(size)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].name").value("오픈예정뷰티상품"));
+    }
+
+    @Test
+    @DisplayName("category·openSoon 둘 다 생략한 전체 조회는 오픈예정 상품도 포함해 기존과 동일하게 전부 반환된다")
+    void list_noCategoryNoOpenSoon_includesNotYetOpenProducts_noRegression() throws Exception {
+        int size = 207;
+        Member seller = saveMember("seller27", Role.SELLER);
+        saveProduct(seller, "전체조회오픈예정상품", ProductCategory.FASHION, LocalDateTime.now().plusDays(3));
+        saveProduct(seller, "전체조회공개된상품", ProductCategory.FASHION, LocalDateTime.now().minusDays(1));
+
+        mockMvc.perform(get("/api/products").param("size", String.valueOf(size)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[*].name", hasItem("전체조회오픈예정상품")))
+                .andExpect(jsonPath("$.data.content[*].name", hasItem("전체조회공개된상품")));
+    }
+
+    @Test
+    @DisplayName("category 없이 keyword만 있는 검색은 오픈예정 여부와 무관하게 기존과 동일하게 검색된다(회귀 없음)")
+    void list_keywordWithoutCategory_includesNotYetOpenProducts_noRegression() throws Exception {
+        Member seller = saveMember("seller28", Role.SELLER);
+        saveProduct(seller, "키워드오픈예정상품", ProductCategory.DIGITAL, LocalDateTime.now().plusDays(3));
+
+        mockMvc.perform(get("/api/products").param("keyword", "키워드오픈예정상품"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].name").value("키워드오픈예정상품"));
     }
 
     @Test

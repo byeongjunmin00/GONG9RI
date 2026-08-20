@@ -35,13 +35,27 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
 
     @Override
     public Page<Product> findAllWithSeller(Pageable pageable, ProductCategory category, ProductSort sort,
-            String keyword) {
+            String keyword, boolean openSoon) {
         BooleanExpression categoryCondition = category == null ? null : product.category.eq(category);
         // 검색어(product/list-search) — 상품명 또는 판매자명에 포함되면 매치(대소문자 무시). 둘 중
         // 하나만 걸려도 되는 OR 조건이라 category(AND)와 별도 변수로 둔다.
         BooleanExpression keywordCondition = (keyword == null || keyword.isBlank())
                 ? null
                 : product.name.containsIgnoreCase(keyword).or(product.seller.name.containsIgnoreCase(keyword));
+
+        // 오픈예정 탭 필터(product/list-enhancements) — openSoon=true면 아직 공개 전인(openAt이 미래인)
+        // 상품만, 아니면서 category가 지정된 경우(특정 카테고리 탭)는 반대로 아직 공개 전인 상품을
+        // 제외한다(그 카테고리 탭에는 오픈예정 상품이 보이지 않아야 한다). category도 openSoon도 없으면
+        // (전체 탭, 카테고리 미지정 검색) 이 조건은 아예 걸지 않아 기존과 동일하게 전부 포함한다.
+        LocalDateTime now = LocalDateTime.now();
+        BooleanExpression openSoonCondition;
+        if (openSoon) {
+            openSoonCondition = product.openAt.isNotNull().and(product.openAt.after(now));
+        } else if (category != null) {
+            openSoonCondition = product.openAt.isNull().or(product.openAt.loe(now));
+        } else {
+            openSoonCondition = null;
+        }
 
         List<OrderSpecifier<?>> orders = new ArrayList<>();
         if (sort == ProductSort.LATEST) {
@@ -75,7 +89,7 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
         List<Product> content = queryFactory
                 .selectFrom(product)
                 .join(product.seller).fetchJoin()
-                .where(categoryCondition, keywordCondition)
+                .where(categoryCondition, keywordCondition, openSoonCondition)
                 .orderBy(orders.toArray(new OrderSpecifier<?>[0]))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
@@ -85,7 +99,7 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
                 .select(product.count())
                 .from(product)
                 .join(product.seller)
-                .where(categoryCondition, keywordCondition)
+                .where(categoryCondition, keywordCondition, openSoonCondition)
                 .fetchOne();
 
         return new PageImpl<>(content, pageable, Objects.requireNonNullElse(total, 0L));

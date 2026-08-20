@@ -32,6 +32,38 @@
 - `DEADLINE`: 이 상품의 RECRUITING 팀 중 가장 이른 마감일(`MIN(deadline)`, 상관 서브쿼리)로 오름차순. MySQL은 ASC에서 NULL을 앞으로 보내는데(POPULAR의 DESC와 반대), 그러면 진행 중인 팀이 없는 상품이 "제일 급한 것"처럼 맨 위로 오는 정반대 결과가 나온다 — QueryDSL `OrderSpecifier.nullsLast()`로 명시적으로 뒤로 보낸다.
 - `sort`도 캐시 키에 포함한다. **정렬 결과(POPULAR/DEADLINE)는 캐시 TTL(30분)만큼 낡을 수 있다는 걸 의도적으로 허용한다** — 실시간 랭킹이 아니라 주기 갱신 랭킹으로 판단(다수 실서비스도 이런 방식). 아래 진행바 숫자와는 다른 신선도 기준을 적용한다는 점에 유의.
 
+### 오픈예정 필터(openSoon) — 카테고리 바 "오픈예정" 탭
+- 메인 페이지 카테고리 바에 `[전체]` 바로 다음(2번째) 탭으로 "오픈예정"을 추가한다 — 다른 카테고리
+  pill과 완전히 동일한 배타적 단일 선택으로 동작한다(`category`/`openSoon` 중 하나만 선택됨).
+  `ProductCategory` enum의 실제 값이 아니라 `openAt` 기준 시간 필터라 별도 쿼리파라미터
+  `openSoon`(boolean, 기본 `false`)으로 서버에 전달한다(`docs/api/product.md`).
+- **탭별 노출 규칙**: 오픈예정 상품(`openAt`이 미래)은 오픈 시각이 지나기 전까지 자신의 실제 카테고리
+  탭에는 노출되지 않는다 — 예를 들어 카테고리가 `FOOD`인 오픈예정 상품은 오픈 전까지 `[식품]` 탭에
+  보이지 않고 `[전체]`·`[오픈예정]` 탭에서만 보인다. 오픈 시각이 지나면 더 이상 오픈예정이 아니게
+  되므로 자연스럽게 `[식품]` 탭에도 나타난다.
+  - `category`가 없고 `openSoon`도 아닌 경우(전체 탭, 카테고리 미지정 검색 포함): 기존과 동일, 오픈예정
+    여부와 무관하게 전부 노출.
+  - `category`가 지정되고 `openSoon`이 아닌 경우(특정 카테고리 탭, 그 안에서의 검색 포함): 해당 카테고리
+    조건 **AND** 아직 공개 전이 아님(`openAt`이 없거나 이미 지남).
+  - `openSoon=true`인 경우: 오픈예정 상품만(`openAt`이 있고 아직 미래).
+  - `category`+`keyword` 조합은 keyword 자체의 새 규칙이 아니라 `category` 규칙의 자연스러운 연장이다.
+    `keyword`만 있고 `category`가 없는 검색은 오픈예정 여부와 무관하게 기존과 동일하게 검색된다.
+- `ProductRepositoryImpl.findAllWithSeller`가 `category`/`openSoon` 조합에 따라 QueryDSL
+  `BooleanExpression`을 조건부로 결정한다(`openSoon`이 새 필드를 추가하는 게 아니라 위 3가지 분기를
+  결정하는 입력).
+- **캐시 키**: `openSoon`을 목록 캐시 키에 포함한다(오픈예정 탭 자체가 별도 결과 집합이라 키에 없으면
+  캐시가 섞인다). 반면 "카테고리 탭에서 오픈예정 상품을 제외하는 것"은 새 캐시 축이 아니다 — `category`
+  값 자체가 이미 키에 있고, 그 값에 대응하는 쿼리 조건(제외 여부)은 항상 `category` 유무에 종속적으로
+  결정되므로 같은 `(page, size, category, sort, openSoon)` 조합은 항상 같은 SQL 조건으로 귀결된다.
+  다만 시간이 지나 상품의 오픈예정 상태가 바뀌어도(오픈 시각 도달) 캐시는 그 자체로 갱신 트리거가
+  없어(등록/수정/삭제 시에만 무효화), 특정 카테고리 탭 캐시가 TTL(30분) 동안 "방금 오픈된 상품"을
+  누락할 수 있다 — 기존 TTL 정책이 이미 감수하는 시간 기반 낡음(staleness)과 같은 성격이라 별도
+  해결책을 만들지 않는다. 실제 구매 차단은 항상 서버가 최종 판정하므로(product-launch 규칙) 기능
+  안전성엔 문제가 없다.
+- 오픈예정 상품끼리의 별도 정렬 기준(예: 오픈일이 가장 임박한 순)은 이번 스코프에 없다.
+- 관련 문서: `docs/dev/ongoing/product-open-soon-tab.md`(계획), `docs/dev/product/product-launch/design.md`
+  (상품 단위 `openAt` 필드 자체의 설계).
+
 ### 검색(keyword)
 - `product.name` 또는 `product.seller.name`(둘 중 하나만 걸려도 됨, OR)에 `containsIgnoreCase`로 매치.
 - **캐시하지 않는다** — `@Cacheable`의 `condition = "#keyword == null || #keyword.isBlank()"`로 검색어가 있으면 아예 캐시 저장/조회 자체를 건너뛴다. 검색어 조합은 사실상 무한해서 캐시 키에 넣으면 대부분 한 번 쓰고 버려지는 엔트리로 캐시가 계속 불어난다 — `ProductAiController`의 챗봇 상품검색 Tool(`findTop10ByNameContainingIgnoreCase`)도 같은 이유로 캐싱하지 않는 기존 선례와 동일한 판단.
@@ -46,4 +78,4 @@
 
 ## 관련 코드
 
-`entity/ProductCategory.java`, `entity/Product.java`(category 필드), `dto/ProductSort.java`, `dto/ProductSummaryResponse.java`(activeTeamCurrentCount/TargetParticipants + `withActiveTeamProgress()`), `repository/ProductRepositoryCustom.java`/`Impl.java`, `repository/GroupBuyTeamRepository.findByProductIdInAndStatus`, `service/ProductService.java`(`list()`, `attachActiveTeamProgress()`), `controller/ProductController.java`.
+`entity/ProductCategory.java`, `entity/Product.java`(category 필드, `openAt`/`isNotYetOpen()`은 product-launch), `dto/ProductSort.java`, `dto/ProductSummaryResponse.java`(activeTeamCurrentCount/TargetParticipants + `withActiveTeamProgress()`), `repository/ProductRepositoryCustom.java`/`Impl.java`(`findAllWithSeller`의 `openSoon` 파라미터), `repository/GroupBuyTeamRepository.findByProductIdInAndStatus`, `service/ProductService.java`(`list()`, `attachActiveTeamProgress()`), `controller/ProductController.java`, `static/js/main.js`(카테고리 바 "오픈예정" 탭), `static/js/header-search.js`(카테고리 바로가기 "오픈예정" 항목).

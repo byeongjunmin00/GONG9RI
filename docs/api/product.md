@@ -10,9 +10,10 @@
   |----------|------|------|--------|------|
   | page | int | N | 0 | 페이지 번호 (0-based) |
   | size | int | N | 20 | 페이지 크기 |
-  | category | String | N | (없음) | `FOOD`/`LIVING`/`BEAUTY`/`FASHION`/`DIGITAL`/`ETC` 중 하나. 생략하면 전체 카테고리(product/category, 메인 페이지 카테고리 바) |
+  | category | String | N | (없음) | `FOOD`/`LIVING`/`BEAUTY`/`FASHION`/`DIGITAL`/`ETC` 중 하나. 생략하면 전체 카테고리(product/category, 메인 페이지 카테고리 바). **지정된 경우(=특정 카테고리 탭 조회) `openSoon=true`가 아니라면 아직 공개 전인(`openAt`이 현재 시각 이후인) 상품은 결과에서 제외된다** — 오픈예정 상품은 오픈 시각이 지나기 전까지 자신의 실제 카테고리 탭에는 노출되지 않고 "전체" 탭과 "오픈예정" 탭에서만 보인다(product/list-enhancements). `category`를 생략한 전체 조회는 이 제외 없이 오픈예정 상품도 그대로 포함한다(기존과 동일, 회귀 없음) |
   | sort | String | N | (없음) | `LATEST`(등록일 내림차순) / `POPULAR`(RECRUITING 팀 중 참여 인원이 가장 많은 팀 기준 내림차순) / `DEADLINE`(RECRUITING 팀 중 가장 이른 마감일 기준 오름차순). `POPULAR`/`DEADLINE` 둘 다 진행 중인 팀 없는 상품은 맨 뒤. 생략하면 정렬 조건 없음(product/list-sort) |
-  | keyword | String | N | (없음) | 상품명 또는 판매자명에 포함된 상품만(대소문자 무시). 있으면 목록 캐시를 타지 않는다(product/list-search). 있으면 실시간 인기 검색어 집계에도 반영된다(product/search-trends) |
+  | keyword | String | N | (없음) | 상품명 또는 판매자명에 포함된 상품만(대소문자 무시). 있으면 목록 캐시를 타지 않는다(product/list-search). 있으면 실시간 인기 검색어 집계에도 반영된다(product/search-trends). `category` 없이 검색어만 있는 경우는 오픈예정 여부와 무관하게 기존과 동일하게 동작한다(오픈예정 상품도 검색됨) — `category`를 함께 지정하면 위 `category` 설명의 제외 규칙이 그대로 적용된다 |
+  | openSoon | boolean | N | false | `true`면 `openAt`이 설정돼 있고 현재 시각 이후인(아직 공개 전) 상품만 반환한다(메인 페이지 카테고리 바의 "오픈예정" 탭, [전체] 바로 다음 탭, product/list-enhancements). 프론트는 이 탭을 다른 카테고리 pill과 동일하게 배타적 단일 선택으로 쓰므로 `category`와 함께 보내지 않는다 |
 
 - 응답: `200 OK`
   ```json

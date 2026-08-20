@@ -132,7 +132,11 @@
     recentClearBtn.addEventListener('click', clearRecentSearches);
 
     // ---------- 카테고리 바로가기 (정적 — main.js의 CATEGORIES와 동일한 라벨, API 호출 불필요) ----------
+    // 이 목록엔 원래 "전체" 항목이 없다(goToCategory가 항상 특정 카테고리 값을 요구하는 구조라서) —
+    // "오픈예정"(openSoon: true, product/list-enhancements)도 실제 카테고리 값이 아니라 main.js
+    // 카테고리 바처럼 [전체] 다음이 아니라 이 목록의 맨 앞에 둔다(참고 주석 위와 동일한 이유).
     var CATEGORIES = [
+      { openSoon: true, label: '오픈예정' },
       { value: 'FOOD', label: '식품' },
       { value: 'LIVING', label: '생활/주방' },
       { value: 'BEAUTY', label: '뷰티' },
@@ -147,6 +151,12 @@
       window.location.href = url.pathname + url.search;
     }
 
+    function goToOpenSoon() {
+      var url = new URL('/index.html', window.location.origin);
+      url.searchParams.set('openSoon', 'true');
+      window.location.href = url.pathname + url.search;
+    }
+
     function renderCategories() {
       var fragment = document.createDocumentFragment();
       CATEGORIES.forEach(function (category) {
@@ -156,7 +166,11 @@
         btnEl.className = 'category-pill category-pill--sm';
         btnEl.textContent = category.label;
         btnEl.addEventListener('click', function () {
-          goToCategory(category.value);
+          if (category.openSoon) {
+            goToOpenSoon();
+          } else {
+            goToCategory(category.value);
+          }
         });
         itemEl.appendChild(btnEl);
         fragment.appendChild(itemEl);

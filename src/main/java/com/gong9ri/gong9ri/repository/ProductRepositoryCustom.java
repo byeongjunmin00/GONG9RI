@@ -17,7 +17,13 @@ public interface ProductRepositoryCustom {
     // sort가 POPULAR면 RECRUITING 팀 중 참여 인원이 가장 많은 팀 기준 내림차순, null이면 정렬 없음
     // (product/list-sort). keyword가 있으면 상품명 또는 판매자명에 포함된 것만(대소문자 무시,
     // product/list-search).
-    Page<Product> findAllWithSeller(Pageable pageable, ProductCategory category, ProductSort sort, String keyword);
+    // openSoon(product/list-enhancements의 오픈예정 탭, docs/dev/product/list-enhancements/design.md) —
+    // true면 openAt이 설정돼 있고 아직 미래인 상품만 반환한다. false이면서 category가 지정된 경우
+    // (특정 카테고리 탭 조회)는 반대로 아직 공개 전인 상품을 제외한다 — 오픈예정 상품은 오픈 시각이
+    // 지나기 전까지 자신의 실제 카테고리 탭에는 노출되지 않는다. category가 없고 openSoon도 아니면
+    // (전체 탭, 카테고리 미지정 검색) 오픈예정 여부와 무관하게 기존과 동일하게 전부 포함한다.
+    Page<Product> findAllWithSeller(Pageable pageable, ProductCategory category, ProductSort sort, String keyword,
+            boolean openSoon);
 
     Optional<Product> findByIdWithSeller(Long id);
 }

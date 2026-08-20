@@ -22,6 +22,7 @@ import com.gong9ri.gong9ri.entity.ProductCategory;
 import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.repository.MemberRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -92,18 +93,18 @@ class ProductCachingTest {
         Member seller = saveMember("listCacheSeller1", Role.SELLER);
         seedDummyProducts(seller, DUMMY_PRODUCT_COUNT);
 
-        ProductPageResponse first = productService.list(LIST_PAGE, size, null, null, null);
+        ProductPageResponse first = productService.list(LIST_PAGE, size, null, null, null, false);
         assertEquals(DUMMY_PRODUCT_COUNT, first.totalElements());
 
         // 캐시 무효화 경로(register/update/delete)를 거치지 않고 레포지토리에 직접 상품을 꽂아 넣는다 —
         // 캐시가 진짜로 이전 값을 들고 있는지 증명하기 위한 대조군.
         saveProduct(seller, "무효화안된새상품", 99000);
 
-        ProductPageResponse second = productService.list(LIST_PAGE, size, null, null, null);
+        ProductPageResponse second = productService.list(LIST_PAGE, size, null, null, null, false);
 
         assertEquals(first, second);
         assertNotEquals(DUMMY_PRODUCT_COUNT + 1, second.totalElements());
-        verify(productRepository, times(1)).findAllWithSeller(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
+        verify(productRepository, times(1)).findAllWithSeller(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.anyBoolean());
     }
 
     @Test
@@ -134,19 +135,19 @@ class ProductCachingTest {
         Member seller = saveMember("registerCacheSeller1", Role.SELLER);
         seedDummyProducts(seller, DUMMY_PRODUCT_COUNT);
 
-        ProductPageResponse before = productService.list(LIST_PAGE, size, null, null, null);
+        ProductPageResponse before = productService.list(LIST_PAGE, size, null, null, null, false);
         assertEquals(DUMMY_PRODUCT_COUNT, before.totalElements());
 
         productService.register(asPrincipal(seller), registerRequest("신규등록상품", 30000));
 
-        ProductPageResponse after = productService.list(LIST_PAGE, size, null, null, null);
+        ProductPageResponse after = productService.list(LIST_PAGE, size, null, null, null, false);
         assertNotEquals(before, after);
         assertEquals(DUMMY_PRODUCT_COUNT + 1, after.totalElements());
         assertTrue(after.content().stream()
                 .map(ProductSummaryResponse::name)
                 .anyMatch("신규등록상품"::equals));
 
-        verify(productRepository, times(2)).findAllWithSeller(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
+        verify(productRepository, times(2)).findAllWithSeller(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.anyBoolean());
     }
 
     @Test
@@ -158,13 +159,13 @@ class ProductCachingTest {
         Product target = saveProduct(seller, "수정전이름", 15000);
 
         ProductResponse detailBefore = productService.detail(target.getId());
-        ProductPageResponse listBefore = productService.list(LIST_PAGE, size, null, null, null);
+        ProductPageResponse listBefore = productService.list(LIST_PAGE, size, null, null, null, false);
         assertEquals("수정전이름", detailBefore.name());
 
         productService.update(asPrincipal(seller), target.getId(), registerRequest("수정후이름", 40000));
 
         ProductResponse detailAfter = productService.detail(target.getId());
-        ProductPageResponse listAfter = productService.list(LIST_PAGE, size, null, null, null);
+        ProductPageResponse listAfter = productService.list(LIST_PAGE, size, null, null, null, false);
 
         assertNotEquals(detailBefore, detailAfter);
         assertEquals("수정후이름", detailAfter.name());
@@ -181,7 +182,7 @@ class ProductCachingTest {
         // findByIdWithSeller는 3번 호출된다: detailBefore(캐시 미스) + update() 내부의
         // findProductWithSeller(소유자 검증용, 캐시와 무관한 평범한 조회) + detailAfter(무효화 후 캐시 미스).
         verify(productRepository, times(3)).findByIdWithSeller(target.getId());
-        verify(productRepository, times(2)).findAllWithSeller(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
+        verify(productRepository, times(2)).findAllWithSeller(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.anyBoolean());
     }
 
     @Test
@@ -192,7 +193,7 @@ class ProductCachingTest {
         seedDummyProducts(seller, DUMMY_PRODUCT_COUNT);
         Product target = saveProduct(seller, "삭제될상품", 12000);
 
-        ProductPageResponse listBefore = productService.list(LIST_PAGE, size, null, null, null);
+        ProductPageResponse listBefore = productService.list(LIST_PAGE, size, null, null, null, false);
         assertTrue(listBefore.content().stream()
                 .map(ProductSummaryResponse::name)
                 .anyMatch("삭제될상품"::equals));
@@ -200,7 +201,7 @@ class ProductCachingTest {
 
         productService.delete(asPrincipal(seller), target.getId());
 
-        ProductPageResponse listAfter = productService.list(LIST_PAGE, size, null, null, null);
+        ProductPageResponse listAfter = productService.list(LIST_PAGE, size, null, null, null, false);
         assertFalse(listAfter.content().stream()
                 .map(ProductSummaryResponse::name)
                 .anyMatch("삭제될상품"::equals));
@@ -210,6 +211,41 @@ class ProductCachingTest {
                 () -> productService.detail(target.getId()));
         assertEquals(ErrorCode.PRODUCT_NOT_FOUND, exception.getErrorCode());
 
-        verify(productRepository, times(2)).findAllWithSeller(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
+        verify(productRepository, times(2)).findAllWithSeller(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.anyBoolean());
+    }
+
+    @Test
+    @DisplayName("openSoon 값이 다르면 서로 다른 캐시 엔트리를 쓴다 — 같은 page/size/category/sort라도 캐시가 섞이지 않는다"
+            + " (product-open-soon-tab)")
+    void list_differentOpenSoon_usesSeparateCacheEntries() {
+        int size = 105;
+        Member seller = saveMember("openSoonCacheSeller1", Role.SELLER);
+        productRepository.save(new Product(seller, "오픈예정캐시테스트상품", "설명", 10000, 10, null, false,
+                ProductCategory.ETC, LocalDateTime.now().plusDays(3)));
+        saveProduct(seller, "일반캐시테스트상품", 5000);
+
+        ProductPageResponse openSoonFirst = productService.list(LIST_PAGE, size, null, null, null, true);
+        ProductPageResponse allFirst = productService.list(LIST_PAGE, size, null, null, null, false);
+
+        // openSoon=true(category 없음)는 오픈예정 상품만, openSoon=false(category 없음, "전체" 탭)는
+        // 오픈예정 여부와 무관하게 전부 포함한다 — 서로 다른 결과 집합이므로 키가 다르면 섞이지 않아야 한다.
+        assertEquals(1, openSoonFirst.totalElements());
+        assertEquals(2, allFirst.totalElements());
+        assertNotEquals(openSoonFirst, allFirst);
+
+        // 캐시 무효화 경로(register/update/delete)를 거치지 않고 데이터를 바꿔도, 각자의 캐시 엔트리를
+        // 재사용해 레포지토리를 우회한 채 이전 값 그대로를 반환해야 한다(진짜 캐시 히트 증명).
+        saveProduct(seller, "무효화안된새상품", 99000);
+
+        ProductPageResponse openSoonSecond = productService.list(LIST_PAGE, size, null, null, null, true);
+        ProductPageResponse allSecond = productService.list(LIST_PAGE, size, null, null, null, false);
+
+        assertEquals(openSoonFirst, openSoonSecond);
+        assertEquals(allFirst, allSecond);
+
+        verify(productRepository, times(1)).findAllWithSeller(ArgumentMatchers.any(), ArgumentMatchers.any(),
+                ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.eq(true));
+        verify(productRepository, times(1)).findAllWithSeller(ArgumentMatchers.any(), ArgumentMatchers.any(),
+                ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.eq(false));
     }
 }

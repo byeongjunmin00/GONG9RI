@@ -16,6 +16,13 @@
  * - 카테고리 바(#category-bar): product/category. 클릭 시 `?category=`를 URL에 반영하고
  *   목록을 처음부터(page 0) 다시 불러온다. 새로고침해도 선택이 유지되게 URL 쿼리파라미터를
  *   진실의 원천으로 쓴다(뒤로가기 히스토리 대응은 스코프 밖 — replaceState만 쓴다).
+ * - "오픈예정" 탭(product/list-enhancements, [전체] 바로 다음 2번째 탭): 다른 카테고리 pill과 완전히
+ *   동일한 배타적 단일 선택으로 동작한다 — 클릭 시 `category`를 해제하고 `?openSoon=true`를 반영,
+ *   다른 카테고리 클릭 시 `openSoon`을 해제하고 `?category=`를 반영한다. `ProductCategory` enum의
+ *   실제 값이 아니라 `openAt` 기준 시간 필터라, 서버에도 `category`와 별개의 쿼리파라미터로 보낸다.
+ *   카테고리 탭(전체 제외)은 서버가 그 카테고리에 속하더라도 아직 오픈 전인 상품을 결과에서
+ *   제외한다(docs/api/product.md) — 오픈예정 상품은 오픈 시각이 지나기 전까지 자신의 실제 카테고리
+ *   탭에는 보이지 않고 [전체]·[오픈예정] 탭에서만 보인다.
  * - 카드 참여 진행바(product/list-progress): 상품 응답의 activeTeamCurrentCount/
  *   activeTeamTargetParticipants가 둘 다 있을 때만(RECRUITING 팀이 있을 때만) 그린다 — 이 값은
  *   서버가 캐시 없이 매 요청 최신으로 계산해 내려준다(docs/api/product.md 참고).
@@ -188,8 +195,12 @@
 
   var PRODUCTS_PATH = '/products';
 
+  // "오픈예정"(openSoon)은 ProductCategory enum의 실제 값이 아니라 openAt 기준 시간 필터라
+  // value를 null로 두고 openSoon 플래그로 구분한다(다른 항목과 달리 category 조건이 아니라
+  // openSoon 쿼리파라미터로 서버에 전달됨, docs/dev/product/list-enhancements/design.md).
   var CATEGORIES = [
     { value: null, label: '전체' },
+    { value: null, label: '오픈예정', openSoon: true },
     { value: 'FOOD', label: '식품' },
     { value: 'LIVING', label: '생활/주방' },
     { value: 'BEAUTY', label: '뷰티' },
@@ -218,6 +229,7 @@
     category: new URLSearchParams(window.location.search).get('category') || null,
     sort: new URLSearchParams(window.location.search).get('sort') || 'LATEST',
     keyword: new URLSearchParams(window.location.search).get('keyword') || null,
+    openSoon: new URLSearchParams(window.location.search).get('openSoon') === 'true',
   };
   sortSelectEl.value = state.sort;
   searchInputEl.value = state.keyword || '';
@@ -575,6 +587,9 @@
     if (state.keyword) {
       params.push('keyword=' + encodeURIComponent(state.keyword));
     }
+    if (state.openSoon) {
+      params.push('openSoon=true');
+    }
     var path = params.length > 0 ? PRODUCTS_PATH + '?' + params.join('&') : PRODUCTS_PATH;
 
     return window.Api.get(path)
@@ -590,7 +605,10 @@
         state.loadedCount += content.length;
 
         if (page === 0 && content.length === 0) {
-          showStatus('아직 등록된 상품이 없습니다. 곧 새로운 공동구매가 열릴 예정이에요!', 'empty');
+          var emptyMessage = state.openSoon
+            ? '아직 오픈예정으로 등록된 상품이 없습니다. 곧 새로운 공동구매가 준비될 예정이에요!'
+            : '아직 등록된 상품이 없습니다. 곧 새로운 공동구매가 열릴 예정이에요!';
+          showStatus(emptyMessage, 'empty');
           loadMoreBtn.hidden = true;
           return;
         }
@@ -632,24 +650,42 @@
     fetchProducts(0);
   }
 
+  /**
+   * "전체"와 "오픈예정" 둘 다 category.value가 null이라(오픈예정은 실제 카테고리 값이 아니므로)
+   * openSoon 플래그까지 함께 봐야 어느 pill이 선택 상태인지 구분할 수 있다.
+   */
+  function isCategorySelected(category) {
+    if (category.openSoon) {
+      return state.openSoon === true;
+    }
+    return !state.openSoon && state.category === category.value;
+  }
+
   function renderCategoryBar() {
     var fragment = document.createDocumentFragment();
     CATEGORIES.forEach(function (category) {
       var btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'category-pill' + (state.category === category.value ? ' active' : '');
+      btn.className = 'category-pill' + (isCategorySelected(category) ? ' active' : '');
       btn.textContent = category.label;
       btn.addEventListener('click', function () {
-        if (state.category === category.value) {
+        if (isCategorySelected(category)) {
           return;
         }
-        state.category = category.value;
+        // 배타적 단일 선택 — 오픈예정을 고르면 category를 비우고, 카테고리를 고르면 openSoon을 끈다.
+        state.category = category.openSoon ? null : category.value;
+        state.openSoon = !!category.openSoon;
 
         var url = new URL(window.location.href);
-        if (category.value) {
-          url.searchParams.set('category', category.value);
+        if (state.category) {
+          url.searchParams.set('category', state.category);
         } else {
           url.searchParams.delete('category');
+        }
+        if (state.openSoon) {
+          url.searchParams.set('openSoon', 'true');
+        } else {
+          url.searchParams.delete('openSoon');
         }
         window.history.replaceState(null, '', url.pathname + url.search);
 

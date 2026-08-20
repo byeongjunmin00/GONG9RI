@@ -68,20 +68,27 @@ public class ProductService {
     // 달리 "정렬 순서"는 30분 단위로 갱신돼도 되는 수준의 신선도로 판단해 그대로 캐싱한다(순위 사이트
     // 다수가 실시간이 아니라 주기 갱신인 것과 같은 이유) — activeTeamCurrentCount처럼 캐시 밖으로
     // 빼지 않는다.
+    // openSoon(오픈예정 탭, product/list-enhancements)도 캐시 키에 포함한다 — 오픈예정 탭 자체가
+    // 카테고리 탭들과는 별도의 결과 집합이라 키에 없으면 캐시가 서로 섞인다. 반면 "카테고리 탭에서
+    // 오픈예정 상품을 제외하는 것"은 새 캐시 축이 아니다 — category 값 자체가 이미 키에 있고, 그
+    // 값에 대응하는 쿼리 조건(오픈예정 제외 여부)은 항상 category 유무에 종속적으로 결정되므로 같은
+    // (page, size, category, sort, openSoon) 조합은 항상 같은 SQL 조건으로 귀결된다
+    // (docs/dev/ongoing/product-open-soon-tab.md "캐시 키" 절 참고).
     // keyword(product/list-search)가 있으면 아예 캐싱하지 않는다(condition) — 검색어는 조합이 사실상
     // 무한해서 캐시 키를 넣으면 대부분 한 번 쓰고 버려지는 엔트리로 캐시가 계속 불어난다(챗봇 상품검색
     // Tool의 findTop10ByNameContainingIgnoreCase도 같은 이유로 캐싱 안 함, ProductAiController 참고).
     @Cacheable(cacheNames = CacheConfig.PRODUCT_LIST_CACHE,
             condition = "#keyword == null || #keyword.isBlank()",
             key = "#page + '-' + #size + '-' + (#category != null ? #category : 'ALL')"
-                    + " + '-' + (#sort != null ? #sort : 'NONE')")
-    public ProductPageResponse list(int page, int size, ProductCategory category, ProductSort sort, String keyword) {
+                    + " + '-' + (#sort != null ? #sort : 'NONE') + '-' + #openSoon")
+    public ProductPageResponse list(int page, int size, ProductCategory category, ProductSort sort, String keyword,
+            boolean openSoon) {
         // 실시간 인기 검색어(product/search-trends) 집계 — 이 메서드는 keyword가 있으면 캐시를 타지
         // 않아(@Cacheable condition) 실제 검색마다 항상 실행되므로, 집계 누락 없이 여기서 기록한다.
         searchTrendService.recordSearch(keyword);
 
         Pageable pageable = PageRequest.of(page, size);
-        Page<Product> products = productRepository.findAllWithSeller(pageable, category, sort, keyword);
+        Page<Product> products = productRepository.findAllWithSeller(pageable, category, sort, keyword, openSoon);
 
         List<Long> productIds = products.getContent().stream().map(Product::getId).toList();
         Map<Long, Integer> bestPrices = productIds.isEmpty()
