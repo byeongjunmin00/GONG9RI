@@ -39,4 +39,9 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     // 관리자 회원 삭제 — 다른 테이블이 참조하지 않는 leaf 데이터라 회원 삭제 시 함께 지운다(product/admin).
     @Transactional
     void deleteByMemberId(Long memberId);
+
+    // 관리자 강제 삭제(product/admin) — 장난성 게시물처럼 결제·리뷰가 붙어도 지워야 할 때만 쓴다.
+    // 알림이 공구팀(relatedTeam)을 참조하므로 팀을 지우기 전에 먼저 정리한다.
+    @Transactional
+    void deleteByRelatedTeam_Product_Id(Long productId);
 }

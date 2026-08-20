@@ -79,6 +79,14 @@ public class Product {
     @Column
     private LocalDateTime openAt;
 
+    // 관리자 숨김(product/admin, 2026-08-21). true면 목록·상세에서 일반 사용자에게 보이지 않는다.
+    // 삭제와 달리 **되돌릴 수 있고 데이터가 남는다** — 결제·리뷰가 달려 삭제할 수 없는 상품(FK 제약)을
+    // 치우거나, 잠깐만 내렸다가 되살릴 때 쓴다. 기존 row가 있는 테이블에 NOT NULL 컬럼을 추가하는
+    // 마이그레이션이라 autoRefundOnCancel과 동일하게 @ColumnDefault로 SQL DEFAULT 절을 만든다.
+    @Column(nullable = false)
+    @ColumnDefault("false")
+    private boolean hidden;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -142,5 +150,14 @@ public class Product {
 
     public boolean isNotYetOpen() {
         return openAt != null && openAt.isAfter(LocalDateTime.now());
+    }
+
+    /** 관리자 숨김 (product/admin). 되돌릴 수 있다 — 데이터는 그대로 남는다. */
+    public void hide() {
+        this.hidden = true;
+    }
+
+    public void unhide() {
+        this.hidden = false;
     }
 }

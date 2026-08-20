@@ -5,6 +5,7 @@ import com.gong9ri.gong9ri.entity.PaymentStatus;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.transaction.annotation.Transactional;
 
 public interface PaymentRepository extends JpaRepository<Payment, Long>, PaymentRepositoryCustom {
 
@@ -21,6 +22,10 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>, Payment
 
     // 상품 삭제 가드(product/admin) — 결제가 하나라도 있으면 삭제를 막는다.
     boolean existsByProduct_Id(Long productId);
+
+    // 관리자 강제 삭제(product/admin) — 장난성 게시물처럼 결제·리뷰가 붙어도 지워야 할 때만 쓴다.
+    @Transactional
+    void deleteByProduct_Id(Long productId);
 
     // 참여 취소(team/leave) — 취소한 사람이 그 팀에 대해 PAID 결제를 갖고 있으면 환불 요청 자동 생성
     // 대상이다(docs/dev/ongoing/team-leave-and-refund-request.md).

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- 파비콘 — 헤더 로고의 너구리 마크를 배경 없이 그대로 쓴다(꼬리까지, 브랜드 그라데이션).
+       크기별로 선 굵기만 다르다: 작게 줄일수록 원본 아웃라인이 픽셀보다 얇아져 사라지기 때문.
+       16px에서는 그래도 뭉개지는데, 요즘 디스플레이는 16px 자리에도 32px를 가져가므로
+       실사용에서는 대부분 또렷한 쪽을 보게 된다(2026-08-20).
+       하위 디렉터리 페이지도 있어 경로는 절대경로다. -->
+  <link rel="icon" href="/images/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" href="/images/favicon-32.png" sizes="32x32" />
+  <link rel="apple-touch-icon" href="/images/favicon-180.png" />
+  <title>상담 관리 — GONG9RI 관리자</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&display=swap"
+    rel="stylesheet"
+  />
+  <link
+    rel="stylesheet"
+    as="style"
+    crossorigin
+    href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"
+  />
+
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/layout.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+</head>
+<body>
+  <div data-include="header"></div>
+
+  <main>
+    <section class="section container">
+      <div class="section__head">
+        <h1><span class="text-gradient">상담 관리</span></h1>
+        <p class="text-muted" style="margin-top: var(--space-2);">
+          답을 기다리는 상담이 위로 옵니다.
+        </p>
+      </div>
+
+      <div id="page-alert" class="form-alert form-alert--error" role="alert" hidden>
+        <span id="page-alert-text"></span>
+      </div>
+
+      <nav style="display:flex; gap: var(--space-3); margin-bottom: var(--space-5);">
+        <a href="/admin/dashboard.html" class="btn btn-secondary btn-sm">대시보드</a>
+        <a href="/admin/members.html" class="btn btn-secondary btn-sm">회원 관리</a>
+        <a href="/admin/products.html" class="btn btn-secondary btn-sm">상품 현황</a>
+        <a href="/admin/refunds.html" class="btn btn-secondary btn-sm">환불 요청 현황</a>
+        <a href="/admin/support.html" class="btn btn-primary btn-sm">상담 관리</a>
+      </nav>
+
+      <div class="support-admin-grid">
+        <div>
+          <div id="rooms-status" class="product-status">불러오는 중...</div>
+          <ul id="rooms-list" class="support-admin-rooms"></ul>
+        </div>
+
+        <div class="support-admin-thread">
+          <div class="support-widget__header">
+            <span class="support-widget__title" id="thread-title">상담을 선택하세요</span>
+            <button type="button" id="close-room-btn" class="btn btn-secondary btn-sm" hidden>상담 종료</button>
+          </div>
+          <p id="thread-status" class="support-widget__status">왼쪽에서 상담을 고르면 대화가 보입니다.</p>
+          <ul id="thread-messages" class="support-widget__messages"></ul>
+          <p id="thread-typing" class="support-widget__typing" hidden>고객이 입력 중...</p>
+          <form id="thread-form" class="support-widget__form" hidden>
+            <input type="text" id="thread-input" class="support-widget__input"
+                   placeholder="답변을 입력하세요" maxlength="1000" autocomplete="off" />
+            <button type="submit" class="btn btn-primary btn-sm">보내기</button>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div data-include="footer"></div>
+
+  <script src="/js/include.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/header-auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.0.0/bundles/stomp.umd.min.js"></script>
+  <script src="/js/support-chat-client.js"></script>
+  <script src="/js/header-search.js"></script>
+  <script src="/js/header-notifications.js"></script>
+  <script src="/js/header-wishlist-badge.js"></script>
+  <script src="/js/admin-guard.js"></script>
+  <script src="/js/admin-support.js"></script>
+</body>
+</html>

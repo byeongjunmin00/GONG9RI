@@ -25,6 +25,11 @@ import com.gong9ri.gong9ri.repository.ProductImageRepository;
 import com.gong9ri.gong9ri.repository.PaymentRepository;
 import com.gong9ri.gong9ri.repository.WishlistRepository;
 import com.gong9ri.gong9ri.repository.InquiryRepository;
+import com.gong9ri.gong9ri.repository.RefundRequestRepository;
+import com.gong9ri.gong9ri.repository.NotificationRepository;
+import com.gong9ri.gong9ri.repository.TeamParticipationRepository;
+import com.gong9ri.gong9ri.repository.SellerRevenueSummaryRepository;
+import com.gong9ri.gong9ri.repository.RevenueSummaryProjection;
 import com.gong9ri.gong9ri.repository.ProductRepository;
 import com.gong9ri.gong9ri.repository.ProductReviewStatProjection;
 import com.gong9ri.gong9ri.repository.ReviewRepository;
@@ -59,6 +64,11 @@ public class ProductService {
     private final PaymentRepository paymentRepository;
     private final WishlistRepository wishlistRepository;
     private final InquiryRepository inquiryRepository;
+    // 관리자 강제 삭제 전용(product/admin)
+    private final RefundRequestRepository refundRequestRepository;
+    private final NotificationRepository notificationRepository;
+    private final TeamParticipationRepository teamParticipationRepository;
+    private final SellerRevenueSummaryRepository sellerRevenueSummaryRepository;
     private final SearchTrendService searchTrendService;
 
     @Value("${kakao.js-key}")
@@ -203,10 +213,40 @@ public class ProductService {
         return team.getMaxParticipants() == 0 ? 0 : (double) team.getCurrentCount() / team.getMaxParticipants();
     }
 
+    /**
+     * 관리자 상품 현황 (product/admin) — <b>숨김 상품까지 전부</b> 보여준다.
+     *
+     * <p>공개 목록({@link #list})은 숨김을 빼기 때문에, 그걸 그대로 쓰면 숨긴 상품을 되돌릴 방법이
+     * 없어진다. 캐시도 타지 않는다 — 관리자 화면은 방금 한 숨김/삭제가 즉시 반영돼야 한다.
+     */
+    public ProductPageResponse listForAdmin(int page, int size) {
+        if (page < 0 || size < 1) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+        }
+        Page<Product> products = productRepository.findAllForAdmin(PageRequest.of(page, size));
+        List<Long> productIds = products.getContent().stream().map(Product::getId).toList();
+        Map<Long, Integer> bestPrices = productIds.isEmpty()
+                ? Map.of()
+                : priceTierRepository.findBestPricesByProductIds(productIds).stream()
+                        .collect(Collectors.toMap(BestPriceProjection::getProductId, BestPriceProjection::getBestPrice));
+
+        // 관리자 화면은 신뢰배지·리뷰 통계를 안 쓴다 — 목록에 필요 없는 집계를 위해 쿼리를 더 쏘지 않는다.
+        Page<ProductSummaryResponse> mapped = products.map(product ->
+                ProductSummaryResponse.of(product, bestPrices.get(product.getId()), false, null, 0));
+        return ProductPageResponse.of(mapped);
+    }
+
     // 상품 상세도 등록/수정/삭제 전까지 안 변해 productId 기준으로 캐싱한다 (docs/policy/caching.md).
     @Cacheable(cacheNames = CacheConfig.PRODUCT_DETAIL_CACHE, key = "#productId")
     public ProductResponse detail(Long productId) {
         Product product = findProductWithSeller(productId);
+        // 숨김 상품은 직접 링크로도 열리지 않는다 — 목록에서만 빼면 주소를 아는 사람은 계속 볼 수 있다.
+        // **관리자에게도 똑같이 404다.** 이 응답은 productId만으로 캐싱되므로 요청자 역할에 따라
+        // 결과가 달라지면 관리자가 조회한 값이 캐시에 남아 모두에게 나간다. 관리자는 상품 현황 목록
+        // (GET /api/admin/products)에서 숨김 상태를 보고 되돌린다.
+        if (product.isHidden()) {
+            throw new BusinessException(ErrorCode.PRODUCT_NOT_FOUND);
+        }
         List<PriceTier> priceTiers = priceTierRepository.findByProductIdOrderByMinCountAsc(productId);
         boolean trusted = trustedSellerMap(List.of(product.getSeller().getId()))
                 .getOrDefault(product.getSeller().getId(), false);
@@ -289,6 +329,35 @@ public class ProductService {
     }
 
     /**
+     * 관리자 상품 숨김/해제 (product/admin).
+     *
+     * <p>삭제와 달리 <b>되돌릴 수 있고 데이터가 그대로 남는다.</b> 결제·리뷰가 달려 삭제할 수 없는
+     * 상품(FK 제약)을 목록에서 치우거나, 잠깐 내렸다가 되살릴 때 쓴다.
+     */
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CacheConfig.PRODUCT_DETAIL_CACHE, key = "#productId"),
+            @CacheEvict(cacheNames = CacheConfig.PRODUCT_LIST_CACHE, allEntries = true)
+    })
+    public void setHiddenByAdmin(MemberUserDetails principal, Long productId, boolean hidden) {
+        requireAdminRole(principal);
+        Product product = findProductWithSeller(productId);
+        if (hidden) {
+            product.hide();
+        } else {
+            product.unhide();
+        }
+        log.info("관리자 상품 {}: adminId={}, productId={}",
+                hidden ? "숨김" : "숨김 해제", principal.getMember().getId(), productId);
+    }
+
+    private void requireAdminRole(MemberUserDetails principal) {
+        if (principal.getMember().getRole() != Role.ADMIN) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+    }
+
+    /**
      * 관리자 상품 삭제 (product/admin). 판매자 본인이 아니어도 지울 수 있다는 점만 다르고, 삭제 정책과
      * 캐시 무효화는 판매자 삭제와 완전히 동일하다 — 두 경로가 갈라지면 한쪽만 고쳐지는 일이 생긴다.
      *
@@ -299,13 +368,56 @@ public class ProductService {
             @CacheEvict(cacheNames = CacheConfig.PRODUCT_DETAIL_CACHE, key = "#productId"),
             @CacheEvict(cacheNames = CacheConfig.PRODUCT_LIST_CACHE, allEntries = true)
     })
-    public void deleteByAdmin(MemberUserDetails principal, Long productId) {
-        if (principal.getMember().getRole() != Role.ADMIN) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
+    public void deleteByAdmin(MemberUserDetails principal, Long productId, boolean force) {
+        requireAdminRole(principal);
         Product product = findProductWithSeller(productId);
+        Long sellerId = product.getSeller().getId();
+
+        if (force) {
+            forceDeleteRelated(productId);
+        }
         deleteInternal(product, productId);
-        log.info("관리자 상품 삭제: adminId={}, productId={}", principal.getMember().getId(), productId);
+
+        if (force) {
+            // 매출 요약은 결제마다 누적(incrementPaid)만 하는 집계 테이블이라, 결제를 지워도 저절로
+            // 줄지 않는다. 남은 결제 기준으로 다시 계산해 덮어쓴다 — 안 하면 판매자 수익이 실제보다
+            // 부풀려진 채로 남는다.
+            recomputeRevenueSummary(sellerId);
+        }
+        log.info("관리자 상품 삭제: adminId={}, productId={}, force={}",
+                principal.getMember().getId(), productId, force);
+    }
+
+    /**
+     * 강제 삭제 — 상품에 딸린 결제·리뷰·공구팀까지 전부 지운다 (product/admin).
+     *
+     * <p><b>순서가 곧 정확성이다.</b> 이 테이블들은 FK(NO ACTION)로 묶여 있어서, 참조하는 쪽을 먼저
+     * 지우지 않으면 그 자리에서 실패한다. 실제 참조 관계는 다음과 같다(information_schema 확인):
+     * <pre>
+     *   refund_request → payment → product
+     *   notification, team_participation, payment → group_buy_team → product
+     * </pre>
+     *
+     * <p>일반 삭제가 막는 데이터를 일부러 지우는 경로다. 장난성 게시물 정리처럼 <b>기록을 남길 가치가
+     * 없다고 관리자가 판단한 경우</b>에만 쓴다. 되돌릴 수 있는 정리는 숨김(setHiddenByAdmin)이 맞다.
+     */
+    private void forceDeleteRelated(Long productId) {
+        refundRequestRepository.deleteByPayment_Product_Id(productId);
+        paymentRepository.deleteByProduct_Id(productId);
+        reviewRepository.deleteByProductId(productId);
+        notificationRepository.deleteByRelatedTeam_Product_Id(productId);
+        teamParticipationRepository.deleteByTeam_Product_Id(productId);
+        groupBuyTeamRepository.deleteByProduct_Id(productId);
+    }
+
+    private void recomputeRevenueSummary(Long sellerId) {
+        RevenueSummaryProjection recomputed = paymentRepository.findRevenueSummaryBySellerId(sellerId);
+        int updated = sellerRevenueSummaryRepository.overwrite(sellerId,
+                recomputed.getTotalRevenue(), recomputed.getPaidCount(), recomputed.getRefundedCount());
+        if (updated > 0) {
+            log.info("강제 삭제 후 매출 요약 재계산: sellerId={}, totalRevenue={}, paidCount={}",
+                    sellerId, recomputed.getTotalRevenue(), recomputed.getPaidCount());
+        }
     }
 
     /**

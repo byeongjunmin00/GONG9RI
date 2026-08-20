@@ -2267,3 +2267,238 @@
   opacity: 1;
   border-color: var(--color-pink);
 }
+
+/* ---------- Support widget (관리자 1:1 실시간 상담, support/chat) ---------- */
+/* AI 챗봇 위젯과 나란히 뜬다 — 겹치지 않게 이 위젯을 챗봇 버튼 위로 올린다.
+   챗봇은 구매자 전용이라 판매자 화면에서는 이 위젯만 보이고, 그때도 자리가 어색하지 않도록
+   같은 오른쪽 정렬을 유지한다. */
+.support-widget__button {
+  position: fixed;
+  right: var(--space-5);
+  bottom: calc(56px + var(--space-5) + var(--space-3));
+  z-index: 1000;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-width: 64px;
+  height: 48px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-heading);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  box-shadow: var(--shadow-md);
+}
+
+.support-widget__button:hover {
+  transform: translateY(-2px);
+}
+
+.support-widget__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-pink);
+  color: #fff;
+  font-size: var(--fs-xs);
+  font-weight: 800;
+}
+
+.support-widget__panel {
+  position: fixed;
+  right: var(--space-5);
+  bottom: calc(56px + 48px + var(--space-5) + var(--space-4));
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  width: 340px;
+  max-width: calc(100vw - (var(--space-5) * 2));
+  height: 460px;
+  max-height: calc(100vh - 200px);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.support-widget__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  background: var(--gradient-brand);
+  color: var(--color-text-on-brand);
+}
+
+.support-widget__title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+}
+
+.support-widget__close {
+  border: none;
+  background: none;
+  color: inherit;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.support-widget__status {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--fs-sm);
+}
+
+.support-widget__messages {
+  flex: 1;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  list-style: none;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.support-message {
+  display: flex;
+  flex-direction: column;
+  max-width: 85%;
+}
+
+/* 내가 보낸 건 오른쪽, 상담원이 보낸 건 왼쪽 — 대화 흐름이 한눈에 갈리게 한다. */
+.support-message--mine {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.support-message--admin {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.support-message__body {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  /* 상대가 줄바꿈해서 보낸 걸 그대로 보여준다(상품 설명에서 겪은 것과 같은 이유). */
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.support-message--mine .support-message__body {
+  background: var(--gradient-brand);
+  color: var(--color-text-on-brand);
+}
+
+.support-message--admin .support-message__body {
+  background-color: var(--color-surface-alt);
+  color: var(--color-text);
+}
+
+.support-message__meta {
+  margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: var(--fs-xs);
+}
+
+.support-widget__typing {
+  margin: 0;
+  padding: 0 var(--space-4) var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--fs-xs);
+}
+
+.support-widget__form {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.support-widget__input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+}
+
+/* 관리자 상담 화면 — 왼쪽 방 목록, 오른쪽 대화 */
+.support-admin-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.support-admin-rooms {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.support-admin-room {
+  width: 100%;
+  text-align: left;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  cursor: pointer;
+}
+
+.support-admin-room.is-active {
+  border-color: var(--color-pink);
+}
+
+.support-admin-room__name {
+  display: block;
+  font-weight: 700;
+}
+
+.support-admin-room__meta {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: var(--fs-xs);
+}
+
+.support-admin-thread {
+  display: flex;
+  flex-direction: column;
+  height: 520px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  overflow: hidden;
+}
+
+@media (max-width: 767px) {
+  .support-admin-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .support-widget__panel {
+    left: var(--space-4);
+    right: var(--space-4);
+    width: auto;
+  }
+}
+

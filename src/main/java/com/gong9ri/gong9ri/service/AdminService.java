@@ -6,6 +6,7 @@ import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.dto.AdminDashboardResponse;
 import com.gong9ri.gong9ri.dto.AdminMemberPageResponse;
 import com.gong9ri.gong9ri.dto.AdminRefundPageResponse;
+import com.gong9ri.gong9ri.dto.ProductPageResponse;
 import com.gong9ri.gong9ri.entity.Member;
 import com.gong9ri.gong9ri.entity.RefundRequest;
 import com.gong9ri.gong9ri.entity.RefundRequestStatus;
@@ -110,9 +111,21 @@ public class AdminService {
     // 상품 삭제는 ProductService에 맡긴다 — 삭제 정책(결제·팀·리뷰가 있으면 거절)과 캐시 무효화가
     // 판매자 삭제와 완전히 같아야 하는데, 여기서 따로 구현하면 한쪽만 고쳐지는 일이 생긴다.
     @Transactional
-    public void deleteProduct(MemberUserDetails principal, Long productId) {
+    public void deleteProduct(MemberUserDetails principal, Long productId, boolean force) {
         requireAdmin(principal);
-        productService.deleteByAdmin(principal, productId);
+        productService.deleteByAdmin(principal, productId, force);
+    }
+
+    // 숨김은 "되돌릴 수 있는 정리"다 — 결제·리뷰가 붙어 지울 수 없는 상품을 목록에서 치울 때 쓴다.
+    @Transactional
+    public void setProductHidden(MemberUserDetails principal, Long productId, boolean hidden) {
+        requireAdmin(principal);
+        productService.setHiddenByAdmin(principal, productId, hidden);
+    }
+
+    public ProductPageResponse products(MemberUserDetails principal, int page, int size) {
+        requireAdmin(principal);
+        return productService.listForAdmin(page, size);
     }
 
     public AdminDashboardResponse dashboard(MemberUserDetails principal) {

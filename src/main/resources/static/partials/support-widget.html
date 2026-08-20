@@ -1,0 +1,47 @@
+<!--
+  support-widget.html — 관리자 1:1 실시간 상담 플로팅 위젯 (support/chat)
+
+  * AI 챗봇 위젯(chat-widget)과 **별도 진입점**이다. 챗봇은 구매자 전용이지만 상담은 판매자도
+    써야 해서 합치지 않았다(2026-08-21 사용자 결정). 두 위젯이 화면에서 겹치지 않도록
+    components.css에서 이 위젯을 위로 띄운다.
+  * 최상위(#support-widget)는 기본 hidden — js/support-widget.js가 'gong9ri:auth-resolved'를
+    구독해 **로그인 상태이고 관리자가 아닐 때만** 노출한다(관리자는 전용 화면에서 상담을 받는다).
+  * 메시지는 전부 textContent로만 채운다(innerHTML 미사용) — 상대가 보낸 문자열이 그대로 들어온다.
+-->
+<div id="support-widget" class="support-widget" hidden>
+  <button
+    type="button"
+    id="support-widget-toggle"
+    class="support-widget__button"
+    aria-haspopup="true"
+    aria-controls="support-widget-panel"
+    aria-label="고객센터 상담 열기"
+  >고객센터
+    <span id="support-widget-badge" class="support-widget__badge" hidden></span>
+  </button>
+
+  <div id="support-widget-panel" class="support-widget__panel" role="dialog" aria-label="고객센터 상담" hidden>
+    <div class="support-widget__header">
+      <span class="support-widget__title">고객센터 상담</span>
+      <button type="button" id="support-widget-close" class="support-widget__close" aria-label="닫기">&times;</button>
+    </div>
+
+    <p id="support-widget-status" class="support-widget__status">상담을 불러오는 중입니다...</p>
+
+    <ul id="support-widget-messages" class="support-widget__messages"></ul>
+
+    <p id="support-widget-typing" class="support-widget__typing" hidden>상담원이 입력 중...</p>
+
+    <form id="support-widget-form" class="support-widget__form">
+      <input
+        type="text"
+        id="support-widget-input"
+        class="support-widget__input"
+        placeholder="무엇을 도와드릴까요?"
+        maxlength="1000"
+        autocomplete="off"
+      />
+      <button type="submit" id="support-widget-send" class="btn btn-primary btn-sm">보내기</button>
+    </form>
+  </div>
+</div>

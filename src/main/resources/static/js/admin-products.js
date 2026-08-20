@@ -1,12 +1,15 @@
 /**
  * admin-products.js — 상품 현황(admin/products.html) 전용 스크립트
  *
- * 목록은 새 백엔드를 만들지 않고 기존 공개 GET /api/products를 그대로 호출한다(이미 전체 상품을
- * 페이지네이션 조회할 수 있어서 관리자용으로 새로 만들 이유가 없음, docs/dev/admin/design.md 참고).
+ * 목록은 GET /api/admin/products를 쓴다 — 공개 목록(GET /api/products)은 숨김 상품을 빼기 때문에,
+ * 그걸 쓰면 숨긴 상품을 되돌릴 방법이 없어진다(2026-08-21).
  *
- * 삭제는 관리자 전용이라 별도 경로다: window.confirm 확인 후 DELETE /api/admin/products/{id}.
- * 성공(204)하면 목록에서 그 행만 제거하고, 409(PRODUCT_HAS_ACTIVITY — 결제·공구팀·리뷰가 있는 상품)면
- * 그 사유를 alert로 보여준다(회원 삭제의 MEMBER_HAS_ACTIVITY와 같은 정책, 2026-08-21 사용자 요청).
+ * 행마다 액션이 셋이다.
+ * - **숨김/숨김 해제**: PATCH /api/admin/products/{id}/hidden?hidden=true|false.
+ *   되돌릴 수 있는 정리 — 결제·리뷰가 붙어 삭제할 수 없는 상품을 목록에서 치울 때.
+ * - **삭제**: DELETE /api/admin/products/{id}. 활동(결제·공구팀·리뷰)이 있으면 409로 거절된다.
+ * - **강제 삭제**: 위 409가 났을 때만 노출. DELETE ...?force=true로 결제·리뷰까지 함께 지운다.
+ *   되돌릴 수 없어서 확인을 한 번 더 받는다(장난성 게시물 정리용).
  */
 (function () {
   var pageAlertEl = document.getElementById('page-alert');
@@ -45,9 +48,7 @@
 
     var metaEl = document.createElement('span');
     metaEl.className = 'mypage-list-item__meta';
-    metaEl.textContent =
-      (product.sellerName || '') + ' · ' + product.category + ' · ' + formatPrice(product.basePrice) +
-      (product.openAt ? ' · 오픈예정' : '');
+    metaEl.textContent = buildMeta(product);
     infoEl.appendChild(metaEl);
 
     li.appendChild(infoEl);
@@ -59,6 +60,15 @@
     viewLink.href = '/product.html?id=' + product.productId;
     viewLink.textContent = '상세보기';
     actionsEl.appendChild(viewLink);
+
+    var hideBtn = document.createElement('button');
+    hideBtn.type = 'button';
+    hideBtn.className = 'btn btn-secondary btn-sm';
+    hideBtn.textContent = product.hidden ? '숨김 해제' : '숨기기';
+    hideBtn.addEventListener('click', function () {
+      handleToggleHidden(product, li, hideBtn, metaEl);
+    });
+    actionsEl.appendChild(hideBtn);
 
     var deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
@@ -72,6 +82,34 @@
     li.appendChild(actionsEl);
 
     return li;
+  }
+
+  function buildMeta(product) {
+    return [
+      product.sellerName || '',
+      product.category,
+      formatPrice(product.basePrice),
+      product.openAt ? '오픈예정' : '',
+      product.hidden ? '숨김' : '',
+    ].filter(Boolean).join(' · ');
+  }
+
+  function handleToggleHidden(product, li, btn, metaEl) {
+    var next = !product.hidden;
+    btn.disabled = true;
+    window.Api.patch('/admin/products/' + product.productId + '/hidden?hidden=' + next)
+      .then(function () {
+        product.hidden = next;
+        btn.textContent = next ? '숨김 해제' : '숨기기';
+        metaEl.textContent = buildMeta(product);
+      })
+      .catch(function (err) {
+        console.error('[admin-products.js] toggle hidden failed:', err);
+        window.alert((err && err.message) || '처리에 실패했습니다.');
+      })
+      .then(function () {
+        btn.disabled = false;
+      });
   }
 
   function handleDelete(product, li, btn) {
@@ -89,6 +127,34 @@
       })
       .catch(function (err) {
         console.error('[admin-products.js] delete failed:', err);
+        // 활동(결제·공구팀·리뷰)이 있어 거절된 경우에만 강제 삭제를 제안한다. 그 외 실패는 그대로 알린다.
+        if (err && err.code === 'PRODUCT_HAS_ACTIVITY') {
+          promptForceDelete(product, li, btn);
+          return;
+        }
+        window.alert((err && err.message) || '삭제에 실패했습니다.');
+        btn.disabled = false;
+      });
+  }
+
+  function promptForceDelete(product, li, btn) {
+    var forced = window.confirm(
+      '"' + (product.name || '') + '" 상품에는 결제·공구팀·리뷰가 있습니다.\n\n' +
+      '[확인]을 누르면 그 기록까지 전부 삭제합니다. 되돌릴 수 없습니다.\n' +
+      '기록을 남겨둔 채 목록에서만 치우려면 [취소] 후 "숨기기"를 쓰세요.');
+    if (!forced) {
+      btn.disabled = false;
+      return;
+    }
+    window.Api.del('/admin/products/' + product.productId + '?force=true')
+      .then(function () {
+        li.remove();
+        state.totalElements -= 1;
+        state.loadedCount -= 1;
+        updateLoadMoreButton();
+      })
+      .catch(function (err) {
+        console.error('[admin-products.js] force delete failed:', err);
         window.alert((err && err.message) || '삭제에 실패했습니다.');
         btn.disabled = false;
       });
@@ -117,7 +183,7 @@
       loadMoreBtn.textContent = '불러오는 중...';
     }
 
-    window.Api.get('/products?page=' + page + '&size=' + PAGE_SIZE)
+    window.Api.get('/admin/products?page=' + page + '&size=' + PAGE_SIZE)
       .then(function (data) {
         state.page = page;
         state.totalElements = data.totalElements;

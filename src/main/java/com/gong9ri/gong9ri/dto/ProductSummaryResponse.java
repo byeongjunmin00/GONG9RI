@@ -44,7 +44,12 @@ public record ProductSummaryResponse(
         // 타입을 써야 한다.
         Boolean sellerTrustedBadge,
         Double ratingAverage,
-        Integer reviewCount
+        Integer reviewCount,
+        // 관리자 숨김 상태(product/admin). 공개 목록에는 숨김 상품이 아예 안 실리므로 여기선 항상
+        // false지만, 관리자 목록(listForAdmin)에서는 실제 값이 내려와 화면이 "숨김 해제" 버튼을 띄운다.
+        // 이 필드 추가 이전에 캐시된 목록 응답에서는 null이 되는데, 프론트가 그때만 숨김 아님으로
+        // 취급하면 되므로 배포 직후에도 깨지지 않는다(Boolean이라 primitive 역직렬화 문제도 없다).
+        Boolean hidden
 ) {
     public static ProductSummaryResponse of(Product product, Integer bestPrice, boolean sellerTrustedBadge) {
         return of(product, bestPrice, sellerTrustedBadge, null, null);
@@ -68,20 +73,20 @@ public record ProductSummaryResponse(
                 product.getOpenAt(),
                 sellerTrustedBadge,
                 ratingAverage,
-                reviewCount
-        );
+                reviewCount,
+                product.isHidden());
     }
 
     public ProductSummaryResponse withActiveTeamProgress(Integer currentCount, Integer targetParticipants,
             LocalDateTime deadline) {
         return new ProductSummaryResponse(productId, name, basePrice, bestPrice, maxParticipants, sellerName,
                 createdAt, imageUrl, category, currentCount, targetParticipants, deadline, openAt, sellerTrustedBadge,
-                ratingAverage, reviewCount);
+                ratingAverage, reviewCount, hidden);
     }
 
     public ProductSummaryResponse withReviewStats(Double ratingAverage, Integer reviewCount) {
         return new ProductSummaryResponse(productId, name, basePrice, bestPrice, maxParticipants, sellerName,
                 createdAt, imageUrl, category, activeTeamCurrentCount, activeTeamTargetParticipants, activeTeamDeadline,
-                openAt, sellerTrustedBadge, ratingAverage, reviewCount);
+                openAt, sellerTrustedBadge, ratingAverage, reviewCount, hidden);
     }
 }
