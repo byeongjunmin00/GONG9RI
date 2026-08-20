@@ -11,7 +11,7 @@
   <link rel="icon" href="/images/favicon.ico" sizes="any" />
   <link rel="icon" type="image/png" href="/images/favicon-32.png" sizes="32x32" />
   <link rel="apple-touch-icon" href="/images/favicon-180.png" />
-  <title>상품 현황 — GONG9RI 관리자</title>
+  <title>상담 관리 — GONG9RI 관리자</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -37,8 +37,10 @@
   <main>
     <section class="section container">
       <div class="section__head">
-        <h1><span class="text-gradient">상품 현황</span></h1>
-        <p class="text-muted" style="margin-top: var(--space-2);">읽기 전용 — 공개 상품 목록 API를 그대로 보여줍니다.</p>
+        <h1><span class="text-gradient">상담 관리</span></h1>
+        <p class="text-muted" style="margin-top: var(--space-2);">
+          답을 기다리는 상담이 위로 옵니다.
+        </p>
       </div>
 
       <div id="page-alert" class="form-alert form-alert--error" role="alert" hidden>
@@ -48,32 +50,46 @@
       <nav style="display:flex; gap: var(--space-3); margin-bottom: var(--space-5);">
         <a href="/admin/dashboard.html" class="btn btn-secondary btn-sm">대시보드</a>
         <a href="/admin/members.html" class="btn btn-secondary btn-sm">회원 관리</a>
-        <a href="/admin/products.html" class="btn btn-primary btn-sm">상품 현황</a>
+        <a href="/admin/products.html" class="btn btn-secondary btn-sm">상품 현황</a>
         <a href="/admin/refunds.html" class="btn btn-secondary btn-sm">환불 요청 현황</a>
-        <a href="/admin/support.html" class="btn btn-secondary btn-sm">상담 관리</a>
+        <a href="/admin/support.html" class="btn btn-primary btn-sm">상담 관리</a>
       </nav>
 
-      <div id="products-status" class="product-status">불러오는 중...</div>
-      <ul id="products-list" class="mypage-list"></ul>
+      <div class="support-admin-grid">
+        <div>
+          <div id="rooms-status" class="product-status">불러오는 중...</div>
+          <ul id="rooms-list" class="support-admin-rooms"></ul>
+        </div>
 
-      <button type="button" id="load-more-btn" class="btn btn-secondary btn-block" style="margin-top: var(--space-4);" hidden>더 보기</button>
+        <div class="support-admin-thread">
+          <div class="support-widget__header">
+            <span class="support-widget__title" id="thread-title">상담을 선택하세요</span>
+            <button type="button" id="close-room-btn" class="btn btn-secondary btn-sm" hidden>상담 종료</button>
+          </div>
+          <p id="thread-status" class="support-widget__status">왼쪽에서 상담을 고르면 대화가 보입니다.</p>
+          <ul id="thread-messages" class="support-widget__messages"></ul>
+          <p id="thread-typing" class="support-widget__typing" hidden>고객이 입력 중...</p>
+          <form id="thread-form" class="support-widget__form" hidden>
+            <input type="text" id="thread-input" class="support-widget__input"
+                   placeholder="답변을 입력하세요" maxlength="1000" autocomplete="off" />
+            <button type="submit" class="btn btn-primary btn-sm">보내기</button>
+          </form>
+        </div>
+      </div>
     </section>
   </main>
 
   <div data-include="footer"></div>
-
-  <div data-include="support-widget"></div>
 
   <script src="/js/include.js"></script>
   <script src="/js/api.js"></script>
   <script src="/js/header-auth.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.0.0/bundles/stomp.umd.min.js"></script>
   <script src="/js/support-chat-client.js"></script>
-  <script src="/js/support-widget.js"></script>
   <script src="/js/header-search.js"></script>
   <script src="/js/header-notifications.js"></script>
   <script src="/js/header-wishlist-badge.js"></script>
   <script src="/js/admin-guard.js"></script>
-  <script src="/js/admin-products.js"></script>
+  <script src="/js/admin-support.js"></script>
 </body>
 </html>

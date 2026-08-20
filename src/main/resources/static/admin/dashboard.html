@@ -51,6 +51,7 @@
         <a href="/admin/members.html" class="btn btn-secondary btn-sm">회원 관리</a>
         <a href="/admin/products.html" class="btn btn-secondary btn-sm">상품 현황</a>
         <a href="/admin/refunds.html" class="btn btn-secondary btn-sm">환불 요청 현황</a>
+        <a href="/admin/support.html" class="btn btn-secondary btn-sm">상담 관리</a>
       </nav>
 
       <div id="dashboard-status" class="product-status">불러오는 중...</div>
@@ -87,9 +88,14 @@
 
   <div data-include="footer"></div>
 
+  <div data-include="support-widget"></div>
+
   <script src="/js/include.js"></script>
   <script src="/js/api.js"></script>
   <script src="/js/header-auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.0.0/bundles/stomp.umd.min.js"></script>
+  <script src="/js/support-chat-client.js"></script>
+  <script src="/js/support-widget.js"></script>
   <script src="/js/header-search.js"></script>
   <script src="/js/header-notifications.js"></script>
   <script src="/js/header-wishlist-badge.js"></script>
