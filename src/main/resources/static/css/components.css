@@ -2505,3 +2505,10 @@
   }
 }
 
+/* 키보드 안내 — 사진이 여러 장일 때만 보인다(js/product.js가 hidden을 토글). */
+.product-gallery-hint {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--fs-xs);
+}
+

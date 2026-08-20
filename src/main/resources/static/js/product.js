@@ -45,6 +45,7 @@
   var detailEl = document.getElementById('product-detail');
   var imageEl = document.getElementById('product-image');
   var galleryThumbsEl = document.getElementById('product-gallery-thumbs');
+  var galleryHintEl = document.getElementById('product-gallery-hint');
 
   var sellerEl = document.getElementById('product-seller');
   var sellerTrustEl = document.getElementById('product-seller-trust');
@@ -275,6 +276,9 @@
     // 플레이스홀더 슬롯을 채워서, 왼쪽 사진 칸이 "여기가 사진첩 자리"라는 인상을 유지하게 한다
     // (2026-08-21 사용자 요청). 가로 스크롤 캐러셀이라 4개를 채워도 넘치면 자연스럽게 옆으로
     // 걸쳐 보인다.
+    if (galleryHintEl) {
+      galleryHintEl.hidden = !hasMultiple;
+    }
     clearChildren(galleryThumbsEl);
     if (!hasMultiple) {
       for (var i = 0; i < 4; i++) {
@@ -289,7 +293,17 @@
       var item = document.createElement('li');
       var btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'product-gallery-thumb' + (index === galleryIndex ? ' is-active' : '');
+      var active = index === galleryIndex;
+      btn.className = 'product-gallery-thumb' + (active ? ' is-active' : '');
+      if (active) {
+        // 캐러셀이 가로 스크롤이라, 키보드로 넘기면 선택된 썸네일이 화면 밖으로 나갈 수 있다.
+        // 렌더 직후 보이는 위치로 끌어온다(마우스 클릭 때는 이미 보이는 상태라 영향 없음).
+        setTimeout(function () {
+          if (btn.scrollIntoView) {
+            btn.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+          }
+        }, 0);
+      }
       btn.setAttribute('aria-label', (index + 1) + '번째 사진 보기');
       var thumb = document.createElement('img');
       thumb.src = url;
@@ -304,12 +318,51 @@
     });
   }
 
+  /**
+   * 키보드 좌우로 사진 넘기기 (product/image).
+   *
+   * 화살표 버튼은 레이아웃 공간을 차지해 걷어냈지만(팀원 정리, 2026-08-21), 키보드 이동은 화면을
+   * 전혀 차지하지 않으면서 접근성을 되살려준다.
+   *
+   * <b>입력 중일 때는 절대 동작하면 안 된다</b> — 상담 채팅이나 문의를 쓰다가 좌우 키를 누르면
+   * 커서를 옮기려던 건데 사진이 넘어가버린다. 그래서 입력 요소·편집 가능 영역에 포커스가 있으면
+   * 건너뛰고, 조합키(Ctrl/Cmd/Alt)가 눌린 경우도 브라우저 단축키일 수 있어 건너뛴다.
+   */
+  function bindGalleryKeyboard(productName) {
+    if (document.body.dataset.galleryKeysBound) {
+      return;
+    }
+    document.body.dataset.galleryKeysBound = '1';
+
+    document.addEventListener('keydown', function (event) {
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') {
+        return;
+      }
+      if (event.ctrlKey || event.metaKey || event.altKey) {
+        return;
+      }
+      var el = event.target;
+      var tag = el && el.tagName ? el.tagName.toUpperCase() : '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (el && el.isContentEditable)) {
+        return;
+      }
+      if (galleryUrls.length < 2) {
+        return;
+      }
+      var step = event.key === 'ArrowRight' ? 1 : -1;
+      galleryIndex = (galleryIndex + step + galleryUrls.length) % galleryUrls.length;
+      renderGallery(productName);
+      event.preventDefault(); // 가로 스크롤이 같이 움직이는 걸 막는다
+    });
+  }
+
   function renderProduct(product) {
     galleryUrls = (product.imageUrls && product.imageUrls.length)
         ? product.imageUrls
         : (product.imageUrl ? [product.imageUrl] : []);
     galleryIndex = 0;
     renderGallery(product.name);
+    bindGalleryKeyboard(product.name);
 
     updateOpenAtNotice(product.openAt);
 
