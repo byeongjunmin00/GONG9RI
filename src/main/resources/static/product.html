@@ -44,70 +44,73 @@
       <!-- 잘못된 접근 / 상품 없음 / 로딩 / 에러 상태. 이 상태가 보이는 동안 아래 상세 영역은 숨겨진다. -->
       <div id="product-status" class="product-status" role="status" hidden></div>
 
-      <div id="product-detail" class="product-detail" hidden>
-        <div id="product-image" class="card-image product-detail-image"></div>
-
-        <div class="section__head">
-          <div class="card-seller-row">
-            <span id="product-seller" class="card-seller"></span>
-            <span id="product-seller-trust" class="card-seller-trust" hidden>신뢰 판매자</span>
+      <div id="product-detail" class="product-detail product-detail-grid" hidden>
+        <!-- 좌측: 대형 상품 썸네일 & 카카오 공유 -->
+        <div class="product-detail-media">
+          <div id="product-image" class="card-image product-detail-image"></div>
+          <div class="product-media-actions" style="margin-top: var(--space-3);">
+            <button type="button" id="kakao-share-btn" class="btn btn-secondary w-full" hidden>카카오톡 공유하기</button>
           </div>
-          <h1 id="product-name"></h1>
-          <a href="#product-tabs" id="product-header-rating" class="product-header-rating" hidden></a>
         </div>
 
-        <div class="product-price-box">
-          <div class="product-price-row">
-            <span class="text-muted" style="font-size: var(--fs-sm);">정가</span>
-            <span id="product-base-price" class="card-price-base"></span>
+        <!-- 우측: 정보 & 스티키 구매 카드 -->
+        <div class="product-detail-summary">
+          <div class="section__head">
+            <div class="card-seller-row">
+              <span id="product-seller" class="card-seller"></span>
+              <span id="product-seller-trust" class="card-seller-trust" hidden>신뢰 판매자</span>
+            </div>
+            <h1 id="product-name" style="font-size: var(--fs-2xl); font-weight: 800; margin-top: var(--space-1);"></h1>
+            <a href="#product-tabs" id="product-header-rating" class="product-header-rating" hidden></a>
           </div>
-          <p class="text-muted" style="font-size: var(--fs-sm); margin-top: var(--space-1);">
-            최대 <span id="product-max-participants"></span>명까지 모집합니다
-          </p>
 
-          <table id="price-tiers-table" class="price-tiers-table" hidden>
-            <thead>
-              <tr>
-                <th>모집 인원</th>
-                <th>1인당 가격</th>
-              </tr>
-            </thead>
-            <tbody id="price-tiers-body"></tbody>
-          </table>
+          <div class="product-price-box">
+            <div class="product-price-row">
+              <span class="text-muted" style="font-size: var(--fs-sm);">정가</span>
+              <span id="product-base-price" class="card-price-base"></span>
+            </div>
+            <p class="text-muted" style="font-size: var(--fs-sm); margin-top: var(--space-1);">
+              최대 <span id="product-max-participants"></span>명까지 모집합니다
+            </p>
 
-          <!-- 신규 팀 신설 시 목표 인원(price_tier.minCount) 선택 UI. js/product.js가 라디오를 채워 넣고
-               선택값을 create-team-btn 클릭 시 targetParticipants로 서버에 보낸다. 아무것도 고르지
-               않으면 create-team-btn이 비활성화된다. -->
-          <fieldset id="target-participants-field" class="target-participants-field" hidden>
-            <legend>신설할 팀의 목표 인원을 선택하세요</legend>
-            <div id="target-participants-options" class="target-participants-options"></div>
-          </fieldset>
+            <table id="price-tiers-table" class="price-tiers-table" hidden>
+              <thead>
+                <tr>
+                  <th>모집 인원</th>
+                  <th>1인당 가격</th>
+                </tr>
+              </thead>
+              <tbody id="price-tiers-body"></tbody>
+            </table>
 
-          <!-- 팀 성사 후 환불 불가 명시적 확인. 체크 전까지 create-team-btn/각 팀의 참가하기 버튼이
-               비활성 상태를 유지한다(js/product.js). 혼자 구매하기는 이 제약과 무관해 영향받지 않는다. -->
-          <label class="refund-notice-checkbox">
-            <input type="checkbox" id="refund-notice-checkbox" />
-            공구팀이 정원을 채워 성사되면(SUCCESS) 그 이후에는 어떠한 경우에도 환불이 불가능합니다.
-            이 사실을 확인했습니다.
-          </label>
+            <!-- 신규 팀 신설 시 목표 인원 선택 UI -->
+            <fieldset id="target-participants-field" class="target-participants-field" hidden>
+              <legend>신설할 팀의 목표 인원을 선택하세요</legend>
+              <div id="target-participants-options" class="target-participants-options"></div>
+            </fieldset>
+
+            <!-- 팀 성사 후 환불 불가 명시적 확인 -->
+            <label class="refund-notice-checkbox" style="margin-top: var(--space-3);">
+              <input type="checkbox" id="refund-notice-checkbox" />
+              공구팀이 정원을 채워 성사되면(SUCCESS) 그 이후에는 어떠한 경우에도 환불이 불가능합니다.
+              이 사실을 확인했습니다.
+            </label>
+          </div>
+
+          <!-- 오픈예정 상품 안내 -->
+          <div id="open-at-notice" class="form-alert" role="status" hidden></div>
+
+          <div class="product-actions">
+            <button type="button" id="create-team-btn" class="btn btn-primary btn-lg" disabled>🔥 신규 공구팀 신설하고 최저가 도전</button>
+            <button type="button" id="buy-alone-btn" class="btn btn-secondary">혼자 바로 구매하기</button>
+            <a href="/" class="btn btn-ghost" style="text-align: center;">계속 쇼핑하기</a>
+          </div>
         </div>
 
-        <!-- 오픈예정(product/product-launch) — openAt이 미래인 상품만 보여준다. js/product.js가 제어한다. -->
-        <div id="open-at-notice" class="form-alert" role="status" hidden></div>
-
-        <div class="product-actions">
-          <button type="button" id="buy-alone-btn" class="btn btn-secondary">혼자 구매하기</button>
-          <button type="button" id="create-team-btn" class="btn btn-primary" disabled>신규 팀 신설하기</button>
-          <button type="button" id="kakao-share-btn" class="btn btn-secondary" hidden>카카오톡 공유하기</button>
-          <a href="/" class="btn btn-ghost">계속 쇼핑하기</a>
-        </div>
-
-        <div class="team-list-section">
+        <!-- 하단 전폭: 모집 중인 공구팀 -->
+        <div class="team-list-section product-detail-wide">
           <h2>모집 중인 공구팀</h2>
-
-          <!-- 팀 목록 로딩/빈 목록/에러 상태. -->
           <div id="team-status" class="product-status" role="status" hidden></div>
-
           <ul id="team-list" class="team-list"></ul>
         </div>
 
@@ -115,7 +118,7 @@
              product-detail-tabs.md). 탭 전환은 각 패널의 hidden 속성만 토글하고, 리뷰/문의 데이터는
              기존과 동일한 시점(loadProduct() 성공 후, gong9ri:auth-resolved 도착 시)에 항상 먼저
              불러와 둔다 — 숨겨진 탭이라도 이미 데이터가 채워져 있다. -->
-        <div class="product-tabs-section">
+        <div class="product-tabs-section product-detail-wide">
           <div class="product-tabs" role="tablist">
             <button
               type="button"
