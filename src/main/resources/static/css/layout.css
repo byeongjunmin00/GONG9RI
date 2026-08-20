@@ -107,9 +107,11 @@
   stroke-width: 2;
 }
 
-/* 알림 벨(.site-header__notifications-badge)과 동일한 스타일 — 몇 개 찜했는지 숫자만 보여준다
-   (목록 자체는 드롭다운으로 안 만들기로 함, 2026-08-19 사용자와 논의 — header.html 주석 참고). */
-.site-header__wishlist-badge {
+/* 찜 개수 뱃지와 알림 벨 뱃지는 같은 스타일이라 선택자를 합쳐서 쓴다 — 개별 규칙으로 나뉘어 있으면
+   숫자 뱃지 디자인을 바꿀 때 두 곳을 따로 고쳐야 하고 어긋나기 쉽다(목록 자체는 드롭다운으로 안
+   만들기로 함, 2026-08-19 사용자와 논의 — header.html 주석 참고). */
+.site-header__wishlist-badge,
+.site-header__notifications-badge {
   position: absolute;
   top: 2px;
   right: 2px;
@@ -164,24 +166,6 @@
 .site-header__notifications-bell:hover {
   color: var(--color-pink);
   background-color: var(--color-surface-alt);
-}
-
-.site-header__notifications-badge {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 3px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-full);
-  background: var(--gradient-brand);
-  color: var(--color-text-on-brand);
-  font-size: 10px;
-  font-weight: 800;
-  line-height: 1;
 }
 
 .site-header__auth {

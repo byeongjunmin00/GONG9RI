@@ -20,6 +20,14 @@
 - **메인 페이지 카드의 하트 상태는 캐시된 상품 목록 응답에 넣지 않는다** — 상품 목록(`PRODUCT_LIST_CACHE`)은 모든 사용자가 공유하는 캐시인데, "이 상품을 내가 찜했는지"는 회원마다 다른 값이라 여기 넣으면 다른 사용자의 찜 상태가 섞여 보이는 실제 버그가 된다(진행바처럼 "느려도 되는 공용 사실"이 아니라 "한 사람만의 진실"이라 캐시 우회가 아니라 애초에 그 응답에 포함시키면 안 됨). 대신 프론트(`js/main.js`)가 로그인 확인 후 `GET /api/buyer/mypage/wishlist`를 별도로 한 번 불러와 이미 렌더링된 카드의 하트를 클라이언트에서 채운다.
 - 상품 상세 페이지(`product.html`)에는 아직 하트를 추가하지 않았다(스코프 밖, 메인 페이지 카드 + 마이페이지 목록만) — 필요해지면 이후 확장.
 
+## 헤더 찜 개수 뱃지
+
+헤더의 찜 아이콘 옆에 몇 개 찜했는지 숫자 뱃지를 보여준다(`static/js/header-wishlist-badge.js`).
+드롭다운 목록은 만들지 않는다 — 찜 목록은 이미지·가격이 있는 카드형이라 마이페이지의 기존 목록이
+더 적합하다(알림 벨과의 차이점). 뱃지 CSS(`.site-header__wishlist-badge`)는 알림 벨 뱃지
+(`.site-header__notifications-badge`)와 완전히 동일해서 `layout.css`에서 콤마 선택자로 합쳐져
+있다(`changes/002-header-badge-css-dedup.md`).
+
 ## 관련 코드
 
-`entity/Wishlist.java`, `repository/WishlistRepository(Custom/Impl).java`, `dto/WishlistItemResponse.java`, `service/WishlistService.java`, `controller/WishlistController.java`, `service/BuyerMypageService.wishlist()`(조회 위임), `static/js/main.js`(카드 하트), `static/js/buyer-mypage.js`(찜 목록 섹션).
+`entity/Wishlist.java`, `repository/WishlistRepository(Custom/Impl).java`, `dto/WishlistItemResponse.java`, `service/WishlistService.java`, `controller/WishlistController.java`, `service/BuyerMypageService.wishlist()`(조회 위임), `static/js/main.js`(카드 하트), `static/js/buyer-mypage.js`(찜 목록 섹션), `static/js/header-wishlist-badge.js`(헤더 개수 뱃지), `static/css/layout.css`(`.site-header__wishlist-badge`).
