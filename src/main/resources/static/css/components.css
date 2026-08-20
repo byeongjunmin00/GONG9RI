@@ -727,27 +727,54 @@
   min-width: 200px;
 }
 
-/* ---------- Header brand (이미지 로고 + 워드마크) ---------- */
+/* ---------- Header brand (워드마크 "9" 자리에 로고 아이콘을 인라인으로 삽입) ---------- */
 .site-header__logo {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-}
-
-.site-header__logo img {
-  display: block;
-  height: 34px;
-  width: auto;
 }
 
 /* layout.css의 예전 텍스트 전용 .site-header__logo 규칙(font-family/size/weight)이 이 span에도
-   상속돼 적용된다 — 여기서는 자간·숫자 "9" 그라디언트 강조만 추가로 얹는다. */
+   상속돼 적용된다 — 여기서는 자간과 크기만 추가로 얹는다. 1.4rem → 1.6rem으로 살짝 키운 건
+   "9" 자리에 들어갈 로고가 더 크게 튀어나와도(아래 .site-header__wordmark-mark) 전체 균형이
+   맞도록 한 것(2026-08-20, 시안 D안). */
 .site-header__wordmark {
   font-family: var(--font-heading);
-  font-size: 1.4rem;
+  font-size: 1.6rem;
   font-weight: 800;
   letter-spacing: -0.03em;
   color: var(--color-text);
+  white-space: nowrap;
+}
+
+/* "9" 대신 들어가는 로고 아이콘 — <img>가 아니라 PNG(라쿤이 몸을 만 모양)를 알파 마스크로 써서
+   배경을 --gradient-brand로 채운다(기존 "9"의 .text-gradient와 같은 색 처리, 이미지 자체를
+   그라디언트로 다시 그리지 않고 재사용). 텍스트보다 살짝 크게(1.35em) 잡아 귀 부분이 다른
+   글자 위쪽 높이보다 살짝 튀어나오게 하고(vertical-align 음수값), 형태(귀·수염·꼬리)는 절대
+   자르거나 축소로 뭉개지지 않는다 — 헤더(.site-header__inner)는 min-height만 있고
+   overflow: hidden이 없어 튀어나와도 잘리지 않는다(layout.css 확인됨). */
+.site-header__wordmark-mark {
+  display: inline-block;
+  height: 1.35em;
+  width: 0.969em; /* 원본 비율(219:305) 유지 */
+  vertical-align: -0.16em;
+  margin: 0 0.02em;
+  background: var(--gradient-brand);
+  -webkit-mask-image: url("/images/logo-icon-inline.png");
+  mask-image: url("/images/logo-icon-inline.png");
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  /* 원본이 얇은 라인아트라 이 정도 인라인 크기로 줄이면 선이 흐릿해 보일 수 있어, 여러 방향
+     drop-shadow를 겹쳐 선을 굵어 보이게 보정한다(시안 검토 중 실제로 확인된 문제). */
+  filter:
+    drop-shadow(0 0 0.4px rgba(43, 37, 48, 0.55))
+    drop-shadow(0.35px 0 0 rgba(43, 37, 48, 0.45))
+    drop-shadow(-0.35px 0 0 rgba(43, 37, 48, 0.45))
+    drop-shadow(0 0.35px 0 rgba(43, 37, 48, 0.45))
+    drop-shadow(0 -0.35px 0 rgba(43, 37, 48, 0.45));
 }
 
 /* ---------- 실시간 인기 검색어 슬라이드 티커 (product/search-trends, 검색바 옆) ----------

@@ -22,9 +22,14 @@
 -->
 <header class="site-header">
   <div class="container site-header__inner">
+    <!-- 로고 아이콘(라쿤이 몸을 만 모양 = 숫자 "9")을 워드마크의 "9" 자리에 그대로 끼워 넣는다
+         (별도 좌측 아이콘 제거, 2026-08-20 사용자와 시안 검토 후 확정 — D안: 글자를 살짝 키우고
+         로고는 그보다 더 크게 잡아 귀가 살짝 위로 튀어나오게). 아이콘은 <img>가 아니라 배경을
+         --gradient-brand로 채우고 PNG 알파로 마스킹한 span이라, 실제 대체텍스트는 옆의
+         .visually-hidden "9"가 담당하고 아이콘 자체는 aria-hidden으로 건너뛴다
+         (스크린리더는 "GONG" + "9" + "RI" 순서로 그대로 읽는다). -->
     <a href="/" class="site-header__logo">
-      <img src="/images/logo-icon.png" alt="" />
-      <span class="site-header__wordmark">GONG<span class="text-gradient">9</span>RI</span>
+      <span class="site-header__wordmark">GONG<span class="site-header__wordmark-mark" aria-hidden="true"></span><span class="visually-hidden">9</span>RI</span>
     </a>
 
     <div class="site-header__search">

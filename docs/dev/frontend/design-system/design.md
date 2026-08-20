@@ -21,13 +21,14 @@ src/main/resources/static/
 │   └── components.css       # 버튼(primary/secondary/ghost)/카드/뱃지/폼/검색 입력창/찜하기 버튼 컴포넌트,
 │                             # + 헤더 다크 세이지 배경·로고 이미지 크기·nav 대비 보정(캐스케이드 오버라이드, 아래 참고)
 ├── images/
-│   ├── logo-icon.png         # 라쿤 얼굴 모양 "9" 라인아트 로고, 회색 버전(밝은 배경용) — 투명 PNG
-│   └── logo-icon-white.png   # 동일 로고, 알파 유지한 채 불투명 픽셀만 흰색으로 바꾼 버전(어두운 배경/헤더용)
+│   ├── logo-icon.png         # 라쿤 얼굴 모양 "9" 라인아트 로고, 회색 버전(밝은 배경용) — 투명 PNG, 쇼케이스 등에서 원본 그대로 사용
+│   ├── logo-icon-inline.png  # 위 원본의 여백을 크롭한 버전(219×305) — 헤더 워드마크 "9" 자리에 마스킹해서 삽입할 때 사용
+│   └── logo-icon-white.png   # 동일 로고, 알파 유지한 채 불투명 픽셀만 흰색으로 바꾼 버전 — 현재 미사용(예비 자산)
 ├── js/
 │   ├── include.js           # `data-include="header|footer"` 컨테이너에 `/partials/{name}.html`을 fetch해 삽입하는 유틸
 │   └── api.js                # `window.Api.get/post/put/patch/del` 공통 fetch 래퍼 (base `/api`, `credentials: 'same-origin'`, `docs/api/README.md` 공통 응답 포맷 파싱)
 └── partials/
-    ├── header.html           # 이미지 로고(`images/logo-icon-white.png`, `<a href="/">`로 감싸 메인 이동) + 내비게이션 + 로그인/회원가입 버튼
+    ├── header.html           # 워드마크 "GONG9RI"의 "9" 자리에 로고 아이콘을 인라인 삽입(`<a href="/">`로 감싸 메인 이동) + 내비게이션 + 로그인/회원가입 버튼
     └── footer.html           # 브랜드 텍스트 로고(`.text-gradient`로 "9" 강조, 새 단일 브랜드색 자동 반영) + 링크 + 사업자 정보(placeholder) + copyright
 ```
 
@@ -44,9 +45,12 @@ src/main/resources/static/
 
 ## 로고
 
-- 헤더(`partials/header.html`): 텍스트 로고(`GONG9RI`)가 아니라 라쿤 얼굴 모양 "9" 라인아트 아이콘 이미지(`/images/logo-icon-white.png`, `alt="GONG9RI"`)를 쓴다. `<a href="/">`로 감싸 클릭 시 메인 페이지로 이동한다. 헤더 배경이 다크 세이지(아래 "헤더 배경" 참고)라 흰색 버전을 쓴다. 이미지 크기는 `components.css`의 `.site-header__logo img { height: 40px; width: auto; }`로 제한한다.
-- 밝은 배경(쇼케이스 본문, 푸터 등)에는 회색 버전(`/images/logo-icon.png`)을 쓴다. 푸터는 현재 텍스트 로고(`GONG<span class="text-gradient">9</span>RI`)를 그대로 유지하며 이미지로 바뀌지 않았다.
-- 두 이미지 모두 사용자가 제공한 원본(JPG, 실제로는 알파 없이 체크무늬가 픽셀로 박혀 있었음)을 픽셀 밝기 분석으로 진짜 투명 PNG로 변환하고 워터마크 잔여물을 제외해 크롭한 산출물이다(회색 원본 색 RGB≈97 그대로, 정확한 브랜드색으로 재색상화는 안 함).
+- 헤더(`partials/header.html`): 별도 아이콘 이미지를 텍스트 옆에 두던 방식(001~002)에서, 라쿤이 몸을 만 모양(=숫자 "9")인 아이콘을 워드마크 "GONG9RI"의 "9" 글자 자리에 그대로 인라인으로 끼우는 방식으로 바뀌었다(2026-08-20). `<a href="/">`로 감싸 클릭 시 메인 페이지로 이동하는 건 그대로다.
+  - 아이콘은 `<img>`가 아니라 빈 `<span class="site-header__wordmark-mark">`이며, `background: var(--gradient-brand)` + `mask-image: url(/images/logo-icon-inline.png)`(여백을 크롭한 신규 자산, 219×305)로 아이콘 모양대로 브랜드 그라디언트를 노출한다. 원본이 얇은 라인아트라 인라인 크기(약 35px)에서 흐려 보이는 문제가 있어 `filter: drop-shadow(...)` 여러 겹으로 선을 굵게 보정했다(`components.css`).
+  - 워드마크 전체 폰트 크기를 1.4rem → 1.6rem으로 키웠고, 아이콘은 그 폰트 크기의 1.35em로 텍스트보다 살짝 크게 잡아 귀 부분이 위로 살짝 튀어나온다(의도된 마스코트 포인트, 형태는 잘리지 않음).
+  - 접근성: 아이콘 span은 `aria-hidden="true"`, 그 옆에 `.visually-hidden`(`base.css`) 처리된 텍스트 "9"를 둬서 스크린리더는 "GONG"+"9"+"RI"로 그대로 읽는다.
+- 밝은 배경(쇼케이스 본문 등)에는 여전히 원본 회색 버전(`/images/logo-icon.png`)을 그대로 쓴다(크롭 전 원본, `design-system.html` 스와치 등). 푸터는 여전히 텍스트 로고(`GONG<span class="text-gradient">9</span>RI`)를 유지하며 이번 변경 대상이 아니다.
+- 헤더 배경은 현재 밝은 오프화이트(`layout.css`의 `rgba(255, 249, 245, 0.9)`, 하드코딩) 그대로다 — 002에서 한때 다크 세이지로 캐스케이드 오버라이드됐었지만 이후(사용자 결정으로 색상 톤 전체를 원래 웜 그라디언트로 원복하면서, `docs/dev/ongoing/design-system-sharp-ui.md` Attempt 3) 다시 밝은 배경으로 돌아왔다 — 이 흰색 로고(`logo-icon-white.png`)는 그래서 현재 헤더에는 쓰이지 않는 예비 자산이다.
 
 ## 헤더 배경 (캐스케이드 오버라이드로 처리, `layout.css` 자체는 미변경)
 
@@ -80,4 +84,5 @@ src/main/resources/static/
 
 - `src/main/resources/static/{css/tokens.css,css/base.css,css/layout.css,css/components.css,js/include.js,js/api.js,partials/header.html,partials/footer.html,design-system.html}`
 - `src/main/resources/static/images/{logo-icon.png,logo-icon-white.png}` — 002에서 신규
+- `src/main/resources/static/images/logo-icon-inline.png` — 004에서 신규(여백 크롭, 헤더 워드마크 인라인 삽입용)
 - `src/main/java/com/gong9ri/gong9ri/config/SecurityConfig.java` — 정적 리소스 permitAll matcher에 `/images/**` 포함(총 1줄, 002에서 추가)
