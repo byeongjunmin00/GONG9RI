@@ -294,6 +294,16 @@ class SellerMypageControllerTest {
     }
 
     @Test
+    @DisplayName("존재하지 않는 알림을 읽음 처리하려 하면 404 NOTIFICATION_NOT_FOUND")
+    void markNotificationAsRead_notFound() throws Exception {
+        Member seller = saveMember("mpSeller11", Role.SELLER);
+
+        mockMvc.perform(post("/api/seller/mypage/notifications/999999999/read").with(asUser(seller)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOTIFICATION_NOT_FOUND"));
+    }
+
+    @Test
     @DisplayName("모두 읽음 처리하면 본인의 안 읽은 알림이 전부 읽음으로 바뀐다")
     void markAllNotificationsAsRead_success() throws Exception {
         Member seller = saveMember("mpSeller10", Role.SELLER);

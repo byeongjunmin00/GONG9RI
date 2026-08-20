@@ -80,5 +80,5 @@
 - 소비하는 이벤트: `event/TeamRefundedEvent.java`, `event/TeamRefundedEventListener.java` (발행 쪽은 `docs/dev/payment/portone/design.md`의 `PaymentRefundService` 참고)
 - **프론트(신규, 2026-08-19)**: `partials/header.html`(`#header-notifications` 벨+뱃지+드롭다운 패널), `js/header-notifications.js`, `css/layout.css`(`.site-header__notifications*`), `css/components.css`(`.header-notifications-panel*`). 헤더가 삽입되는 17개 페이지 전부에 `<script src="/js/header-notifications.js">`를 `header-search.js` 바로 뒤에 추가.
 - 테스트:
-  - `controller/BuyerMypageControllerTest.java`, `controller/SellerMypageControllerTest.java` — 조회 성공, 본인만 조회(스코핑), 반대 역할 403, 비로그인 401, **개별 읽음 성공/타인 알림 403/존재하지 않는 알림 404, 전체 읽음 성공(신규, 각 파일에 4케이스씩 추가)**, `page`/`size` 잘못된 값 → 400 `VALIDATION_FAILED`(신규, 2026-08-20, `changes/005`)
+  - `controller/BuyerMypageControllerTest.java`, `controller/SellerMypageControllerTest.java` — 조회 성공, 본인만 조회(스코핑), 반대 역할 403, 비로그인 401, **개별 읽음 성공/타인 알림 403/존재하지 않는 알림 404, 전체 읽음 성공(각 파일에 4케이스씩)**, `page`/`size` 잘못된 값 → 400 `VALIDATION_FAILED`(2026-08-20, `changes/005`). 판매자 쪽 404 케이스는 설계 문서에만 "각 파일에 4케이스씩"이라 적혀있고 실제로는 3케이스뿐이었던 코드리뷰 발견 사항을 뒤늦게 채워 넣었다(`changes/006-seller-notification-404-test.md`).
   - `NotificationService` 자체의 별도 단위 테스트는 없음 — 이벤트 발행 없이는 단독 호출되지 않는 메서드라(오케스트레이션이 전부 이벤트 경유) `event/TeamDeadlineEventFlowTest.java`에서 end-to-end로 검증한다. 읽음 처리 메서드는 컨트롤러 테스트로 커버.
