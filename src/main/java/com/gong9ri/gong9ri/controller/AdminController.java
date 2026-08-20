@@ -6,6 +6,7 @@ import com.gong9ri.gong9ri.dto.AdminDashboardResponse;
 import com.gong9ri.gong9ri.dto.AdminMemberPageResponse;
 import com.gong9ri.gong9ri.service.SupportChatService;
 import com.gong9ri.gong9ri.dto.SupportRoomResponse;
+import com.gong9ri.gong9ri.dto.NotificationListResponse;
 import com.gong9ri.gong9ri.dto.ProductPageResponse;
 import com.gong9ri.gong9ri.dto.AdminRefundPageResponse;
 import com.gong9ri.gong9ri.entity.RefundRequestStatus;
@@ -101,6 +102,30 @@ public class AdminController {
         return ResponseEntity.noContent().build();
     }
 
+    // 관리자 알림 — 헤더 알림벨이 이 경로를 쓴다(구매자·판매자와 형태 동일).
+    @GetMapping("/mypage/notifications")
+    public ResponseEntity<ApiResponse<NotificationListResponse>> notifications(
+            @AuthenticationPrincipal MemberUserDetails principal,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(ApiResponse.success(adminService.notifications(principal, page, size)));
+    }
+
+    @PostMapping("/mypage/notifications/{notificationId}/read")
+    public ResponseEntity<Void> markNotificationAsRead(
+            @AuthenticationPrincipal MemberUserDetails principal,
+            @PathVariable Long notificationId) {
+        adminService.markNotificationAsRead(principal, notificationId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/mypage/notifications/read-all")
+    public ResponseEntity<Void> markAllNotificationsAsRead(
+            @AuthenticationPrincipal MemberUserDetails principal) {
+        adminService.markAllNotificationsAsRead(principal);
+        return ResponseEntity.noContent().build();
+    }
+
     // 관리자 상담 목록(support/chat) — 답을 기다리는 방이 위로 온다.
     @GetMapping("/support/rooms")
     public ResponseEntity<ApiResponse<Page<SupportRoomResponse>>> supportRooms(
@@ -109,6 +134,15 @@ public class AdminController {
             @RequestParam(defaultValue = "20") int size) {
         return ResponseEntity.ok(ApiResponse.success(
                 supportChatService.roomsForAdmin(principal.getMember(), page, size)));
+    }
+
+    // 쓸데없는 상담 정리(support/chat). 종료(close)는 기록을 남기지만 이건 기록까지 지운다.
+    @DeleteMapping("/support/rooms/{roomId}")
+    public ResponseEntity<Void> deleteSupportRoom(
+            @AuthenticationPrincipal MemberUserDetails principal,
+            @PathVariable Long roomId) {
+        supportChatService.deleteRoom(principal.getMember(), roomId);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/support/unread-count")

@@ -68,6 +68,22 @@ public class NotificationPublisher {
                 "'" + productName + "' 문의에 답변이 등록되었습니다.", null, productUrl(productId));
     }
 
+    // ---------- 고객센터 상담 (support/chat) ----------
+
+    /**
+     * 상담에 새 메시지가 도착함 — 관리자 전원에게.
+     *
+     * <p>관리자가 대시보드에 들어가 보지 않는 한 상담이 온 걸 알 수 없다는 문제를 푼다
+     * (2026-08-21 사용자 리포트). 링크는 상담 관리 화면으로 보낸다.
+     */
+    public void supportMessageReceived(List<Long> adminIds, String senderName) {
+        if (adminIds.isEmpty()) {
+            return;
+        }
+        publish(adminIds, NotificationType.SUPPORT_MESSAGE_RECEIVED,
+                senderName + "님이 상담 메시지를 보냈습니다.", null, "/admin/support.html");
+    }
+
     // ---------- 결제 ----------
 
     /** 상품이 결제됨 — 판매자에게. 판매자가 자기 상품을 산 경우는 보내지 않는다. */

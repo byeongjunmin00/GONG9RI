@@ -1,6 +1,7 @@
 package com.gong9ri.gong9ri.controller;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -8,8 +9,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.entity.Member;
+import com.gong9ri.gong9ri.entity.NotificationType;
 import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.repository.MemberRepository;
+import com.gong9ri.gong9ri.repository.NotificationRepository;
+import com.gong9ri.gong9ri.repository.SupportMessageRepository;
 import com.gong9ri.gong9ri.repository.SupportRoomRepository;
 import com.gong9ri.gong9ri.service.SupportChatService;
 import org.junit.jupiter.api.DisplayName;
@@ -45,6 +49,12 @@ class SupportChatControllerTest {
 
     @Autowired
     private SupportChatService supportChatService;
+
+    @Autowired
+    private NotificationRepository notificationRepository;
+
+    @Autowired
+    private SupportMessageRepository supportMessageRepository;
 
     private Member saveMember(String username, Role role) {
         return memberRepository.save(
@@ -177,5 +187,25 @@ class SupportChatControllerTest {
         org.junit.jupiter.api.Assertions.assertThrows(
                 com.gong9ri.gong9ri.common.exception.BusinessException.class,
                 () -> supportChatService.send(buyer, roomId, "추가 문의"));
+    }
+
+    @Test
+    @DisplayName("[권한] 관리자만 상담을 삭제할 수 있고, 대화까지 함께 지워진다")
+    void deleteRoom_adminOnly() throws Exception {
+        Member buyer = saveMember("sc-del-buyer", Role.BUYER);
+        Member admin = saveMember("sc-del-admin", Role.ADMIN);
+        Long roomId = openRoomFor(buyer);
+        supportChatService.send(buyer, roomId, "지워질 메시지");
+
+        mockMvc.perform(delete("/api/admin/support/rooms/" + roomId).with(asUser(buyer)))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(delete("/api/admin/support/rooms/" + roomId).with(asUser(admin)))
+                .andExpect(status().isNoContent());
+
+        org.junit.jupiter.api.Assertions.assertTrue(supportRoomRepository.findById(roomId).isEmpty());
+        org.junit.jupiter.api.Assertions.assertTrue(
+                supportMessageRepository.findByRoomIdWithSender(roomId).isEmpty(),
+                "방을 지우면 대화도 함께 사라져야 한다");
     }
 }
