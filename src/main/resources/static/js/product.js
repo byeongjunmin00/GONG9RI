@@ -44,6 +44,10 @@
   var statusEl = document.getElementById('product-status');
   var detailEl = document.getElementById('product-detail');
   var imageEl = document.getElementById('product-image');
+  var galleryPrevBtn = document.getElementById('product-gallery-prev');
+  var galleryNextBtn = document.getElementById('product-gallery-next');
+  var galleryCounterEl = document.getElementById('product-gallery-counter');
+  var galleryThumbsEl = document.getElementById('product-gallery-thumbs');
 
   var sellerEl = document.getElementById('product-seller');
   var sellerTrustEl = document.getElementById('product-seller-trust');
@@ -247,13 +251,84 @@
     return '모집중';
   }
 
-  function renderProduct(product) {
+  // ---------- 상품 이미지 갤러리 (product/image) ----------
+  // 상세 응답의 imageUrls는 product_image가 없는 상품이면 대표 이미지 한 장짜리로 채워져 오므로
+  // (ProductResponse.withImages), 이 기능 이전에 등록된 상품도 별도 분기 없이 그대로 동작한다.
+  var galleryUrls = [];
+  var galleryIndex = 0;
+
+  function renderGallery(productName) {
+    var hasMultiple = galleryUrls.length > 1;
+
     clearChildren(imageEl);
-    if (product.imageUrl) {
+    if (galleryUrls.length) {
       var imgEl = document.createElement('img');
-      imgEl.src = product.imageUrl;
-      imgEl.alt = product.name || '';
+      imgEl.src = galleryUrls[galleryIndex];
+      imgEl.alt = productName || '';
       imageEl.appendChild(imgEl);
+    }
+
+    if (galleryPrevBtn) {
+      galleryPrevBtn.hidden = !hasMultiple;
+    }
+    if (galleryNextBtn) {
+      galleryNextBtn.hidden = !hasMultiple;
+    }
+    if (galleryCounterEl) {
+      galleryCounterEl.hidden = !hasMultiple;
+      galleryCounterEl.textContent = (galleryIndex + 1) + ' / ' + galleryUrls.length;
+    }
+
+    if (!galleryThumbsEl) {
+      return;
+    }
+    // 썸네일 줄은 사진이 여러 장일 때만 — 한 장이면 예전과 똑같은 화면이 된다.
+    galleryThumbsEl.hidden = !hasMultiple;
+    clearChildren(galleryThumbsEl);
+    if (!hasMultiple) {
+      return;
+    }
+    galleryUrls.forEach(function (url, index) {
+      var item = document.createElement('li');
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'product-gallery-thumb' + (index === galleryIndex ? ' is-active' : '');
+      btn.setAttribute('aria-label', (index + 1) + '번째 사진 보기');
+      var thumb = document.createElement('img');
+      thumb.src = url;
+      thumb.alt = '';
+      btn.appendChild(thumb);
+      btn.addEventListener('click', function () {
+        galleryIndex = index;
+        renderGallery(productName);
+      });
+      item.appendChild(btn);
+      galleryThumbsEl.appendChild(item);
+    });
+  }
+
+  function moveGallery(step, productName) {
+    if (galleryUrls.length < 2) {
+      return;
+    }
+    galleryIndex = (galleryIndex + step + galleryUrls.length) % galleryUrls.length;
+    renderGallery(productName);
+  }
+
+  function renderProduct(product) {
+    galleryUrls = (product.imageUrls && product.imageUrls.length)
+        ? product.imageUrls
+        : (product.imageUrl ? [product.imageUrl] : []);
+    galleryIndex = 0;
+    renderGallery(product.name);
+
+    if (galleryPrevBtn && !galleryPrevBtn.dataset.bound) {
+      galleryPrevBtn.dataset.bound = '1';
+      galleryPrevBtn.addEventListener('click', function () { moveGallery(-1, product.name); });
+    }
+    if (galleryNextBtn && !galleryNextBtn.dataset.bound) {
+      galleryNextBtn.dataset.bound = '1';
+      galleryNextBtn.addEventListener('click', function () { moveGallery(1, product.name); });
     }
 
     updateOpenAtNotice(product.openAt);

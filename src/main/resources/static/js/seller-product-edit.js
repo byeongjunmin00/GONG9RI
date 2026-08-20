@@ -324,7 +324,14 @@
     descriptionInput.value = product.description || '';
     basePriceInput.value =
       typeof product.basePrice === 'number' ? formatPriceInputValue(String(product.basePrice)) : '';
-    imageUrlInput.value = product.imageUrl || '';
+    // 이 입력창은 "주소로 추가"용이라 기존 값을 채우지 않는다 — 기존 이미지는 아래 미리보기 목록으로
+    // 보여주고, 이 칸은 새 주소를 덧붙일 때만 쓴다.
+    imageUrlInput.value = '';
+    // 상세 응답의 imageUrls는 product_image가 없으면 대표 이미지 한 장으로 채워져 오므로,
+    // 이 기능 이전에 등록된 상품도 그대로 목록에 뜬다.
+    if (window.ProductImagePicker) {
+      window.ProductImagePicker.setUrls(product.imageUrls || (product.imageUrl ? [product.imageUrl] : []));
+    }
     openAtInput.value = product.openAt ? product.openAt.slice(0, 16) : '';
     autoRefundOnCancelInput.checked = Boolean(product.autoRefundOnCancel);
 
@@ -434,7 +441,11 @@
       basePrice: basePrice,
       maxParticipants: derivedMaxParticipants,
       priceTiers: collected.tiers,
+      // 대표 이미지는 서버가 imageUrls의 첫 장으로 맞춘다. 여기 imageUrl은 이미지를 하나도
+      // 안 고른 경우(또는 이 기능 이전 방식)를 위해 그대로 남긴다.
       imageUrl: imageUrl || null,
+      // 상품 이미지 여러 장(product/image) — 업로드한 파일 경로와 외부 주소가 섞여 들어간다.
+      imageUrls: window.ProductImagePicker ? window.ProductImagePicker.getUrls() : null,
       autoRefundOnCancel: autoRefundOnCancelInput.checked,
       category: categorySelect.value,
       openAt: toOpenAtPayload(openAtInput.value),

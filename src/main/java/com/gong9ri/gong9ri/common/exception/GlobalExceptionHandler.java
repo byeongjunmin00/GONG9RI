@@ -12,6 +12,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
@@ -65,6 +66,19 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.failure("NOT_FOUND", "요청한 리소스를 찾을 수 없습니다."));
+    }
+
+    // 용량 초과 업로드는 톰캣 multipart 파서가 컨트롤러 진입 **전에** 거절한다. 그래서
+    // ProductImageStorage의 5MB 검사(BusinessException)는 이 경우 아예 도달하지 못하고, 여기서 잡지
+    // 않으면 catch-all이 500으로 바꿔버린다 — 실제로 5.5MB 사진을 올려 500을 재현했다(2026-08-20).
+    // 서버 오류가 아니라 사용자 입력 문제이므로 스토리지와 같은 400/메시지로 맞춘다.
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException e) {
+        log.warn("업로드 용량 초과: {}", e.getMessage());
+        return ResponseEntity
+                .status(ErrorCode.IMAGE_FILE_TOO_LARGE.getHttpStatus())
+                .body(ApiResponse.failure(ErrorCode.IMAGE_FILE_TOO_LARGE.name(),
+                        ErrorCode.IMAGE_FILE_TOO_LARGE.getMessage()));
     }
 
     // 구매자 챗봇 SSE(BuyerChatController)처럼 이미 text/event-stream으로 응답이 커밋된 상태에서

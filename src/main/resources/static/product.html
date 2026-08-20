@@ -53,7 +53,19 @@
         <div class="product-detail-grid">
         <!-- 좌측: 대형 상품 썸네일 & 카카오 공유 -->
         <div class="product-detail-media">
-          <div id="product-image" class="card-image product-detail-image"></div>
+          <!-- 상품 이미지(product/image) — 여러 장이면 좌우로 넘겨 보고, 아래 썸네일로 바로 이동한다.
+               한 장뿐이면 화살표·썸네일이 모두 숨겨져 예전과 똑같이 보인다(js/product.js). -->
+          <div class="product-gallery">
+            <div id="product-image" class="card-image product-detail-image"></div>
+            <button type="button" id="product-gallery-prev" class="product-gallery-arrow product-gallery-arrow--prev" aria-label="이전 사진" hidden>
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button type="button" id="product-gallery-next" class="product-gallery-arrow product-gallery-arrow--next" aria-label="다음 사진" hidden>
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M9 18l6-6-6-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <span id="product-gallery-counter" class="product-gallery-counter" hidden></span>
+          </div>
+          <ul id="product-gallery-thumbs" class="product-gallery-thumbs" hidden></ul>
           <div class="product-media-actions" style="margin-top: var(--space-3);">
             <button type="button" id="kakao-share-btn" class="btn btn-secondary w-full" hidden>카카오톡 공유하기</button>
           </div>

@@ -108,15 +108,29 @@
             />
           </div>
 
+          <!-- 상품 이미지(product/image) — 파일 업로드와 URL 입력을 함께 제공한다.
+               휴대폰에서는 이미지 URL을 구해 붙여넣는 게 사실상 불가능해서 파일 선택을 주 경로로 두고,
+               기존처럼 외부 URL을 쓰던 방식도 그대로 남긴다(둘을 섞어 담을 수 있다). -->
           <div class="form-group">
-            <label class="form-label" for="imageUrl">상품 이미지 URL</label>
-            <input
-              class="form-input"
-              type="text"
-              id="imageUrl"
-              name="imageUrl"
-              placeholder="예: https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg (선택)"
-            />
+            <label class="form-label" for="imageFiles">상품 이미지 <span class="form-hint-inline">최대 5장 · 한 장 5MB까지</span></label>
+            <input class="form-input" type="file" id="imageFiles" accept="image/*" multiple />
+            <p class="form-hint">사진을 고르면 바로 올라가고 아래에 미리보기가 뜹니다. 첫 번째 사진이 대표 이미지예요.</p>
+            <div id="image-upload-status" class="form-alert" role="status" hidden></div>
+            <ul id="image-preview-list" class="image-preview-list"></ul>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="imageUrl">이미지 주소로 추가 (선택)</label>
+            <div class="image-url-row">
+              <input
+                class="form-input"
+                type="text"
+                id="imageUrl"
+                name="imageUrl"
+                placeholder="https://... 형태의 이미지 주소"
+              />
+              <button type="button" id="add-image-url-btn" class="btn btn-secondary">추가</button>
+            </div>
           </div>
 
           <div class="form-group">
@@ -170,6 +184,7 @@
   <script src="/js/header-notifications.js"></script>
   <script src="/js/header-wishlist-badge.js"></script>
   <script src="/js/chat-widget.js"></script>
+  <script src="/js/product-image-picker.js"></script>
   <script src="/js/seller-product-edit.js"></script>
 </body>
 </html>
