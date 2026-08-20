@@ -99,7 +99,10 @@ public class PaymentService {
      */
     @Transactional
     public PaymentResponse confirm(MemberUserDetails principal, Long paymentId) {
-        Payment payment = paymentRepository.findById(paymentId)
+        // 비관적 락(findByIdForUpdate) — 클라이언트 confirm()과 웹훅(confirmByPgPaymentId)이 거의
+        // 동시에 같은 결제를 확정하려 들 수 있어, 한쪽이 커밋될 때까지 다른 쪽을 대기시켜 아래 PENDING
+        // 게이트가 실제로 중복 확정을 막도록 보장한다(락 없이는 둘 다 PENDING을 읽고 통과할 수 있었음).
+        Payment payment = paymentRepository.findByIdForUpdate(paymentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND));
         requireOwner(principal, payment);
 
@@ -124,7 +127,8 @@ public class PaymentService {
      */
     @Transactional
     public void confirmByPgPaymentId(String pgPaymentId) {
-        Payment payment = paymentRepository.findByPgPaymentId(pgPaymentId).orElse(null);
+        // 비관적 락 — confirm()과의 동시 확정 경합 방지(위 confirm()의 주석 참고).
+        Payment payment = paymentRepository.findByPgPaymentIdForUpdate(pgPaymentId).orElse(null);
         if (payment == null) {
             log.warn("웹훅이 가리키는 결제를 찾을 수 없음: pgPaymentId={}", pgPaymentId);
             return;
@@ -164,8 +168,9 @@ public class PaymentService {
             log.info("결제 확정 완료: paymentId={}, pgPaymentId={}, amount={}",
                     payment.getId(), payment.getPgPaymentId(), payment.getAmount());
             // 판매자 "결제 발생" 알림은 여기서만 낸다 — 확정 경로가 클라이언트 confirm()과 웹훅
-            // 두 갈래지만 둘 다 이 메서드로 모이고, 양쪽 호출부가 모두 PENDING일 때만 여기 도달하도록
-            // 막고 있어서 같은 결제로 알림이 두 번 생기지 않는다(중복 알림 방지).
+            // 두 갈래지만 둘 다 이 메서드로 모이고, 양쪽 호출부가 모두 비관적 락으로 행을 잠근 뒤
+            // PENDING일 때만 여기 도달하므로(먼저 커밋한 쪽이 상태를 바꿔놔서 나중 트랜잭션은
+            // PENDING 게이트에서 걸러짐), 같은 결제로 알림이 두 번 생기지 않는다(중복 알림 방지).
             notificationPublisher.paymentReceived(payment.getProduct().getSeller().getId(),
                     payment.getMember().getId(), payment.getProduct().getName(), payment.getAmount());
             return true;

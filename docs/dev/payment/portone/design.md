@@ -70,6 +70,14 @@ PAID --(PortOne 취소 SUCCEEDED, 즉시)--------------------------> REFUNDED
 4. 웹훅(`Transaction.Paid`/`Transaction.Failed`)이 오면 `PaymentService.confirmByPgPaymentId()`가
    같은 재검증 로직을 pgPaymentId 기준으로 재사용한다 — 클라이언트가 confirm 호출을 못한 경우(결제 직후
    브라우저 종료 등)의 안전망이다. 이미 `PENDING`이 아니면(이미 확정/실패 처리됨) 스킵한다(멱등).
+- **동시 확정 방지(비관적 락, 2026-08-20)**: `confirm()`과 `confirmByPgPaymentId()`는 각각
+  `PaymentRepository.findByIdForUpdate`/`findByPgPaymentIdForUpdate`(QueryDSL
+  `setLockMode(PESSIMISTIC_WRITE)`)로 `Payment` 행을 잠근 뒤에만 `PENDING` 게이트를 확인한다 —
+  클라이언트 confirm()과 웹훅이 정상적으로 거의 동시에 들어올 수 있는데(4번이 바로 그 겹침의 안전망),
+  락 없이 조회만 하면 둘 다 `PENDING`을 읽고 통과해 판매자 수익이 두 번 증가하고 알림도 두 번 발행될
+  수 있었다(코드리뷰 2026-08-20 발견, `changes/002-confirm-concurrency-lock.md`). 먼저 락을 잡은
+  트랜잭션이 커밋(상태를 `PAID`/`FAILED`로 전환)해야 다른 트랜잭션이 그 다음 PENDING 게이트에서
+  걸러진다.
 
 ## PortOne 웹훅 수신 · 서명 검증
 
@@ -183,7 +191,9 @@ PAID --(PortOne 취소 SUCCEEDED, 즉시)--------------------------> REFUNDED
 - `entity/Payment.java` — `pgPaymentId` 필드, `confirm()`/`fail()`/`markRefundPending()`/`refund()`
 - `entity/PaymentStatus.java` — `PENDING`/`PAID`/`FAILED`/`REFUND_PENDING`/`REFUNDED`
 - `dto/PaymentResponse.java` — `pgPaymentId`/`portoneStoreId`/`portoneChannelKey` 추가
-- `repository/PaymentRepository.java` — `findByPgPaymentId(pgPaymentId)`
+- `repository/PaymentRepository.java` — `findByPgPaymentId(pgPaymentId)`,
+  `findByIdForUpdate`/`findByPgPaymentIdForUpdate`(비관적 락, `confirm`/`confirmByPgPaymentId` 전용,
+  2026-08-20)
 - `client/PortOneClient.java`(인터페이스) / `PortOneApiClient.java`(실제 구현, `RestClient`) —
   `getPayment`/`cancelPayment`
 - `client/PortOnePaymentDetail.java`, `client/PortOneCancelResult.java` — 응답 값 DTO
@@ -222,3 +232,6 @@ PAID --(PortOne 취소 SUCCEEDED, 즉시)--------------------------> REFUNDED
     end-to-end(SUCCEEDED 전체 환불, REQUESTED로 `REFUND_PENDING` 대기)
   - `service/SellerRevenueSummaryTest.java` / `SellerRevenueSummaryConcurrencyTest.java` — 수익
     요약 증가가 confirm() 시점으로, 감소가 PortOne 취소 확인(비동기) 이후로 옮겨진 것 회귀 확인
+  - `service/PaymentConfirmConcurrencyTest.java`(신규, 2026-08-20) — 클라이언트 `confirm()`과 웹훅
+    `confirmByPgPaymentId()`가 같은 결제를 동시에 확정 시도해도 비관적 락으로 정확히 한 번만 확정되고,
+    알림도 정확히 1회만 발행되는지 검증

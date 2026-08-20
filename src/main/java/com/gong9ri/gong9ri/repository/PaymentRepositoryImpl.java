@@ -8,6 +8,7 @@ import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 
@@ -69,5 +70,25 @@ public class PaymentRepositoryImpl implements PaymentRepositoryCustom {
                 .from(payment)
                 .distinct()
                 .fetch();
+    }
+
+    @Override
+    public Optional<Payment> findByIdForUpdate(Long id) {
+        Payment result = queryFactory
+                .selectFrom(payment)
+                .where(payment.id.eq(id))
+                .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+                .fetchOne();
+        return Optional.ofNullable(result);
+    }
+
+    @Override
+    public Optional<Payment> findByPgPaymentIdForUpdate(String pgPaymentId) {
+        Payment result = queryFactory
+                .selectFrom(payment)
+                .where(payment.pgPaymentId.eq(pgPaymentId))
+                .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+                .fetchOne();
+        return Optional.ofNullable(result);
     }
 }
