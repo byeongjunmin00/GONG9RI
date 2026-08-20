@@ -46,6 +46,12 @@
 - **`@Transactional(propagation = Propagation.REQUIRES_NEW)`**가 필수다 — 이 메서드는 원본 트랜잭션(`TeamDeadlineService.processDeadline`)의 커밋 직후 `AFTER_COMMIT` 콜백으로 호출되는데, 기본 propagation(REQUIRED)으로 두면 아직 스레드에 남아있는 원본 트랜잭션 리소스에 조인해버려 이 메서드의 INSERT가 실제로 커밋되지 않고 사라진다(스프링 공식 문서가 명시하는 캐비앗, 실제로 겪은 버그 — `docs/logs/notification/refund-alert/001-refund-alert.md` 참고). REQUIRES_NEW로 물리적으로 독립된 새 트랜잭션임을 보장해 해결.
 - 메시지 문구(상수화): 구매자용 "참여하신 공구팀이 미성사되어 환불 처리되었습니다.", 판매자용 "등록하신 상품의 공구팀이 미성사되어 환불 처리되었습니다."
 
+## 실제 동작 확인 (2026-08-20)
+
+프로덕션에서 사용자가 **육안으로 end-to-end 확인 완료**했다 — 구매자 계정으로 상품에 문의를 등록하니 판매자 헤더 알림 벨에 안 읽음 숫자(빨간 뱃지)가 뜨고 목록에 문구가 정상 노출됐다.
+
+자동화 검증(`NotificationTypesFlowTest` 10케이스, 실제 HTTP 흐름 curl 검증)은 "알림 row가 올바른 수신자에게 생성되는지"까지만 보장한다 — 벨 뱃지 렌더링·드롭다운 표시는 브라우저에서만 확인 가능한 영역이라 이 육안 확인이 마지막 조각이었다.
+
 ## 규칙 / 검증
 
 - 조회는 본인 알림만 스코핑된다 — `BuyerMypageService`/`SellerMypageService`가 각각 `requireBuyer`/`requireSeller` 역할 체크(반대 역할 403 `FORBIDDEN`) 후 `principal.getMember().getId()` 기준으로만 `NotificationRepository.findAllByMemberIdOrderByCreatedAtDesc`를 호출한다. buyer/seller 둘 다 "내 memberId 기준" 조회라 별도 스코핑 리포지토리 메서드 없이 동일 쿼리를 재사용한다.
