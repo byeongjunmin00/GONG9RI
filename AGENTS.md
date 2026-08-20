@@ -86,11 +86,18 @@ wrapper(`./gradlew`)를 사용한다. 전역 gradle 사용 금지.
 | 실시간 인기 검색어 | 200이지만 **항상 빈 목록** (fail-open 설계) |
 | 로그인 | 200 (rate limit이 fail-open) |
 
+**띄우는 방법은 두 가지다. 둘 다 유효하다.**
+
 ```bash
-# macOS 예시
-brew services start mysql
-brew services start redis
+# (권장) 저장소의 docker-compose로 MySQL·Redis·앱을 한 번에
+docker compose up -d
+
+# 또는 로컬에 직접 설치한 MySQL·Redis에 붙여서 앱만 실행
+brew services start mysql && brew services start redis   # macOS 예시
+./gradlew bootRun
 ```
+
+`docker-compose.yml`에는 DB/Redis 접속값이 평문으로 들어 있는데 **로컬 전용 값이라 커밋해도 되는 것**이다. 반면 `SENDGRID_API_KEY`·`KAKAO_CLIENT_SECRET`·`PORTONE_API_SECRET` 같은 **진짜 비밀값은 `.env`(gitignore 대상)** 로 따로 둔다. 이 값들이 없으면 로컬에서 결제·카카오 로그인·메일 발송은 테스트할 수 없다(앱은 정상 기동한다).
 
 > [!note] "실시간 검색어는 배포 환경에서만 되는 기능"이 아니다
 > 로컬에서 비어 보이는 건 **검색 기록이 없어서**다. `SearchTrendService`는 오늘 날짜 키(`search-trend:yyyyMMdd`)의 ZSET에 검색어 점수를 쌓는 구조라, **검색을 직접 해봐야 순위가 생긴다.** TTL 2일이라 어제 것도 남지 않는다. 배포 환경에는 실사용 검색이 쌓여 있어서 보이는 것뿐이다.
