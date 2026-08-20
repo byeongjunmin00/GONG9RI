@@ -180,10 +180,13 @@ public class ProductService {
     @CacheEvict(cacheNames = CacheConfig.PRODUCT_LIST_CACHE, allEntries = true)
     public ProductResponse register(MemberUserDetails principal, ProductRegisterRequest request) {
         requireSeller(principal);
+        validateProductRegisterRequest(request);
         Member seller = principal.getMember();
 
+        int maxParticipants = calculateMaxParticipants(request.priceTiers());
+
         Product product = new Product(seller, request.name(), request.description(),
-                request.basePrice(), request.maxParticipants(), request.imageUrl(),
+                request.basePrice(), maxParticipants, request.imageUrl(),
                 Boolean.TRUE.equals(request.autoRefundOnCancel()), request.category(), request.openAt());
         Product saved = productRepository.save(product);
 
@@ -202,10 +205,13 @@ public class ProductService {
     })
     public ProductResponse update(MemberUserDetails principal, Long productId, ProductRegisterRequest request) {
         requireSeller(principal);
+        validateProductRegisterRequest(request);
         Product product = findProductWithSeller(productId);
         requireOwner(principal, product);
 
-        product.update(request.name(), request.description(), request.basePrice(), request.maxParticipants(),
+        int maxParticipants = calculateMaxParticipants(request.priceTiers());
+
+        product.update(request.name(), request.description(), request.basePrice(), maxParticipants,
                 request.imageUrl(), Boolean.TRUE.equals(request.autoRefundOnCancel()), request.category(),
                 request.openAt());
         priceTierRepository.deleteByProductId(productId);
@@ -231,6 +237,55 @@ public class ProductService {
         priceTierRepository.deleteByProductId(productId);
         productRepository.delete(product);
         log.info("상품 삭제 완료: productId={}", productId);
+    }
+
+    private int calculateMaxParticipants(List<PriceTierRequest> requests) {
+        return requests.stream()
+                .map(PriceTierRequest::minCount)
+                .max(Integer::compareTo)
+                .orElse(2);
+    }
+
+    private void validateProductRegisterRequest(ProductRegisterRequest request) {
+        if (request.basePrice() == null || request.basePrice() < 1) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+        }
+        if (request.priceTiers() == null || request.priceTiers().isEmpty()) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+        }
+
+        List<PriceTierRequest> sortedTiers = request.priceTiers().stream()
+                .sorted((a, b) -> Integer.compare(a.minCount(), b.minCount()))
+                .toList();
+
+        Integer previousMinCount = null;
+        Integer previousPrice = null;
+
+        for (PriceTierRequest tier : sortedTiers) {
+            if (tier.minCount() == null || tier.minCount() < 2) {
+                throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+            }
+            if (tier.price() == null || tier.price() < 1) {
+                throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+            }
+
+            if (tier.minCount().equals(previousMinCount)) {
+                throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+            }
+
+            if (previousPrice == null) {
+                if (tier.price() >= request.basePrice()) {
+                    throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+                }
+            } else {
+                if (tier.price() > previousPrice) {
+                    throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+                }
+            }
+
+            previousMinCount = tier.minCount();
+            previousPrice = tier.price();
+        }
     }
 
     private Product findProductWithSeller(Long productId) {

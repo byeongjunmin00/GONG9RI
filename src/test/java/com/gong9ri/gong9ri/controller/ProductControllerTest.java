@@ -243,6 +243,92 @@ class ProductControllerTest {
     }
 
     @Test
+    @DisplayName("priceTier 가격이 basePrice와 같거나 더 비싸면 400 VALIDATION_FAILED")
+    void register_priceTierPriceGreaterThanBasePrice_validationFailed() throws Exception {
+        Member seller = saveMember("seller25", Role.SELLER);
+        Map<String, Object> invalid = Map.of(
+                "name", "제주 감귤 5kg",
+                "basePrice", 25000,
+                "priceTiers", List.of(Map.of("minCount", 2, "price", 25000)),
+                "category", "FOOD"
+        );
+
+        mockMvc.perform(post("/api/products")
+                        .with(asUser(seller))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(invalid)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    }
+
+    @Test
+    @DisplayName("priceTier의 minCount가 중복되면 400 VALIDATION_FAILED")
+    void register_duplicateMinCount_validationFailed() throws Exception {
+        Member seller = saveMember("seller26", Role.SELLER);
+        Map<String, Object> invalid = Map.of(
+                "name", "제주 감귤 5kg",
+                "basePrice", 25000,
+                "priceTiers", List.of(
+                        Map.of("minCount", 5, "price", 20000),
+                        Map.of("minCount", 5, "price", 18000)
+                ),
+                "category", "FOOD"
+        );
+
+        mockMvc.perform(post("/api/products")
+                        .with(asUser(seller))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(invalid)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    }
+
+    @Test
+    @DisplayName("인원이 많은 구간이 더 비싸면 400 VALIDATION_FAILED")
+    void register_priceMonotonicityViolation_validationFailed() throws Exception {
+        Member seller = saveMember("seller27", Role.SELLER);
+        Map<String, Object> invalid = Map.of(
+                "name", "제주 감귤 5kg",
+                "basePrice", 25000,
+                "priceTiers", List.of(
+                        Map.of("minCount", 2, "price", 20000),
+                        Map.of("minCount", 5, "price", 22000)
+                ),
+                "category", "FOOD"
+        );
+
+        mockMvc.perform(post("/api/products")
+                        .with(asUser(seller))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(invalid)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    }
+
+    @Test
+    @DisplayName("maxParticipants는 priceTiers 중 가장 큰 minCount로 자동 파생된다")
+    void register_maxParticipantsAutoDerivedFromPriceTiers() throws Exception {
+        Member seller = saveMember("seller28", Role.SELLER);
+        Map<String, Object> body = Map.of(
+                "name", "자동파생테스트상품",
+                "basePrice", 30000,
+                "priceTiers", List.of(
+                        Map.of("minCount", 2, "price", 25000),
+                        Map.of("minCount", 10, "price", 15000),
+                        Map.of("minCount", 5, "price", 20000)
+                ),
+                "category", "FOOD"
+        );
+
+        mockMvc.perform(post("/api/products")
+                        .with(asUser(seller))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.maxParticipants").value(10));
+    }
+
+    @Test
     @DisplayName("openAt에 미래 시각을 넣어 등록하면 201이고 응답에 그대로 반영된다")
     void register_withFutureOpenAt_success() throws Exception {
         Member seller = saveMember("seller18", Role.SELLER);

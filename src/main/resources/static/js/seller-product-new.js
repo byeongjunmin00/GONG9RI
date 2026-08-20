@@ -144,6 +144,7 @@
     minCountInput.step = '1';
     minCountInput.placeholder = '예: 2';
     minCountInput.setAttribute('data-field', 'minCount');
+    minCountInput.addEventListener('input', updateDerivedMaxParticipants);
     minCountGroup.appendChild(minCountLabel);
     minCountGroup.appendChild(minCountInput);
 
@@ -188,6 +189,7 @@
     }
     priceTierRowsEl.removeChild(row);
     updateRemoveButtonsVisibility();
+    updateDerivedMaxParticipants();
   }
 
   /**
@@ -221,15 +223,31 @@
     return { tiers: tiers, message: null };
   }
 
+  function updateDerivedMaxParticipants() {
+    var rows = priceTierRowsEl.querySelectorAll('.price-tier-row');
+    var maxVal = 0;
+    rows.forEach(function (row) {
+      var input = row.querySelector('[data-field="minCount"]');
+      if (input && input.value) {
+        var num = Number(input.value);
+        if (Number.isInteger(num) && num > maxVal) {
+          maxVal = num;
+        }
+      }
+    });
+    maxParticipantsInput.value = maxVal >= 2 ? maxVal : '';
+  }
+
   /**
    * 서버가 강제하지 않는 부분(오름차순/중복/범위)을 UX로 보완하는 가드레일. SSOT는 서버 응답이다.
    * @param {Array<{minCount: number, price: number}>} tiers
-   * @param {number} maxParticipants
+   * @param {number} basePrice
    * @returns {string|null} 문제가 있으면 안내 문구, 없으면 null
    */
-  function validatePriceTiersGuardrail(tiers, maxParticipants) {
+  function validatePriceTiersGuardrail(tiers, basePrice) {
     var seen = {};
     var previousMinCount = null;
+    var previousPrice = null;
 
     for (var i = 0; i < tiers.length; i++) {
       var tier = tiers[i];
@@ -242,15 +260,23 @@
       if (previousMinCount !== null && tier.minCount <= previousMinCount) {
         return '가격 구간은 최소 인원 오름차순으로 입력해주세요.';
       }
-      previousMinCount = tier.minCount;
 
       if (tier.minCount < 2) {
-        return '가격 구간의 최소 인원은 2명 이상을 권장합니다.';
+        return '가격 구간의 최소 인원은 2명 이상이어야 합니다.';
       }
 
-      if (typeof maxParticipants === 'number' && tier.minCount > maxParticipants) {
-        return '가격 구간의 최소 인원은 팀 최대 인원 이하여야 합니다.';
+      if (previousPrice === null) {
+        if (tier.price >= basePrice) {
+          return '공구 가격은 정가(1인 구매 시 가격)보다 저렴해야 합니다.';
+        }
+      } else {
+        if (tier.price > previousPrice) {
+          return '모집 인원이 증가할수록 1인당 가격은 같거나 낮아져야 합니다.';
+        }
       }
+
+      previousMinCount = tier.minCount;
+      previousPrice = tier.price;
     }
 
     return null;
@@ -280,22 +306,7 @@
     var name = nameInput.value.trim();
     var description = descriptionInput.value.trim();
     var basePriceRaw = getPriceDigits(basePriceInput);
-    var maxParticipantsRaw = maxParticipantsInput.value.trim();
     var imageUrl = imageUrlInput.value.trim();
-
-    // UX 보조용 최소 필수값 체크. 실제 판정 기준(SSOT)은 서버 응답(VALIDATION_FAILED)이다.
-    if (!name || !basePriceRaw || !maxParticipantsRaw) {
-      showAlert('상품명, 정가, 팀 최대 인원을 모두 입력해주세요.');
-      return;
-    }
-
-    var basePrice = Number(basePriceRaw);
-    var maxParticipants = Number(maxParticipantsRaw);
-
-    if (!Number.isInteger(basePrice) || basePrice < 0 || !Number.isInteger(maxParticipants) || maxParticipants < 2) {
-      showAlert('정가와 팀 최대 인원 값이 올바르지 않습니다.');
-      return;
-    }
 
     var collected = collectPriceTiers();
     if (collected.tiers === null) {
@@ -303,7 +314,34 @@
       return;
     }
 
-    var guardrailMessage = validatePriceTiersGuardrail(collected.tiers, maxParticipants);
+    var derivedMaxParticipants = 0;
+    collected.tiers.forEach(function (t) {
+      if (t.minCount > derivedMaxParticipants) {
+        derivedMaxParticipants = t.minCount;
+      }
+    });
+
+    maxParticipantsInput.value = derivedMaxParticipants >= 2 ? derivedMaxParticipants : '';
+
+    // UX 보조용 최소 필수값 체크. 실제 판정 기준(SSOT)은 서버 응답(VALIDATION_FAILED)이다.
+    if (!name || !basePriceRaw) {
+      showAlert('상품명과 정가를 입력해주세요.');
+      return;
+    }
+
+    var basePrice = Number(basePriceRaw);
+
+    if (!Number.isInteger(basePrice) || basePrice < 1) {
+      showAlert('정가 값이 올바르지 않습니다.');
+      return;
+    }
+
+    if (derivedMaxParticipants < 2) {
+      showPriceTiersError('가격 구간 최소 인원은 2명 이상이어야 합니다.');
+      return;
+    }
+
+    var guardrailMessage = validatePriceTiersGuardrail(collected.tiers, basePrice);
     if (guardrailMessage) {
       showPriceTiersError(guardrailMessage);
       return;
@@ -315,7 +353,7 @@
       name: name,
       description: description,
       basePrice: basePrice,
-      maxParticipants: maxParticipants,
+      maxParticipants: derivedMaxParticipants,
       priceTiers: collected.tiers,
       imageUrl: imageUrl || null,
       autoRefundOnCancel: autoRefundOnCancelInput.checked,

@@ -5,6 +5,6 @@ import jakarta.validation.constraints.NotNull;
 
 public record PriceTierRequest(
         @NotNull @Min(2) Integer minCount,
-        @NotNull Integer price
+        @NotNull @Min(1) Integer price
 ) {
 }
