@@ -44,7 +44,13 @@
       <!-- 잘못된 접근 / 상품 없음 / 로딩 / 에러 상태. 이 상태가 보이는 동안 아래 상세 영역은 숨겨진다. -->
       <div id="product-status" class="product-status" role="status" hidden></div>
 
-      <div id="product-detail" class="product-detail product-detail-grid" hidden>
+      <div id="product-detail" class="product-detail" hidden>
+        <!-- 상단 2열(썸네일 / 구매 요약)만 그리드로 묶는다 — 아래 전폭 섹션(공구팀 목록, 탭)을
+             같은 그리드 안에 두면 좌측 썸네일의 sticky가 그 아래 행까지 따라 내려와 내용을 덮는다
+             (2026-08-20 사용자 리포트). 전폭 섹션을 그리드 밖 형제로 빼면 sticky가 이 래퍼 안으로
+             한정돼 구조적으로 넘어갈 수 없다. grid-column: 1 / -1로 그리드를 다시 무효화하던
+             .product-detail-wide도 함께 필요 없어진다. -->
+        <div class="product-detail-grid">
         <!-- 좌측: 대형 상품 썸네일 & 카카오 공유 -->
         <div class="product-detail-media">
           <div id="product-image" class="card-image product-detail-image"></div>
@@ -106,9 +112,10 @@
             <a href="/" class="btn btn-ghost" style="text-align: center;">계속 쇼핑하기</a>
           </div>
         </div>
+        </div>
 
         <!-- 하단 전폭: 모집 중인 공구팀 -->
-        <div class="team-list-section product-detail-wide">
+        <div class="team-list-section">
           <h2>모집 중인 공구팀</h2>
           <div id="team-status" class="product-status" role="status" hidden></div>
           <ul id="team-list" class="team-list"></ul>
@@ -118,7 +125,7 @@
              product-detail-tabs.md). 탭 전환은 각 패널의 hidden 속성만 토글하고, 리뷰/문의 데이터는
              기존과 동일한 시점(loadProduct() 성공 후, gong9ri:auth-resolved 도착 시)에 항상 먼저
              불러와 둔다 — 숨겨진 탭이라도 이미 데이터가 채워져 있다. -->
-        <div class="product-tabs-section product-detail-wide">
+        <div class="product-tabs-section">
           <div class="product-tabs" role="tablist">
             <button
               type="button"
