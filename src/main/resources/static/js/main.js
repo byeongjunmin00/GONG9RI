@@ -439,6 +439,8 @@
     var progressEl = createProgressBar(product);
     if (progressEl) {
       bodyEl.appendChild(progressEl);
+    } else {
+      bodyEl.appendChild(createEmptyTeamBadge());
     }
 
     link.appendChild(bodyEl);
@@ -529,6 +531,16 @@
     wrapEl.appendChild(percentEl);
 
     return wrapEl;
+  }
+
+  /**
+   * 진행 중인 팀이 없는 상품에 "🔥 첫 공구팀 신설하고 최저가 도전!" 컴팩트 뱃지를 그린다.
+   */
+  function createEmptyTeamBadge() {
+    var badgeEl = document.createElement('div');
+    badgeEl.className = 'card-no-team-badge';
+    badgeEl.textContent = '🔥 첫 공구팀 신설하고 최저가 도전!';
+    return badgeEl;
   }
 
   function renderProducts(products) {
