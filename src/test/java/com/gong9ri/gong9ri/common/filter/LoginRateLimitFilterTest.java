@@ -43,12 +43,29 @@ class LoginRateLimitFilterTest {
 
     @BeforeEach
     void cleanUpBefore() {
-        redisTemplate.delete(RATE_LIMIT_KEY);
+        clearRedisState();
     }
 
     @AfterEach
     void cleanUpAfter() {
+        clearRedisState();
+    }
+
+    /**
+     * rate limit 카운터뿐 아니라 <b>계정 잠금 기록(login-fail:*)도 지운다.</b>
+     *
+     * <p>이 테스트는 같은 아이디로 로그인 실패를 반복하는데, {@code LoginAttemptGuard}가 그 실패를
+     * 10분 창으로 누적해 계정을 잠근다. rate limit 키만 지우면 잠금 기록이 남아, 테스트를 짧은 시간에
+     * 여러 번 돌리면 <b>필터가 아니라 컨트롤러가 429를 던져</b> 401을 기대하는 단언이 깨진다
+     * (2026-08-21 실제로 겪음 — 단독 실행에서도 재현됐다).
+     *
+     * <p>테스트가 남긴 상태를 스스로 치우지 않으면 "언제 마지막으로 돌렸는지"에 결과가 달라진다.
+     */
+    private void clearRedisState() {
         redisTemplate.delete(RATE_LIMIT_KEY);
+        for (int i = 0; i <= LIMIT; i++) {
+            redisTemplate.delete("login-fail:login-rl-nonexistent-" + i);
+        }
     }
 
     private String loginBody(int i) throws Exception {
