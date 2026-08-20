@@ -22,3 +22,35 @@
   - **왜 10분처럼 짧게 잡았나**: 이 프로젝트는 배포가 매우 잦은데(같은 날에도 여러 번) 정적 파일에 버전 붙이기(cache busting, 예: 파일명 해시)가 없다. 오래 캐싱하면 배포 직후에도 사용자가 옛 CSS/JS를 계속 보는 문제가 생긴다(오늘 헤더 UI를 여러 번 고치면서 그 스테일 캐시 문제를 실제로 몇 번 겪음). 짧게 캐싱해서 "같은 세션 안에서 페이지 이동할 때 재다운로드 방지" 정도의 실질적 이득만 취하고, 스테일 위험은 최대 10분으로 제한한다.
   - HTML 페이지(`.html`)는 원래도 캐시 헤더가 없어서(정적 리소스 핸들러 대상이 아님) 그대로 두었다 — 손댈 필요 없음.
 - 관련 코드: `SitemapController`, `SitemapService`, `WebMvcConfig`, `SecurityConfig`(permitAll 2줄), `static/robots.txt`, `static/index.html`(`<meta name="description">`, `<link rel="canonical">`).
+
+## CSP(Content-Security-Policy) — 도입하지 않기로 한 결정 (2026-08-20)
+
+보안 헤더 중 CSP만 빠져 있다. 실측 기준 현재 적용된 헤더는 다음과 같다.
+
+| 헤더 | 상태 |
+|---|---|
+| `strict-transport-security` | 적용 (HTTPS 강제) |
+| `x-content-type-options: nosniff` | 적용 |
+| `x-frame-options: DENY` | 적용 (클릭재킹 방어) |
+| `content-security-policy` | **미적용 (의도적)** |
+
+### 왜 안 넣었나
+
+이 사이트는 외부에서 다음을 불러온다.
+
+```
+fonts.googleapis.com   / fonts.gstatic.com   ← 구글 폰트
+cdn.jsdelivr.net                             ← Pretendard 폰트
+developers.kakao.com                         ← 카카오 공유 SDK
+(+ PortOne 브라우저 결제 SDK)
+```
+
+CSP를 켜면 화이트리스트에 없는 출처는 전부 차단된다. 하나라도 빠뜨리면 폰트가 깨지는 정도가 아니라 **카카오 공유나 결제창이 조용히 죽는다** — 콘솔에만 위반이 찍히고 사용자에겐 "버튼이 안 눌리는" 것으로 보여, 배포 한참 뒤에야 발견될 수 있다. **돈이 오가는 경로가 무증상으로 깨질 위험**이라 근거 없이 서둘러 넣지 않는다.
+
+### 안전하게 켜는 방법은 알고 있다 (지금 안 할 뿐)
+
+`Content-Security-Policy-Report-Only` 모드는 **아무것도 차단하지 않고** "이 정책이었으면 무엇이 막혔을지"만 보고한다. 이걸로 실사용 경로(결제·공유·폰트)를 전부 돌아 위반 목록을 모은 뒤 화이트리스트를 확정하고, 그때 차단 모드로 전환하는 것이 정석이다.
+
+지금 하지 않는 이유는 실익 대비 비용이다 — 위반 리포트를 수집할 `report-uri` 엔드포인트가 없어 **브라우저 콘솔을 페이지마다 사람이 직접 확인**해야 하고, 우리는 이미 XSS를 `textContent` 일관 사용으로 막고 있다(세션 중 코드리뷰에서 반복 확인). CSP는 그 위에 얹는 2차 방어선이라, 검증 비용을 감당할 여유가 생길 때 도입하는 게 맞다고 판단했다.
+
+**사용자와 함께 내린 결정이며(2026-08-20), 필요해지면 위 Report-Only 절차로 도입한다.**
