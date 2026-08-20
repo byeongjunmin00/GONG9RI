@@ -1115,7 +1115,13 @@
 
 .header-search-trends__list {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  /* 순위가 세로로 읽히게 한다 — 왼쪽 열에 1~5위, 오른쪽 열에 6~10위(포털 인기검색어와 같은 방식).
+     기본 배치(grid-auto-flow: row)면 1·2위가 가로로 나란히 놓여 "1등 다음이 오른쪽"이 되는데,
+     순위는 위에서 아래로 읽는 게 자연스럽다는 피드백(2026-08-20).
+     행 수를 5로 고정하고 열 방향으로 채우면 항목이 10개보다 적어도 왼쪽 열부터 순서대로 찬다. */
+  grid-auto-flow: column;
+  grid-template-rows: repeat(5, auto);
+  grid-auto-columns: 1fr;
   gap: 4px var(--space-4);
   list-style: none;
   margin: 0;
@@ -1990,6 +1996,15 @@
 }
 
 
+
+/* 상품 설명 — 판매자가 입력한 줄바꿈을 그대로 보여준다.
+   textContent로 넣으면 줄바꿈 문자는 DOM에 남지만 HTML 기본 규칙상 공백으로 합쳐져 한 줄로 보인다
+   (2026-08-20 사용자 리포트: "줄바꿈했는데 줄바꿈이 안 되서 나오네"). innerHTML로 <br> 조립하는
+   대신 CSS로 해결한다 — 판매자 입력값이라 textContent 유지가 XSS 방어의 핵심이다.
+   pre-wrap: 줄바꿈·연속 공백은 보존하되, 긴 줄은 컨테이너 폭에 맞춰 자동 줄바꿈된다. */
+#product-description {
+  white-space: pre-wrap;
+}
 
 /* ---------- 에러 페이지 (error.html) ---------- */
 /* 브라우저로 들어온 404/401에서만 보여주는 페이지 — API 클라이언트(fetch)는 기존 JSON 그대로 받는다. */
