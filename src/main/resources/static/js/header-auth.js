@@ -49,12 +49,17 @@
       return;
     }
     logoutBtn.addEventListener('click', function () {
+      // 성공/실패와 무관하게 새로고침한다 — 로그아웃은 "서버 상태와 화면을 다시 맞추는" 동작이라
+      // 실패했을 때 아무것도 안 하면 사용자에겐 버튼이 먹통인 것으로 보인다(2026-08-20 실제 리포트).
+      // 특히 세션이 이미 만료된 상태라면 사용자는 사실상 이미 로그아웃된 것이므로, 새로고침하면
+      // 헤더가 비로그인 상태로 정상 복귀한다. 네트워크 오류 등 다른 실패에서도 새로고침이
+      // "지금 서버 기준 상태"를 다시 그려주므로 화면이 낡은 채 남는 것보다 낫다.
       window.Api.post('/auth/logout')
+        .catch(function (err) {
+          console.error('[header-auth.js] 로그아웃 요청 실패(화면은 새로고침으로 동기화):', err);
+        })
         .then(function () {
           window.location.reload();
-        })
-        .catch(function (err) {
-          console.error('[header-auth.js] 로그아웃 실패:', err);
         });
     });
   }

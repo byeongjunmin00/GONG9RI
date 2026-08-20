@@ -48,6 +48,14 @@ public class SecurityConfig {
                         // 검색엔진 크롤러가 인증 없이 읽어야 하는 것들(SEO).
                         .requestMatchers(HttpMethod.GET, "/robots.txt", "/sitemap.xml").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login").permitAll()
+                        // 로그아웃은 "이미 로그아웃된 상태"에서 호출돼도 성공해야 한다(멱등).
+                        // 인증을 요구하면, 세션이 만료된 뒤 로그아웃 버튼을 눌렀을 때 401이 나면서
+                        // 화면상 아무 일도 일어나지 않는다 — 사용자에겐 "로그아웃이 안 되는" 버그로 보인다
+                        // (2026-08-20 실제 리포트: 페이지를 오래 열어두면 헤더는 로그인 상태로 그려져 있는데
+                        //  서버 세션은 이미 만료돼 있어 이 상황이 생긴다).
+                        // AuthController.logout()은 이미 session이 null이어도 안전하게 동작하도록 짜여 있는데
+                        // (getSession(false) 후 null 체크) 인가 설정이 그 경로에 도달조차 못 하게 막고 있었다.
+                        .requestMatchers(HttpMethod.POST, "/api/auth/logout").permitAll()
                         // 로그인 고도화 2단계 — 전부 "아직 로그인 못 하는 상태"의 사용자가 쓰는 기능이라
                         // 인증 없이 열어야 한다(이메일 인증, 비밀번호 재설정).
                         .requestMatchers(HttpMethod.GET, "/api/auth/verify-email").permitAll()
