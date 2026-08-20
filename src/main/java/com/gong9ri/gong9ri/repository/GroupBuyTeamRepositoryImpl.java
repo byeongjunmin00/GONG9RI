@@ -38,6 +38,8 @@ public class GroupBuyTeamRepositoryImpl implements GroupBuyTeamRepositoryCustom 
         return queryFactory
                 .selectFrom(groupBuyTeam)
                 .join(groupBuyTeam.product).fetchJoin()
+                // 리더 이름을 응답에 싣기 때문에 함께 가져온다 — LAZY라 안 붙이면 팀마다 한 번씩 더 나간다.
+                .join(groupBuyTeam.leader).fetchJoin()
                 .where(groupBuyTeam.product.seller.id.eq(sellerId))
                 .orderBy(groupBuyTeam.createdAt.desc())
                 .fetch();

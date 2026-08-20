@@ -69,7 +69,9 @@
     metaEl.className = 'mypage-list-item__meta';
     var reasonText = request.reason ? '사유: ' + request.reason : '사유: 참여 취소';
     var requestedAtText = request.requestedAt ? new Date(request.requestedAt).toLocaleString('ko-KR') : '';
-    metaEl.textContent = formatPrice(request.amount) + ' · ' + reasonText + ' · 요청일 ' + requestedAtText;
+    var requesterText = request.requesterName ? '요청자 ' + request.requesterName : '';
+    metaEl.textContent = [requesterText, formatPrice(request.amount), reasonText, '요청일 ' + requestedAtText]
+      .filter(Boolean).join(' · ');
     infoEl.appendChild(metaEl);
 
     li.appendChild(infoEl);

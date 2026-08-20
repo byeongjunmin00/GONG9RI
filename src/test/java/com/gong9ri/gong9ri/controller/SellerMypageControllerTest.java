@@ -15,6 +15,7 @@ import com.gong9ri.gong9ri.entity.Payment;
 import com.gong9ri.gong9ri.entity.Product;
 import com.gong9ri.gong9ri.entity.RefundRequest;
 import com.gong9ri.gong9ri.entity.Role;
+import com.gong9ri.gong9ri.entity.TeamParticipation;
 import com.gong9ri.gong9ri.entity.SellerRevenueSummary;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.MemberRepository;
@@ -22,6 +23,7 @@ import com.gong9ri.gong9ri.repository.NotificationRepository;
 import com.gong9ri.gong9ri.repository.PaymentRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
 import com.gong9ri.gong9ri.repository.RefundRequestRepository;
+import com.gong9ri.gong9ri.repository.TeamParticipationRepository;
 import com.gong9ri.gong9ri.repository.SellerRevenueSummaryRepository;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
@@ -63,8 +65,16 @@ class SellerMypageControllerTest {
     @Autowired
     private RefundRequestRepository refundRequestRepository;
 
+    @Autowired
+    private TeamParticipationRepository teamParticipationRepository;
+
     private Member saveMember(String username, Role role) {
-        Member member = new Member(username, "encoded-password", "테스트유저", username + "@test.com", role);
+        return saveMember(username, role, "테스트유저");
+    }
+
+    // 이름이 응답에 실리는지 보는 테스트에서는 전부 "테스트유저"면 검증이 안 되므로 이름을 지정한다.
+    private Member saveMember(String username, Role role, String name) {
+        Member member = new Member(username, "encoded-password", name, username + "@test.com", role);
         return memberRepository.save(member);
     }
 
@@ -184,6 +194,28 @@ class SellerMypageControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(1))
                 .andExpect(jsonPath("$.data[0].productName").value("제주 감귤 5kg"));
+    }
+
+    @Test
+    @DisplayName("공구 참여 현황에 팀장과 참여자 이름이 참여 순서대로 함께 내려온다")
+    void teams_includeLeaderAndParticipantNames() throws Exception {
+        // 상품명과 인원 수만 내려가서 판매자가 "누가 참여했는지" 알 수 없던 걸 고친 회귀 방지
+        // (2026-08-20 사용자 리포트). 값이 아니라 "필드가 응답에 있는지"가 핵심이다.
+        Member seller = saveMember("mpSellerT1", Role.SELLER);
+        Product product = saveProduct(seller, "제주 감귤 5kg", 5);
+        Member leader = saveMember("mpLeaderT1", Role.BUYER, "김팀장");
+        Member joiner = saveMember("mpJoinerT1", Role.BUYER, "박참여");
+        GroupBuyTeam team = groupBuyTeamRepository.save(
+                new GroupBuyTeam(product, leader, 5, LocalDateTime.now().plusDays(7)));
+        teamParticipationRepository.save(new TeamParticipation(team, leader));
+        teamParticipationRepository.save(new TeamParticipation(team, joiner));
+
+        mockMvc.perform(get("/api/seller/mypage/teams").with(asUser(seller)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].leaderName").value("김팀장"))
+                .andExpect(jsonPath("$.data[0].participantNames.length()").value(2))
+                .andExpect(jsonPath("$.data[0].participantNames[0]").value("김팀장"))
+                .andExpect(jsonPath("$.data[0].participantNames[1]").value("박참여"));
     }
 
     @Test
@@ -331,6 +363,24 @@ class SellerMypageControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(1))
                 .andExpect(jsonPath("$.data[0].reason").value("단순 변심"));
+    }
+
+    @Test
+    @DisplayName("환불 요청 목록에 요청자 정보가 함께 내려온다")
+    void refundRequests_includeRequester() throws Exception {
+        // 상품명만 보여서 판매자가 "누가 환불을 요청했는지" 알 수 없던 걸 고친 회귀 방지
+        // (2026-08-20 사용자 리포트). 조회 쿼리는 이미 requester를 fetch join하고 있었는데
+        // DTO가 그 값을 버리고 있었다.
+        Member seller = saveMember("mpSellerR1", Role.SELLER);
+        Product product = saveProduct(seller, "제주 감귤 5kg", 10);
+        Member buyer = saveMember("mpBuyerR1", Role.BUYER, "이환불");
+        Payment payment = paymentRepository.save(new Payment(buyer, product, null, 25000));
+        refundRequestRepository.save(new RefundRequest(payment, buyer, "단순 변심"));
+
+        mockMvc.perform(get("/api/seller/mypage/refund-requests").with(asUser(seller)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].requesterName").value("이환불"))
+                .andExpect(jsonPath("$.data[0].requesterId").value(buyer.getId()));
     }
 
     @Test

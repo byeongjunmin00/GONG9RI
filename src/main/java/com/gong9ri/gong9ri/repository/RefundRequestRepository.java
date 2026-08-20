@@ -19,11 +19,6 @@ public interface RefundRequestRepository extends JpaRepository<RefundRequest, Lo
     // 관리자 회원 삭제 — 요청한 환불 요청이 하나라도 있으면 하드 삭제를 막는다(product/admin).
     boolean existsByRequester_Id(Long requesterId);
 
-    // 관리자 환불 요청 전체 현황(product/admin) — 판매자 범위 없이 전체를 최신순으로 본다.
-    Page<RefundRequest> findAllByStatusOrderByRequestedAtDesc(RefundRequestStatus status, Pageable pageable);
-
-    Page<RefundRequest> findAllByOrderByRequestedAtDesc(Pageable pageable);
-
     // 관리자 대시보드(product/admin) 요약 카드용 — 대기 중 환불 요청 개수.
     long countByStatus(RefundRequestStatus status);
 }

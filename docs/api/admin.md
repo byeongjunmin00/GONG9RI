@@ -111,6 +111,8 @@
         "productId": 4,
         "productName": "제주 감귤 5kg",
         "teamId": null,
+        "requesterId": 7,
+        "requesterName": "이환불",
         "amount": 25000,
         "paymentStatus": "PAID",
         "status": "PENDING",

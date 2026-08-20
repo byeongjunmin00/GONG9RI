@@ -1,8 +1,11 @@
 package com.gong9ri.gong9ri.repository;
 
 import com.gong9ri.gong9ri.entity.RefundRequest;
+import com.gong9ri.gong9ri.entity.RefundRequestStatus;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 /**
  * RefundRequestRepository의 QueryDSL 기반 커스텀 쿼리(페치조인) — docs/dev/ongoing/querydsl-migration.md
@@ -26,4 +29,8 @@ public interface RefundRequestRepositoryCustom {
 
     // 판매자 마이페이지 — 내가 등록한 상품에 대한 환불 요청 전체.
     List<RefundRequest> findAllBySellerIdWithPaymentAndProduct(Long sellerId);
+
+    // 관리자 환불 목록 — payment/product/requester를 전부 fetch join한다. 파생 쿼리(findAllByStatus...)를
+    // 쓰면 이 셋이 전부 LAZY라 한 행마다 세 번씩 더 나간다(응답에 요청자를 추가하면서 한 번 더 늘었다).
+    Page<RefundRequest> findAllForAdmin(RefundRequestStatus status, Pageable pageable);
 }

@@ -52,6 +52,17 @@
     return;
   }
 
+  // 서버가 주는 LocalDateTime은 "2026-08-27T19:52:25.05242"처럼 마이크로초까지 붙은 ISO 문자열이라
+  // 그대로 화면에 쓰면 날것으로 보인다(2026-08-20 사용자 리포트). 다른 화면(admin-members.js,
+  // header-notifications.js)과 같은 방식으로 한국 표기로 바꾼다.
+  function formatDateTime(value) {
+    if (!value) {
+      return '';
+    }
+    var date = new Date(value);
+    return isNaN(date.getTime()) ? '' : date.toLocaleString('ko-KR');
+  }
+
   function formatPrice(value) {
     if (typeof value !== 'number') {
       return '';
@@ -280,9 +291,23 @@
     metaEl.className = 'mypage-list-item__meta';
     var current = typeof team.currentCount === 'number' ? team.currentCount : '?';
     var max = typeof team.maxParticipants === 'number' ? team.maxParticipants : '?';
-    var deadlineText = team.deadline ? '마감 ' + team.deadline : '';
+    var deadlineText = team.deadline ? '마감 ' + formatDateTime(team.deadline) : '';
     metaEl.textContent = [current + ' / ' + max + '명', deadlineText].filter(Boolean).join(' · ');
     infoEl.appendChild(metaEl);
+
+    // 누가 참여했는지 — 인원 수만 보여서 판매자가 알 수 없던 부분(2026-08-20 사용자 리포트).
+    var participants = Array.isArray(team.participantNames) ? team.participantNames : [];
+    var participantsEl = document.createElement('span');
+    participantsEl.className = 'mypage-list-item__meta';
+    if (participants.length) {
+      participantsEl.textContent = '참여 ' + participants.join(', ')
+        + (team.leaderName ? ' · 팀장 ' + team.leaderName : '');
+    } else {
+      participantsEl.textContent = team.leaderName ? '팀장 ' + team.leaderName : '';
+    }
+    if (participantsEl.textContent) {
+      infoEl.appendChild(participantsEl);
+    }
 
     li.appendChild(infoEl);
 
@@ -358,12 +383,14 @@
 
   function refundRequestMetaText(request) {
     var amountText = formatPrice(request.amount);
-    var requestedAtText = request.requestedAt ? '요청일 ' + request.requestedAt : '';
+    var requesterText = request.requesterName ? '요청자 ' + request.requesterName : '';
+    var requestedAtText = request.requestedAt ? '요청일 ' + formatDateTime(request.requestedAt) : '';
     var reasonText = request.reason ? '사유: ' + request.reason : '사유: 참여 취소';
     var rejectionText = request.status === 'REJECTED' && request.rejectionReason
       ? '거절 사유: ' + request.rejectionReason
       : '';
-    return [amountText, requestedAtText, reasonText, rejectionText].filter(Boolean).join(' · ');
+    return [requesterText, amountText, requestedAtText, reasonText, rejectionText]
+      .filter(Boolean).join(' · ');
   }
 
   function createRejectPanel(request, li, badgeEl, metaEl, actionsEl) {

@@ -31,6 +31,12 @@ public interface TeamParticipationRepository
     @Query("SELECT tp.member.id FROM TeamParticipation tp WHERE tp.team.id = :teamId")
     List<Long> findMemberIdsByTeamId(@Param("teamId") Long teamId);
 
+    // 판매자 마이페이지의 "공구 참여 현황" — 팀마다 따로 조회하면 팀 수만큼 쿼리가 나가므로
+    // 팀 id 전체를 한 번에 받아 메모리에서 팀별로 묶는다. 회원을 fetch join하는 건 이름을 쓰기 때문.
+    @Query("SELECT tp FROM TeamParticipation tp JOIN FETCH tp.member "
+            + "WHERE tp.team.id IN :teamIds ORDER BY tp.joinedAt ASC")
+    List<TeamParticipation> findAllByTeamIdsWithMember(@Param("teamIds") List<Long> teamIds);
+
     // 관리자 회원 삭제 — 참여 중인(또는 참여했던) 공구팀이 하나라도 있으면 하드 삭제를 막는다(product/admin).
     boolean existsByMember_Id(Long memberId);
 }

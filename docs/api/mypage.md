@@ -131,11 +131,17 @@
       "currentCount": 10,
       "maxParticipants": 10,
       "status": "SUCCESS",
+      "leaderName": "김팀장",
+      "participantNames": ["김팀장", "박참여"],
       "deadline": "2026-07-31T23:59:59",
       "createdAt": "2026-07-24T10:00:00"
     }
   ]
   ```
+
+  > `leaderName` / `participantNames`는 2026-08-20 추가. 이전에는 상품명과 인원 수만 내려가서
+  > **판매자가 "누가 참여했는지" 알 수 없었다.** `participantNames`는 참여 순서(`joinedAt` 오름차순)이며
+  > 리더도 참여자이므로 목록에 포함된다.
 
 - 에러:
   | 코드 | HTTP | 설명 |
@@ -259,6 +265,8 @@
       "productId": 1,
       "productName": "제주 감귤 5kg",
       "teamId": null,
+      "requesterId": 7,
+      "requesterName": "이환불",
       "amount": 25000,
       "paymentStatus": "PAID",
       "status": "PENDING",
@@ -291,6 +299,8 @@
       "productId": 1,
       "productName": "제주 감귤 5kg",
       "teamId": null,
+      "requesterId": 7,
+      "requesterName": "이환불",
       "amount": 25000,
       "paymentStatus": "PAID",
       "status": "PENDING",

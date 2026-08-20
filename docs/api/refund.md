@@ -1,5 +1,8 @@
 # refund API
 
+> `requesterId`/`requesterName`은 2026-08-20 추가 — 판매자·관리자 화면이 상품명만 보여줘서
+> **누구의 환불 요청인지 알 수 없었다**. 구매자 본인 조회에서는 자기 정보가 그대로 내려온다.
+
 > 응답 형식(성공/실패 공통): 공통 규칙 — [api/README.md](README.md). 아래 응답 예시는 성공 시 `data` 안에 들어갈 내용만 표시.
 > 실패: `{ "success": false, "code": "...", "message": "..." }`
 
@@ -30,6 +33,8 @@
     "productId": 1,
     "productName": "제주 감귤 5kg",
     "teamId": null,
+    "requesterId": 7,
+    "requesterName": "이환불",
     "amount": 25000,
     "paymentStatus": "PAID",
     "status": "PENDING",
@@ -71,6 +76,8 @@ PortOne 결제취소는 이 트랜잭션이 커밋된 이후 비동기로 실행
     "productId": 1,
     "productName": "제주 감귤 5kg",
     "teamId": null,
+    "requesterId": 7,
+    "requesterName": "이환불",
     "amount": 25000,
     "paymentStatus": "PAID",
     "status": "APPROVED",
@@ -116,6 +123,8 @@ PortOne 결제취소는 이 트랜잭션이 커밋된 이후 비동기로 실행
     "productId": 1,
     "productName": "제주 감귤 5kg",
     "teamId": null,
+    "requesterId": 7,
+    "requesterName": "이환불",
     "amount": 25000,
     "paymentStatus": "PAID",
     "status": "REJECTED",

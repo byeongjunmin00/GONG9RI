@@ -4,11 +4,17 @@ import static com.gong9ri.gong9ri.entity.QRefundRequest.refundRequest;
 
 import com.gong9ri.gong9ri.entity.QProduct;
 import com.gong9ri.gong9ri.entity.RefundRequest;
+import com.gong9ri.gong9ri.entity.RefundRequestStatus;
+import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.support.PageableExecutionUtils;
 
 public class RefundRequestRepositoryImpl implements RefundRequestRepositoryCustom {
 
@@ -59,5 +65,30 @@ public class RefundRequestRepositoryImpl implements RefundRequestRepositoryCusto
                 .where(product.seller.id.eq(sellerId))
                 .orderBy(refundRequest.requestedAt.desc())
                 .fetch();
+    }
+
+    @Override
+    public Page<RefundRequest> findAllForAdmin(RefundRequestStatus status, Pageable pageable) {
+        QProduct product = new QProduct("adminRefundProduct");
+        BooleanExpression statusFilter = status != null ? refundRequest.status.eq(status) : null;
+
+        List<RefundRequest> content = queryFactory
+                .selectFrom(refundRequest)
+                .join(refundRequest.payment).fetchJoin()
+                .join(refundRequest.payment.product, product).fetchJoin()
+                .join(refundRequest.requester).fetchJoin()
+                .where(statusFilter)
+                .orderBy(refundRequest.requestedAt.desc())
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
+
+        // 개수는 fetch join 없이 따로 센다 — 조인해봐야 개수는 같고 비용만 는다.
+        JPAQuery<Long> countQuery = queryFactory
+                .select(refundRequest.count())
+                .from(refundRequest)
+                .where(statusFilter);
+
+        return PageableExecutionUtils.getPage(content, pageable, countQuery::fetchOne);
     }
 }

@@ -9,13 +9,18 @@ import com.gong9ri.gong9ri.dto.RefundRequestResponse;
 import com.gong9ri.gong9ri.dto.RevenueResponse;
 import com.gong9ri.gong9ri.dto.SellerProductResponse;
 import com.gong9ri.gong9ri.dto.SellerTeamResponse;
+import com.gong9ri.gong9ri.entity.GroupBuyTeam;
 import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.NotificationRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
 import com.gong9ri.gong9ri.repository.RefundRequestRepository;
 import com.gong9ri.gong9ri.repository.SellerRevenueSummaryRepository;
+import com.gong9ri.gong9ri.repository.TeamParticipationRepository;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -31,6 +36,7 @@ public class SellerMypageService {
     private final SellerRevenueSummaryRepository sellerRevenueSummaryRepository;
     private final NotificationRepository notificationRepository;
     private final RefundRequestRepository refundRequestRepository;
+    private final TeamParticipationRepository teamParticipationRepository;
     private final NotificationService notificationService;
 
     public List<SellerProductResponse> products(MemberUserDetails principal) {
@@ -58,9 +64,30 @@ public class SellerMypageService {
 
     public List<SellerTeamResponse> teams(MemberUserDetails principal) {
         requireSeller(principal);
-        return groupBuyTeamRepository.findAllBySellerIdWithProduct(principal.getMember().getId()).stream()
-                .map(SellerTeamResponse::from)
+        List<GroupBuyTeam> teams =
+                groupBuyTeamRepository.findAllBySellerIdWithProduct(principal.getMember().getId());
+        Map<Long, List<String>> participantNamesByTeamId = participantNamesByTeamId(teams);
+        return teams.stream()
+                .map(team -> SellerTeamResponse.from(
+                        team,
+                        participantNamesByTeamId.getOrDefault(team.getId(), List.of())))
                 .toList();
+    }
+
+    // 팀마다 참여자를 따로 조회하면 팀 수만큼 쿼리가 나간다. 한 번에 받아 팀별로 묶는다.
+    private Map<Long, List<String>> participantNamesByTeamId(List<GroupBuyTeam> teams) {
+        if (teams.isEmpty()) {
+            // 빈 목록을 그대로 넘기면 IN () 형태가 되어 DB에 따라 문법 오류가 난다.
+            return Map.of();
+        }
+        List<Long> teamIds = teams.stream().map(GroupBuyTeam::getId).toList();
+        return teamParticipationRepository.findAllByTeamIdsWithMember(teamIds).stream()
+                .collect(Collectors.groupingBy(
+                        participation -> participation.getTeam().getId(),
+                        LinkedHashMap::new,
+                        Collectors.mapping(
+                                participation -> participation.getMember().getName(),
+                                Collectors.toList())));
     }
 
     public NotificationListResponse notifications(MemberUserDetails principal, int page, int size) {

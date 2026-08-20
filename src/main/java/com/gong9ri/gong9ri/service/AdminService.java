@@ -122,10 +122,9 @@ public class AdminService {
             RefundRequestStatus status) {
         requireAdmin(principal);
         Pageable pageable = PageRequest.of(page, size);
-        Page<RefundRequest> result = status != null
-                ? refundRequestRepository.findAllByStatusOrderByRequestedAtDesc(status, pageable)
-                : refundRequestRepository.findAllByOrderByRequestedAtDesc(pageable);
-        return AdminRefundPageResponse.of(result);
+        // 파생 쿼리에서 fetch join 쿼리로 바꿨다 — payment/product/requester가 전부 LAZY라
+        // 한 행마다 세 번씩 더 나가고 있었다(응답에 요청자를 추가하며 한 번 더 늘어날 참이었다).
+        return AdminRefundPageResponse.of(refundRequestRepository.findAllForAdmin(status, pageable));
     }
 
     private boolean hasActivity(Long memberId) {
