@@ -1858,6 +1858,12 @@
   line-height: var(--lh-normal);
 }
 
+/* 긴 알림 문구가 패널 폭을 밀어내지 않도록 줄바꿈시킨다 — 좁은 화면일수록 문제가 된다. */
+.header-notifications-panel__message {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .header-notifications-panel__time {
   font-size: 11px;
   color: var(--color-text-muted);
@@ -1870,9 +1876,27 @@
   color: var(--color-text-muted);
 }
 
-@media (max-width: 420px) {
+/* 좁은 화면에서는 패널을 벨이 아니라 헤더 기준으로 펼친다.
+   원래는 벨(.site-header__notifications, position: relative)을 기준으로 right:0에 붙어 왼쪽으로
+   320px 뻗는 구조였다. 벨이 화면 오른쪽에 있으면 그 320px이 화면 왼쪽 밖으로 넘어가 잘린다
+   (2026-08-20 사용자 리포트: "모바일에서 알림창 다 짤려").
+
+   폭만 줄이는 기존 규칙(width: min(320px, 90vw))은 이 상황을 못 고쳤다 — 390px 화면에서 90vw는
+   351px이라 min()이 320px을 그대로 고르기 때문에 아무것도 줄어들지 않았다. 잘림의 원인은 폭이
+   아니라 "어디에 붙느냐"였다.
+
+   그래서 좁은 화면에선 벨의 position:relative를 풀어, 패널이 그 위의 .site-header(sticky =
+   위치가 지정된 요소)를 기준으로 잡히게 하고 좌우를 여백만 남기고 벌린다. 헤더는 화면 전체 폭이라
+   어떤 기기에서도 화면 안에 들어온다. */
+@media (max-width: 767px) {
+  .site-header__notifications {
+    position: static;
+  }
+
   .header-notifications-panel {
-    width: min(320px, 90vw);
+    left: var(--space-4);
+    right: var(--space-4);
+    width: auto;
   }
 }
 
@@ -1886,17 +1910,28 @@
   align-items: start;
 }
 
+.product-detail-media {
+  position: sticky;
+  top: 100px;
+}
+
 @media (max-width: 991px) {
   .product-detail-grid {
     grid-template-columns: 1fr;
     gap: var(--space-6);
   }
+
+  /* 1열로 쌓이는 화면에서는 썸네일 고정(sticky)을 끈다.
+     sticky는 "왼쪽 사진을 보면서 오른쪽 구매 옵션을 읽는" 2열 배치에서만 의미가 있는데, 1열에서는
+     사진이 구매 옵션 위에 있어서 같이 볼 게 없고, 스크롤을 내리면 아래 내용을 계속 덮고 따라온다
+     (2026-08-20 사용자 리포트: 휴대폰에서 사진과 카카오톡 공유 버튼이 같이 내려온다).
+     데스크톱에서 겪은 겹침(changes/003)은 그리드 구조를 고쳐 해결했지만, 모바일은 애초에 고정할
+     이유 자체가 없어서 끄는 게 맞다. */
+  .product-detail-media {
+    position: static;
+  }
 }
 
-.product-detail-media {
-  position: sticky;
-  top: 100px;
-}
 
 .product-detail-media .product-detail-image {
   width: 100%;
