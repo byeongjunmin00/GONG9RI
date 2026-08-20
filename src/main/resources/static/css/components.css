@@ -2258,14 +2258,16 @@
   min-width: 64px;
   height: 48px;
   padding: 0 var(--space-4);
-  border: 1px solid var(--color-border);
+  border: none;
   border-radius: var(--radius-full);
-  background-color: var(--color-surface);
-  color: var(--color-text);
+  /* AI 챗봇 버튼과 같은 브랜드 그라데이션 — 둘 다 GONG9RI의 상담 창구라 같은 색을 쓴다.
+     구분은 색이 아니라 라벨("AI 상담" vs "고객센터")과 위치가 한다. */
+  background: var(--gradient-brand);
+  color: var(--color-text-on-brand);
   font-family: var(--font-heading);
   font-size: var(--fs-sm);
   font-weight: 700;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
 }
 
 .support-widget__button:hover {
@@ -2280,8 +2282,9 @@
   height: 20px;
   padding: 0 6px;
   border-radius: var(--radius-full);
-  background-color: var(--color-pink);
-  color: #fff;
+  /* 버튼이 그라데이션이라 분홍 배지는 묻힌다 — 색을 뒤집어 흰 배경 + 분홍 글씨로 띄운다. */
+  background-color: #fff;
+  color: var(--color-pink);
   font-size: var(--fs-xs);
   font-weight: 800;
 }
