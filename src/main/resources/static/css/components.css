@@ -533,11 +533,6 @@
   border-radius: var(--radius-md);
 }
 
-.product-detail-image {
-  max-width: 400px;
-  border-radius: var(--radius-lg);
-}
-
 .product-price-row {
   display: flex;
   align-items: baseline;
@@ -1905,9 +1900,15 @@
    ========================================================================== */
 .product-detail-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
-  gap: var(--space-8);
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  /* 두 칸 사이 가로 간격 — --space-8(64px) → --space-4(16px)를 거쳐, "사진이 서머리 카드까지
+     꽉 차 보이게" 아예 0으로 없앴다(2026-08-21 사용자 요청). 모바일(아래 미디어쿼리)은 1열로
+     쌓여 이 값이 세로 간격이 되므로 성격이 달라 그대로 --space-6 유지. */
+  column-gap: 0;
+  /* stretch(기본값)라서 왼쪽 사진 칸이 오른쪽 서머리 카드와 같은 높이를 갖는다 — 서머리 쪽 내용이
+     길어질수록(가격표·목표인원 선택 등) 사진 칸 아래 썸네일 프리뷰(.product-gallery-thumbs)가
+     그만큼 세로 공간을 더 확보해 공백을 줄인다(2026-08-21 사용자 요청: 사진과 서머리 사이 공백). */
+  align-items: stretch;
 }
 
 /* 왼쪽 사진 칸은 스크롤을 따라오지 않는다.
@@ -1925,13 +1926,62 @@
 }
 
 
+.product-detail-media {
+  display: flex;
+  flex-direction: column;
+  /* 사진을 서머리 칸 높이에 억지로 맞추려던(flex: 1 1 auto) 시도를 되돌렸다 — 컨테이너가
+     넓어질수록(예: 1320px 데스크톱) 폭만 늘고 높이는 서머리 내용 높이에 묶여 그대로라, 사진이
+     1.4:1 같은 옆으로 퍼진 비율이 돼 버렸다(2026-08-21 실측: 컨테이너 1224px에서 612×441).
+     사진은 다시 1:1 정사각형으로 고정하고, 남는 세로 공간은 캐러셀 아래 자연스러운 여백으로
+     둔다 — "서머리 하단과 완벽히 flush"보다 "사진 비율이 정상적으로 보이는 것"을 우선한다. */
+  gap: var(--space-3);
+}
+
 .product-detail-media .product-detail-image {
   width: 100%;
   aspect-ratio: 1 / 1;
+  flex: 0 0 auto;
   border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: var(--shadow-md);
   border: 1px solid var(--color-border);
+}
+
+.product-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-1);
+}
+
+.product-title-row #product-name {
+  margin-top: 0;
+}
+
+.kakao-share-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--space-2) var(--space-3);
+  background-color: #FEE500;
+  color: #191919;
+  border: none;
+  border-radius: var(--radius-full);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.kakao-share-btn:hover {
+  filter: brightness(0.96);
+}
+
+.kakao-share-btn__icon {
+  flex: 0 0 auto;
 }
 
 .product-detail-summary {
@@ -2154,68 +2204,37 @@
   background-color: rgba(0, 0, 0, 0.75);
 }
 
-/* ---------- 상품 상세 이미지 갤러리 (product/image) ---------- */
-.product-gallery {
-  position: relative;
-}
+/* ---------- 상품 상세 이미지 갤러리 (product/image) ----------
+   화살표·카운터 오버레이가 있던 .product-gallery 래퍼는 걷어냈다 — 사진 전환은 아래 캐러셀
+   썸네일 클릭만으로 한다(2026-08-21 사용자 요청, product.html/product.js 동시 정리). */
 
-/* 좌우 화살표 — 사진이 한 장이면 js가 hidden으로 감춘다(전역 [hidden] 규칙이 확실히 숨겨준다). */
-.product-gallery-arrow {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 36px;
-  height: 36px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: 50%;
-  background-color: rgba(255, 255, 255, 0.85);
-  color: var(--color-text);
-  cursor: pointer;
-  box-shadow: var(--shadow-sm);
-  transition: background-color 0.15s ease;
-}
-
-.product-gallery-arrow:hover {
-  background-color: #fff;
-}
-
-.product-gallery-arrow--prev {
-  left: var(--space-3);
-}
-
-.product-gallery-arrow--next {
-  right: var(--space-3);
-}
-
-.product-gallery-counter {
-  position: absolute;
-  right: var(--space-3);
-  bottom: var(--space-3);
-  padding: 2px 10px;
-  border-radius: var(--radius-full);
-  background-color: rgba(0, 0, 0, 0.55);
-  color: #fff;
-  font-size: var(--fs-xs);
-  font-weight: 700;
-}
-
-/* 썸네일 줄 — 큰 사진 아래 빈 공간을 채우면서, 몇 장인지 한눈에 보이게 한다
-   (2026-08-20 사용자 피드백: "사진 아래가 텅텅 빈 게 좀 별로"). */
+/* 썸네일 프리뷰 — 큰 사진 아래 빈 공간을 채우면서, 몇 장인지 한눈에 보이게 한다
+   (2026-08-20 사용자 피드백: "사진 아래가 텅텅 빈 게 좀 별로"). 사진 개수와 무관하게 항상
+   렌더링되고(js/product.js), 한 장뿐이면 .product-gallery-thumb--empty 플레이스홀더 슬롯 4개가
+   채운다 — 왼쪽 칸이 상품마다 들쭉날쭉하지 않고 "여기가 사진첩 자리"라는 인상을 유지한다.
+   처음엔 grid(auto-fill)로 세로 공간을 억지로 채웠는데, 카드가 기괴하게 늘어나거나(1fr 행)
+   반대로 마지막 트랙이 애매하게 비어 보이는 문제가 있었다 — 카드는 고정 정사각형 크기로 두고
+   가로 스크롤(overflow-x: auto)로 바꿔서, 다 안 들어가는 카드는 옆으로 살짝 걸쳐 보이게 해
+   "더 있다"는 걸 자연스럽게 알려준다(2026-08-21 사용자 요청). 세로 flush는 부모
+   .product-detail-media의 justify-content: space-between이 담당(이 캐러셀 자체는 고정 높이). */
 .product-gallery-thumbs {
+  flex: 0 0 auto;
   display: flex;
-  flex-wrap: wrap;
   gap: var(--space-2);
+  overflow-x: auto;
+  overflow-y: hidden;
   list-style: none;
-  margin: var(--space-3) 0 0;
-  padding: 0;
+  margin: 0;
+  padding: 0 0 var(--space-1);
+}
+
+.product-gallery-thumbs > li {
+  flex: 0 0 auto;
 }
 
 .product-gallery-thumb {
-  width: 64px;
-  height: 64px;
+  width: 96px;
+  height: 96px;
   padding: 0;
   border: 2px solid transparent;
   border-radius: var(--radius-md);
@@ -2224,6 +2243,13 @@
   cursor: pointer;
   opacity: 0.65;
   transition: opacity 0.15s ease, border-color 0.15s ease;
+}
+
+.product-gallery-thumb--empty {
+  border: 1.5px dashed var(--color-border);
+  background-color: var(--color-surface-alt);
+  opacity: 1;
+  cursor: default;
 }
 
 .product-gallery-thumb img {

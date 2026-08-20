@@ -44,9 +44,6 @@
   var statusEl = document.getElementById('product-status');
   var detailEl = document.getElementById('product-detail');
   var imageEl = document.getElementById('product-image');
-  var galleryPrevBtn = document.getElementById('product-gallery-prev');
-  var galleryNextBtn = document.getElementById('product-gallery-next');
-  var galleryCounterEl = document.getElementById('product-gallery-counter');
   var galleryThumbsEl = document.getElementById('product-gallery-thumbs');
 
   var sellerEl = document.getElementById('product-seller');
@@ -254,6 +251,9 @@
   // ---------- 상품 이미지 갤러리 (product/image) ----------
   // 상세 응답의 imageUrls는 product_image가 없는 상품이면 대표 이미지 한 장짜리로 채워져 오므로
   // (ProductResponse.withImages), 이 기능 이전에 등록된 상품도 별도 분기 없이 그대로 동작한다.
+  // 사진 전환은 아래 캐러셀 썸네일 클릭만으로 한다 — 원래 큰 사진 위에 화살표·카운터를 얹은
+  // 갤러리 UI가 있었는데, 그 래퍼가 레이아웃 공간을 차지해 사진이 "붕 떠 보이는" 원인이 됐고
+  // 어차피 아래 캐러셀과 기능이 겹쳐서 걷어냈다(2026-08-21 사용자 요청).
   var galleryUrls = [];
   var galleryIndex = 0;
 
@@ -268,24 +268,21 @@
       imageEl.appendChild(imgEl);
     }
 
-    if (galleryPrevBtn) {
-      galleryPrevBtn.hidden = !hasMultiple;
-    }
-    if (galleryNextBtn) {
-      galleryNextBtn.hidden = !hasMultiple;
-    }
-    if (galleryCounterEl) {
-      galleryCounterEl.hidden = !hasMultiple;
-      galleryCounterEl.textContent = (galleryIndex + 1) + ' / ' + galleryUrls.length;
-    }
-
     if (!galleryThumbsEl) {
       return;
     }
-    // 썸네일 줄은 사진이 여러 장일 때만 — 한 장이면 예전과 똑같은 화면이 된다.
-    galleryThumbsEl.hidden = !hasMultiple;
+    // 썸네일 줄은 사진 개수와 무관하게 항상 보인다 — 한 장뿐이면 실제 썸네일 대신 빈 앨범
+    // 플레이스홀더 슬롯을 채워서, 왼쪽 사진 칸이 "여기가 사진첩 자리"라는 인상을 유지하게 한다
+    // (2026-08-21 사용자 요청). 가로 스크롤 캐러셀이라 4개를 채워도 넘치면 자연스럽게 옆으로
+    // 걸쳐 보인다.
     clearChildren(galleryThumbsEl);
     if (!hasMultiple) {
+      for (var i = 0; i < 4; i++) {
+        var placeholder = document.createElement('li');
+        placeholder.className = 'product-gallery-thumb product-gallery-thumb--empty';
+        placeholder.setAttribute('aria-hidden', 'true');
+        galleryThumbsEl.appendChild(placeholder);
+      }
       return;
     }
     galleryUrls.forEach(function (url, index) {
@@ -307,29 +304,12 @@
     });
   }
 
-  function moveGallery(step, productName) {
-    if (galleryUrls.length < 2) {
-      return;
-    }
-    galleryIndex = (galleryIndex + step + galleryUrls.length) % galleryUrls.length;
-    renderGallery(productName);
-  }
-
   function renderProduct(product) {
     galleryUrls = (product.imageUrls && product.imageUrls.length)
         ? product.imageUrls
         : (product.imageUrl ? [product.imageUrl] : []);
     galleryIndex = 0;
     renderGallery(product.name);
-
-    if (galleryPrevBtn && !galleryPrevBtn.dataset.bound) {
-      galleryPrevBtn.dataset.bound = '1';
-      galleryPrevBtn.addEventListener('click', function () { moveGallery(-1, product.name); });
-    }
-    if (galleryNextBtn && !galleryNextBtn.dataset.bound) {
-      galleryNextBtn.dataset.bound = '1';
-      galleryNextBtn.addEventListener('click', function () { moveGallery(1, product.name); });
-    }
 
     updateOpenAtNotice(product.openAt);
 
