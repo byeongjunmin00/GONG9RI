@@ -57,6 +57,10 @@ public class ProductService {
     @Value("${kakao.js-key}")
     private String kakaoJsKey;
 
+    // 공유 카드에 실을 정식 주소를 만드는 데 쓴다(share/kakao-share). 이메일 인증 링크가 쓰는 값과 동일.
+    @Value("${app.base-url}")
+    private String baseUrl;
+
     // 판매자 신뢰 배지(product/seller-trust) 기준 — 실측 근거 없는 초기값, 운영하며 조정 예정.
     // 평균 평점만 보면 리뷰 1~2개짜리 판매자도 배지를 달 수 있어 최소 리뷰 개수도 함께 요구한다.
     // 상품당 이미지 장수 상한(product/image) — 슬라이더로 넘겨 보기에 적당하고 볼륨 용량도 통제된다.
@@ -199,7 +203,7 @@ public class ProductService {
         List<PriceTier> priceTiers = priceTierRepository.findByProductIdOrderByMinCountAsc(productId);
         boolean trusted = trustedSellerMap(List.of(product.getSeller().getId()))
                 .getOrDefault(product.getSeller().getId(), false);
-        ProductResponse baseResponse = ProductResponse.of(product, priceTiers, kakaoJsKey, trusted);
+        ProductResponse baseResponse = ProductResponse.of(product, priceTiers, kakaoJsKey, trusted, baseUrl);
         ProductReviewStatProjection reviewStat = reviewStatMap(List.of(productId)).get(productId);
         Double ratingAvg = reviewStat != null ? roundRating(reviewStat.averageRating()) : null;
         Integer reviewCnt = reviewStat != null && reviewStat.reviewCount() != null ? reviewStat.reviewCount().intValue() : 0;
@@ -231,7 +235,7 @@ public class ProductService {
         saveProductImages(saved, request.imageUrls());
         log.info("상품 등록 완료: productId={}, sellerId={}", saved.getId(), seller.getId());
         boolean trusted = trustedSellerMap(List.of(seller.getId())).getOrDefault(seller.getId(), false);
-        return ProductResponse.of(saved, priceTiers, kakaoJsKey, trusted);
+        return ProductResponse.of(saved, priceTiers, kakaoJsKey, trusted, baseUrl);
     }
 
     // 이름/가격 등이 바뀌면 이 상품이 포함된 목록 페이지가 달라질 수 있어(어느 페이지인지 특정 불가) 목록 캐시도
@@ -260,7 +264,7 @@ public class ProductService {
         log.info("상품 수정 완료: productId={}", productId);
         Long sellerId = product.getSeller().getId();
         boolean trusted = trustedSellerMap(List.of(sellerId)).getOrDefault(sellerId, false);
-        return ProductResponse.of(product, priceTiers, kakaoJsKey, trusted);
+        return ProductResponse.of(product, priceTiers, kakaoJsKey, trusted, baseUrl);
     }
 
     // update와 동일한 이유로 상세(해당 productId)·목록(전체) 캐시를 함께 무효화한다.

@@ -442,9 +442,13 @@
       return;
     }
 
+    // 서버가 준 정식 주소를 쓴다. window.location.href를 쓰면 **공유한 사람이 보고 있던 주소**가
+    // 그대로 나가서, 로컬에서 공유하면 받는 사람 기기의 localhost를 찾다가 아무것도 안 열린다
+    // (2026-08-20). shareUrl은 이 필드 추가 이전에 캐시된 응답에서 null일 수 있어 폴백을 남긴다.
+    var shareUrl = shareTargetProduct.shareUrl || window.location.href;
     var link = {
-      mobileWebUrl: window.location.href,
-      webUrl: window.location.href
+      mobileWebUrl: shareUrl,
+      webUrl: shareUrl
     };
     var description = formatPrice(shareTargetProduct.basePrice) + '부터 · 함께할수록 더 저렴해져요';
     var buttons = [

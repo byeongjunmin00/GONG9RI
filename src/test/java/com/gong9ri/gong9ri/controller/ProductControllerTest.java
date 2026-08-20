@@ -139,6 +139,21 @@ class ProductControllerTest {
     }
 
     @Test
+    @DisplayName("상세 응답에는 공유 카드에 쓸 정식 주소(shareUrl)가 서버 base-url 기준으로 내려온다")
+    void detail_includesShareUrl() throws Exception {
+        // 프론트가 window.location.href로 공유 링크를 만들면 **공유한 사람이 보고 있던 주소**가 그대로
+        // 나가서, 로컬에서 공유하면 받는 사람 기기의 localhost를 찾다가 아무것도 안 열린다.
+        // 공유 링크는 어디서 눌렀든 서버가 아는 공개 주소여야 한다(2026-08-20).
+        Member seller = saveMember("sellerShare1", Role.SELLER);
+        Product product = saveProduct(seller);
+
+        mockMvc.perform(get("/api/products/" + product.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.shareUrl")
+                        .value("http://localhost:8080/product.html?id=" + product.getId()));
+    }
+
+    @Test
     @DisplayName("존재하지 않는 상품 조회 시 404 PRODUCT_NOT_FOUND")
     void detail_notFound() throws Exception {
         mockMvc.perform(get("/api/products/999999"))

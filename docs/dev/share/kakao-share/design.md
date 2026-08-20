@@ -19,5 +19,7 @@
 - `product.js`가 상품 상세를 불러온 뒤(`renderProduct`) `kakaoJsKey`가 있으면 `Kakao.init(...)`으로 SDK를 초기화하고 공유 버튼을 노출한다. 키가 없으면(로컬에서 `KAKAO_JS_KEY` 미설정 등) 버튼을 숨긴 채로 두어 초기화 없이 공유를 시도하는 에러를 원천 차단한다.
 - 상품에 등록된 이미지(`imageUrl`)가 있으면 `feed` 템플릿(제목/설명/썸네일/버튼)을, 없으면 `text` 템플릿(제목+설명을 합친 텍스트/링크/버튼)을 쓴다 — 카카오 SDK상 `feed` 템플릿은 `imageUrl`이 필수라서, 썸네일 없는 상품도 카드가 깨지지 않게 분기했다.
 - 공유 카드 썸네일은 절대경로(`https://...`) 이미지 URL이어야 카카오 서버가 접근해 노출한다(카카오 측 제약). `imageUrl`은 판매자가 상품 등록 폼에 직접 입력하는 URL 텍스트 필드라(별도 업로드 기능 없음) 로컬 파일 경로나 `localhost` 주소를 넣으면 썸네일이 안 뜰 수 있음 — 별도 방어 로직 없이 그대로 카카오 SDK에 맡긴다.
-- 공유 링크는 서버가 만들어주는 고정 링크가 아니라 클라이언트의 `window.location.href`를 그대로 쓴다 — **로컬(`localhost:8080`)에서 테스트한 링크를 다른 사람에게 공유하면 그 사람 기기의 localhost를 찾다가 열리지 않는 게 정상**(실사용 확인, 2026-08-17). 실제 접속 가능한 링크 검증은 프로덕션(`https://gong9ri-production.up.railway.app`) 배포 후에만 유효하다.
+- 공유 링크는 **서버가 내려주는 `shareUrl`**(상세 응답 필드, `app.base-url` + `/product.html?id={id}`)을 쓴다. `shareUrl`이 없으면(이 필드 추가 이전에 캐시된 응답) `window.location.href`로 폴백한다.
+  - 원래는 `window.location.href`를 그대로 썼는데, 그러면 **공유한 사람이 보고 있던 주소**가 그대로 나간다 — 로컬(`localhost:8080`)에서 공유하면 받는 사람 기기의 localhost를 찾다가 아무것도 안 열리고(2026-08-17 실사용 확인), 추적용 쿼리파라미터가 붙어 있으면 그것까지 딸려간다. **공유 링크는 어디서 눌렀든 공개 주소여야 한다**는 판단으로 2026-08-20에 서버가 주는 값으로 바꿨다.
+- 카카오 콘솔의 **JavaScript 키 > JS SDK 도메인**에 공유가 일어나는 도메인이 등록돼 있어야 한다(콘솔 개편으로 "플랫폼 > Web"이 키별로 쪼개져 이 위치로 옮겨졌다 — 로그인 Redirect URI가 REST API 키 안으로 들어간 것과 같은 패턴). 프로덕션·`http://localhost:8080` 둘 다 등록돼 있음(2026-08-20 확인).
 - 관련 코드: `product.html`(SDK `<script>` 태그, `#kakao-share-btn`), `js/product.js`(`setUpKakaoShare`, `handleKakaoShare`), `ProductResponse.kakaoJsKey`, `ProductService`(`@Value("${kakao.js-key}")`), `application.yaml`(`kakao.js-key`).

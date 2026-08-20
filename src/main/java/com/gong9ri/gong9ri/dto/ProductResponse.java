@@ -38,10 +38,17 @@ public record ProductResponse(
         Integer reviewCount,
         // 상품 이미지 여러 장(product/image, 2026-08-20). product_image 행이 없으면 대표 이미지
         // 한 장짜리 목록으로 채워지므로, 클라이언트는 imageUrl 유무와 무관하게 이 목록만 보면 된다.
-        List<String> imageUrls
+        List<String> imageUrls,
+        // 카카오톡 공유 카드에 실을 정식 주소(share/kakao-share, 2026-08-20 추가). 프론트가
+        // window.location.href를 쓰면 **공유한 사람이 보고 있던 주소**가 그대로 나간다 — 로컬에서
+        // 공유하면 받는 사람 기기의 localhost를 찾아 아무것도 안 열리고, 추적용 쿼리파라미터가
+        // 붙어 있으면 그것까지 딸려간다. 공유 링크는 서버가 아는 공개 주소여야 한다.
+        // 이 필드 추가 이전에 캐시된 응답을 읽으면 null이 되는데, 프론트가 그때만 기존 방식으로
+        // 폴백하므로 배포 직후에도 깨지지 않는다(String이라 primitive 역직렬화 문제도 없다).
+        String shareUrl
 ) {
     public static ProductResponse of(Product product, List<PriceTier> priceTiers, String kakaoJsKey,
-            boolean sellerTrustedBadge) {
+            boolean sellerTrustedBadge, String baseUrl) {
         return new ProductResponse(
                 product.getId(),
                 product.getSeller().getId(),
@@ -60,15 +67,24 @@ public record ProductResponse(
                 sellerTrustedBadge,
                 null,
                 null,
-                List.of()
+                List.of(),
+                shareUrl(baseUrl, product.getId())
         );
+    }
+
+    /** 공유 카드에 실을 정식 주소. base-url이 비어있으면(로컬 미설정 등) null을 주고 프론트가 폴백한다. */
+    private static String shareUrl(String baseUrl, Long productId) {
+        if (baseUrl == null || baseUrl.isBlank()) {
+            return null;
+        }
+        return baseUrl.replaceAll("/+$", "") + "/product.html?id=" + productId;
     }
 
     public ProductResponse withReviewStats(Double ratingAverage, Integer reviewCount) {
         return new ProductResponse(
                 productId, sellerId, sellerName, name, description, basePrice, maxParticipants,
                 priceTiers, createdAt, imageUrl, autoRefundOnCancel, kakaoJsKey, category, openAt,
-                sellerTrustedBadge, ratingAverage, reviewCount, imageUrls
+                sellerTrustedBadge, ratingAverage, reviewCount, imageUrls, shareUrl
         );
     }
 
@@ -86,7 +102,7 @@ public record ProductResponse(
         return new ProductResponse(
                 productId, sellerId, sellerName, name, description, basePrice, maxParticipants,
                 priceTiers, createdAt, imageUrl, autoRefundOnCancel, kakaoJsKey, category, openAt,
-                sellerTrustedBadge, ratingAverage, reviewCount, resolved
+                sellerTrustedBadge, ratingAverage, reviewCount, resolved, shareUrl
         );
     }
 }
