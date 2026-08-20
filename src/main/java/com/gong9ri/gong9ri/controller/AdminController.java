@@ -4,11 +4,14 @@ import com.gong9ri.gong9ri.common.response.ApiResponse;
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.dto.AdminDashboardResponse;
 import com.gong9ri.gong9ri.dto.AdminMemberPageResponse;
+import com.gong9ri.gong9ri.service.SupportChatService;
+import com.gong9ri.gong9ri.dto.SupportRoomResponse;
 import com.gong9ri.gong9ri.dto.ProductPageResponse;
 import com.gong9ri.gong9ri.dto.AdminRefundPageResponse;
 import com.gong9ri.gong9ri.entity.RefundRequestStatus;
 import com.gong9ri.gong9ri.service.AdminService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -26,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminController {
 
     private final AdminService adminService;
+    private final SupportChatService supportChatService;
 
     @GetMapping("/dashboard")
     public ResponseEntity<ApiResponse<AdminDashboardResponse>> dashboard(
@@ -95,6 +99,23 @@ public class AdminController {
             @RequestParam boolean hidden) {
         adminService.setProductHidden(principal, productId, hidden);
         return ResponseEntity.noContent().build();
+    }
+
+    // 관리자 상담 목록(support/chat) — 답을 기다리는 방이 위로 온다.
+    @GetMapping("/support/rooms")
+    public ResponseEntity<ApiResponse<Page<SupportRoomResponse>>> supportRooms(
+            @AuthenticationPrincipal MemberUserDetails principal,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(ApiResponse.success(
+                supportChatService.roomsForAdmin(principal.getMember(), page, size)));
+    }
+
+    @GetMapping("/support/unread-count")
+    public ResponseEntity<ApiResponse<Long>> supportUnreadCount(
+            @AuthenticationPrincipal MemberUserDetails principal) {
+        return ResponseEntity.ok(ApiResponse.success(
+                supportChatService.unreadRoomCountForAdmin(principal.getMember())));
     }
 
     @GetMapping("/refund-requests")

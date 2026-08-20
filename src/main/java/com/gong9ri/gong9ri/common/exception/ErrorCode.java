@@ -48,6 +48,9 @@ public enum ErrorCode {
     MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 회원입니다."),
     MEMBER_HAS_ACTIVITY(HttpStatus.CONFLICT,
             "상품·결제·리뷰 등 활동 기록이 있는 회원은 삭제할 수 없습니다. 정지 처리를 이용해주세요."),
+    // 관리자 1:1 상담(support/chat)
+    SUPPORT_ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 상담입니다."),
+    SUPPORT_ROOM_CLOSED(HttpStatus.CONFLICT, "이미 종료된 상담입니다."),
     // 상품 삭제(product/admin) — 회원 삭제와 같은 정책이다. 돈·기록이 걸린 상품은 지우지 못하게 막는다.
     PRODUCT_HAS_ACTIVITY(HttpStatus.CONFLICT,
             "결제·공구팀·리뷰가 있는 상품은 삭제할 수 없습니다."),

@@ -1,5 +1,6 @@
 package com.gong9ri.gong9ri.config;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
@@ -25,7 +26,10 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
  */
 @Configuration
 @EnableWebSocketMessageBroker
+@RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+
+    private final SupportChatChannelInterceptor supportChatChannelInterceptor;
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
@@ -35,11 +39,18 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         scheduler.initialize();
 
         registry.enableSimpleBroker("/topic").setTaskScheduler(scheduler);
+        // 클라이언트 → 서버 방향 목적지 접두사(support/chat에서 처음 필요해졌다). 지금까지는 서버가
+        // 일방적으로 브로드캐스트하기만 해서(@MessageMapping이 하나도 없어서) 설정할 이유가 없었다.
+        // 이게 없으면 클라이언트가 /app/...으로 보낸 메시지가 어느 핸들러에도 닿지 않고 조용히 사라진다.
+        registry.setApplicationDestinationPrefixes("/app");
     }
 
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
         registration.taskExecutor().corePoolSize(2).maxPoolSize(4);
+        // 상담방 구독 권한 검사(support/chat) — STOMP 구독은 SecurityConfig의 HTTP 인가를 타지 않아서,
+        // 이걸 안 걸면 아무나 남의 상담을 구독해 훔쳐볼 수 있다.
+        registration.interceptors(supportChatChannelInterceptor);
     }
 
     @Override
@@ -50,5 +61,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws-team");
+        // 상담은 별도 엔드포인트다(support/chat). /ws-team은 비로그인도 붙을 수 있게 permitAll인데,
+        // 상담은 핸드셰이크부터 로그인을 요구해야 해서 경로를 나눈다(SecurityConfig에서 permitAll 제외).
+        registry.addEndpoint("/ws-support");
     }
 }
