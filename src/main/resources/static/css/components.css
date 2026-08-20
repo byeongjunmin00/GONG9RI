@@ -193,6 +193,61 @@
   white-space: nowrap;
 }
 
+/* ---------- 5성 별점 및 리뷰 수 (product/review-rating-display) ---------- */
+.card-rating-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  font-size: var(--fs-xs);
+}
+
+.card-rating-stars {
+  color: #FFA24C; /* GONG9RI 웜 오렌지 */
+  letter-spacing: -1px;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.card-rating-stars .star-empty {
+  color: #CBD5E1;
+}
+
+.card-rating-score {
+  font-weight: 700;
+  color: var(--color-text);
+  margin-left: 2px;
+}
+
+.card-rating-count {
+  color: var(--color-text-muted);
+}
+
+/* 상품 상세 페이지 상단 별점 헤더 */
+.product-header-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--space-2);
+  margin-bottom: var(--space-2);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  text-decoration: none;
+  transition: opacity 0.15s ease;
+}
+
+.product-header-rating:hover {
+  opacity: 0.85;
+}
+
+.product-header-rating .card-rating-stars {
+  font-size: 15px;
+}
+
+.product-header-rating .card-rating-count {
+  text-decoration: underline;
+}
+
 .card-price-row {
   display: flex;
   align-items: baseline;

@@ -33,7 +33,9 @@ public record ProductResponse(
         // 판매자 신뢰 배지(product/seller-trust) — ProductSummaryResponse와 동일 기준. boolean이 아니라
         // Boolean이어야 하는 이유도 동일(ProductSummaryResponse.sellerTrustedBadge 필드 주석 참고 —
         // 이 필드 추가 이전에 캐시된 상세 응답을 배포 직후 읽으면 primitive는 역직렬화 시 500을 낸다).
-        Boolean sellerTrustedBadge
+        Boolean sellerTrustedBadge,
+        Double ratingAverage,
+        Integer reviewCount
 ) {
     public static ProductResponse of(Product product, List<PriceTier> priceTiers, String kakaoJsKey,
             boolean sellerTrustedBadge) {
@@ -52,7 +54,17 @@ public record ProductResponse(
                 kakaoJsKey,
                 product.getCategory(),
                 product.getOpenAt(),
-                sellerTrustedBadge
+                sellerTrustedBadge,
+                null,
+                null
+        );
+    }
+
+    public ProductResponse withReviewStats(Double ratingAverage, Integer reviewCount) {
+        return new ProductResponse(
+                productId, sellerId, sellerName, name, description, basePrice, maxParticipants,
+                priceTiers, createdAt, imageUrl, autoRefundOnCancel, kakaoJsKey, category, openAt,
+                sellerTrustedBadge, ratingAverage, reviewCount
         );
     }
 }

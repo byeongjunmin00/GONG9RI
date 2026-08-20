@@ -263,6 +263,40 @@
     sellerEl.textContent = product.sellerName || '';
     sellerTrustEl.hidden = !product.sellerTrustedBadge;
     nameEl.textContent = product.name || '';
+
+    var headerRatingEl = document.getElementById('product-header-rating');
+    if (headerRatingEl) {
+      headerRatingEl.hidden = false;
+      var rating = typeof product.ratingAverage === 'number' ? product.ratingAverage : 0;
+      var count = typeof product.reviewCount === 'number' ? product.reviewCount : 0;
+      var fullStars = Math.min(5, Math.max(0, Math.round(rating)));
+
+      var starsHtml = '';
+      for (var i = 0; i < 5; i++) {
+        if (i < fullStars) {
+          starsHtml += '★';
+        } else {
+          starsHtml += '<span class="star-empty">☆</span>';
+        }
+      }
+
+      headerRatingEl.innerHTML =
+        '<span class="card-rating-stars">' + starsHtml + '</span>' +
+        '<span class="card-rating-score">' + (rating > 0 ? rating.toFixed(1) : '0.0') + '</span>' +
+        '<span class="card-rating-count">(리뷰 ' + count + '개)</span>';
+
+      headerRatingEl.onclick = function (e) {
+        e.preventDefault();
+        var tabsEl = document.querySelector('.product-tabs');
+        if (tabsEl) {
+          tabsEl.scrollIntoView({ behavior: 'smooth' });
+        }
+        var reviewTabBtn = document.querySelector('[data-tab="reviews"]');
+        if (reviewTabBtn) {
+          reviewTabBtn.click();
+        }
+      };
+    }
     if (product.description) {
       descriptionEl.hidden = false;
       descriptionEl.textContent = product.description;

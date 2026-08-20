@@ -27,4 +27,18 @@ public class ReviewRepositoryImpl implements ReviewRepositoryCustom {
                 .fetch();
         return new ArrayList<>(rows);
     }
+
+    @Override
+    public List<ProductReviewStatProjection> findProductReviewStats(List<Long> productIds) {
+        if (productIds == null || productIds.isEmpty()) {
+            return List.of();
+        }
+        return queryFactory
+                .select(Projections.constructor(ProductReviewStatProjection.class,
+                        review.product.id, review.rating.avg(), review.count()))
+                .from(review)
+                .where(review.product.id.in(productIds))
+                .groupBy(review.product.id)
+                .fetch();
+    }
 }

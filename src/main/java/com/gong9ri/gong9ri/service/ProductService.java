@@ -21,6 +21,7 @@ import com.gong9ri.gong9ri.repository.BestPriceProjection;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.PriceTierRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
+import com.gong9ri.gong9ri.repository.ProductReviewStatProjection;
 import com.gong9ri.gong9ri.repository.ReviewRepository;
 import com.gong9ri.gong9ri.repository.SellerRatingProjection;
 import java.util.List;
@@ -98,11 +99,25 @@ public class ProductService {
 
         List<Long> sellerIds = products.getContent().stream().map(product -> product.getSeller().getId()).distinct().toList();
         Map<Long, Boolean> trustedSellers = trustedSellerMap(sellerIds);
+        Map<Long, ProductReviewStatProjection> reviewStats = reviewStatMap(productIds);
 
         Page<ProductSummaryResponse> mapped = products.map(
-                product -> ProductSummaryResponse.of(product, bestPrices.get(product.getId()),
-                        trustedSellers.getOrDefault(product.getSeller().getId(), false)));
+                product -> {
+                    ProductReviewStatProjection stat = reviewStats.get(product.getId());
+                    Double avg = stat != null ? stat.averageRating() : null;
+                    Integer cnt = stat != null && stat.reviewCount() != null ? stat.reviewCount().intValue() : 0;
+                    return ProductSummaryResponse.of(product, bestPrices.get(product.getId()),
+                            trustedSellers.getOrDefault(product.getSeller().getId(), false), avg, cnt);
+                });
         return ProductPageResponse.of(mapped);
+    }
+
+    private Map<Long, ProductReviewStatProjection> reviewStatMap(List<Long> productIds) {
+        if (productIds.isEmpty()) {
+            return Map.of();
+        }
+        return reviewRepository.findProductReviewStats(productIds).stream()
+                .collect(Collectors.toMap(ProductReviewStatProjection::productId, stat -> stat));
     }
 
     // 판매자 신뢰 배지(product/seller-trust) — 여러 상품의 판매자 신뢰 여부를 한 번의 집계 쿼리로 계산한다
@@ -171,7 +186,11 @@ public class ProductService {
         List<PriceTier> priceTiers = priceTierRepository.findByProductIdOrderByMinCountAsc(productId);
         boolean trusted = trustedSellerMap(List.of(product.getSeller().getId()))
                 .getOrDefault(product.getSeller().getId(), false);
-        return ProductResponse.of(product, priceTiers, kakaoJsKey, trusted);
+        ProductResponse baseResponse = ProductResponse.of(product, priceTiers, kakaoJsKey, trusted);
+        ProductReviewStatProjection reviewStat = reviewStatMap(List.of(productId)).get(productId);
+        Double ratingAvg = reviewStat != null ? reviewStat.averageRating() : null;
+        Integer reviewCnt = reviewStat != null && reviewStat.reviewCount() != null ? reviewStat.reviewCount().intValue() : 0;
+        return baseResponse.withReviewStats(ratingAvg, reviewCnt);
     }
 
     // 신규 상품이 어느 페이지에 들어갈지 특정할 수 없어(ORDER BY 없음) 목록 캐시를 전체 무효화한다.

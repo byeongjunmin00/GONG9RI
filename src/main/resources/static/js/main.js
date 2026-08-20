@@ -416,6 +416,9 @@
     titleEl.textContent = product.name || '';
     bodyEl.appendChild(titleEl);
 
+    var ratingRowEl = createRatingRowElement(product.ratingAverage, product.reviewCount);
+    bodyEl.appendChild(ratingRowEl);
+
     var priceRowEl = document.createElement('div');
     priceRowEl.className = 'card-price-row';
 
@@ -541,6 +544,41 @@
     badgeEl.className = 'card-no-team-badge';
     badgeEl.textContent = '🔥 첫 공구팀 신설하고 최저가 도전!';
     return badgeEl;
+  }
+
+  function createRatingRowElement(ratingAverage, reviewCount) {
+    var rowEl = document.createElement('div');
+    rowEl.className = 'card-rating-row';
+
+    var rating = typeof ratingAverage === 'number' ? ratingAverage : 0;
+    var count = typeof reviewCount === 'number' ? reviewCount : 0;
+
+    var fullStars = Math.min(5, Math.max(0, Math.round(rating)));
+    var starsEl = document.createElement('span');
+    starsEl.className = 'card-rating-stars';
+
+    var starsHtml = '';
+    for (var i = 0; i < 5; i++) {
+      if (i < fullStars) {
+        starsHtml += '★';
+      } else {
+        starsHtml += '<span class="star-empty">☆</span>';
+      }
+    }
+    starsEl.innerHTML = starsHtml;
+    rowEl.appendChild(starsEl);
+
+    var scoreEl = document.createElement('span');
+    scoreEl.className = 'card-rating-score';
+    scoreEl.textContent = rating > 0 ? rating.toFixed(1) : '0.0';
+    rowEl.appendChild(scoreEl);
+
+    var countEl = document.createElement('span');
+    countEl.className = 'card-rating-count';
+    countEl.textContent = '(리뷰 ' + count + '개)';
+    rowEl.appendChild(countEl);
+
+    return rowEl;
   }
 
   function renderProducts(products) {

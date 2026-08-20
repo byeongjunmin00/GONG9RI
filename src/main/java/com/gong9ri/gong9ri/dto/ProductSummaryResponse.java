@@ -42,9 +42,16 @@ public record ProductSummaryResponse(
         // 채워져 조용히 지나간다. openAt/activeTeamCurrentCount 등 이후에 추가된 캐시 필드가 전부
         // 참조형(Integer/LocalDateTime)인 것도 같은 이유 — 이 캐시에 새 필드를 추가할 땐 항상 boxed
         // 타입을 써야 한다.
-        Boolean sellerTrustedBadge
+        Boolean sellerTrustedBadge,
+        Double ratingAverage,
+        Integer reviewCount
 ) {
     public static ProductSummaryResponse of(Product product, Integer bestPrice, boolean sellerTrustedBadge) {
+        return of(product, bestPrice, sellerTrustedBadge, null, null);
+    }
+
+    public static ProductSummaryResponse of(Product product, Integer bestPrice, boolean sellerTrustedBadge,
+            Double ratingAverage, Integer reviewCount) {
         return new ProductSummaryResponse(
                 product.getId(),
                 product.getName(),
@@ -59,13 +66,22 @@ public record ProductSummaryResponse(
                 null,
                 null,
                 product.getOpenAt(),
-                sellerTrustedBadge
+                sellerTrustedBadge,
+                ratingAverage,
+                reviewCount
         );
     }
 
     public ProductSummaryResponse withActiveTeamProgress(Integer currentCount, Integer targetParticipants,
             LocalDateTime deadline) {
         return new ProductSummaryResponse(productId, name, basePrice, bestPrice, maxParticipants, sellerName,
-                createdAt, imageUrl, category, currentCount, targetParticipants, deadline, openAt, sellerTrustedBadge);
+                createdAt, imageUrl, category, currentCount, targetParticipants, deadline, openAt, sellerTrustedBadge,
+                ratingAverage, reviewCount);
+    }
+
+    public ProductSummaryResponse withReviewStats(Double ratingAverage, Integer reviewCount) {
+        return new ProductSummaryResponse(productId, name, basePrice, bestPrice, maxParticipants, sellerName,
+                createdAt, imageUrl, category, activeTeamCurrentCount, activeTeamTargetParticipants, activeTeamDeadline,
+                openAt, sellerTrustedBadge, ratingAverage, reviewCount);
     }
 }
