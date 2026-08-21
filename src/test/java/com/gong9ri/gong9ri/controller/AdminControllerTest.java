@@ -164,6 +164,27 @@ class AdminControllerTest {
     }
 
     @Test
+    @DisplayName("관리자가 status=VISIBLE 파라미터를 넘기면 오픈예정 상품은 빠지고 실제로 공개된 상품만 반환된다")
+    void products_withVisibleStatusFilter_excludesUpcomingProducts() throws Exception {
+        Member admin = saveMember("admin-search-admin6", Role.ADMIN);
+        Member seller = saveMember("admin-search-seller6", Role.SELLER);
+
+        Product openProduct = new Product(seller, "지금공개중상품", "설명", 10000, 10, null, false, ProductCategory.ETC, null);
+        Product upcomingProduct = new Product(seller, "아직안열린상품", "설명", 10000, 10, null, false, ProductCategory.ETC,
+                java.time.LocalDateTime.now().plusDays(3));
+        productRepository.save(openProduct);
+        productRepository.save(upcomingProduct);
+
+        mockMvc.perform(get("/api/admin/products")
+                        .param("status", "VISIBLE")
+                        .with(asUser(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].name").value("지금공개중상품"));
+    }
+
+    @Test
     @DisplayName("관리자가 status=PUSH 파라미터를 넘기면 평점 4.5 이상인 추천 푸시 대상 상품만 필터링된다")
     void products_withPushStatusFilter_returnsOnlyPushCandidates() throws Exception {
         Member admin = saveMember("admin-search-admin4", Role.ADMIN);

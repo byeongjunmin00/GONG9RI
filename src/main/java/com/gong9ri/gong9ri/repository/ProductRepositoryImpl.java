@@ -131,7 +131,9 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
         BooleanExpression statusCond = null;
         if (StringUtils.hasText(status)) {
             if ("VISIBLE".equalsIgnoreCase(status)) {
-                statusCond = product.hidden.isFalse();
+                // 오픈예정(openAt이 미래) 상품은 아직 실제로 공개된 게 아니므로 "공개 상품" 탭에서 뺀다.
+                statusCond = product.hidden.isFalse()
+                        .and(product.openAt.isNull().or(product.openAt.loe(LocalDateTime.now())));
             } else if ("HIDDEN".equalsIgnoreCase(status)) {
                 statusCond = product.hidden.isTrue();
             } else if ("PUSH".equalsIgnoreCase(status)) {

@@ -31,3 +31,21 @@
 - 결과: ✅ **PASS**
 - 증거:
   - `grep -rn "\-\-transition-fast" src/main/resources/static/css/` → 수정 후 매치 없음.
+
+## Attempt 3 — 2026-08-21  ✅ PASS (사용자 지적 수정)
+
+- 시도: 관리자 상품 현황 "공개 상품"(`status=VISIBLE`) 탭에 아직 안 열린 오픈예정 상품까지
+  같이 뜬다는 지적. `ProductRepositoryImpl.findAllForAdmin`의 VISIBLE 조건이 `hidden.isFalse()`
+  뿐이라 "숨기지 않음"만 봤지 "오픈예정 아님"은 안 봤던 게 원인 — 오픈예정 상품은 숨김 처리된
+  게 아니라서 그대로 VISIBLE에도 잡혔다.
+  - VISIBLE 조건에 `product.openAt.isNull().or(product.openAt.loe(now))`를 추가해
+    오픈예정 상품을 제외하도록 수정. 이제 VISIBLE(공개)과 UPCOMING(오픈예정)이 상호배타적.
+  - `products_withVisibleStatusFilter_excludesUpcomingProducts` 테스트 추가.
+  - 테스트 도중 기존 HIDDEN 테스트가 "expected 1 but was 2"로 깨졌는데, 코드 버그가 아니라
+    이전 세션에서 브라우저로 직접 숨김 처리했던 테스트 상품(productId 21)이 로컬 DB에 남아있어
+    생긴 오염이었음 — `docker compose down -v` 후 완전히 새 DB로 재확인해 해결.
+- 결과: ✅ **PASS**
+- 계산적 평가:
+  - `./gradlew test --tests AdminControllerTest` (완전히 새로 만든 MySQL 볼륨 기준) → 전체 통과.
+- 증거:
+  - `AdminControllerTest`: 29개 전체 통과(오염 없는 클린 DB 기준).
