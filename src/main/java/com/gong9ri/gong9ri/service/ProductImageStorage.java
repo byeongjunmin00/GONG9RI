@@ -88,6 +88,27 @@ public class ProductImageStorage {
         }
     }
 
+    /**
+     * URL에 해당하는 이미지 파일을 디스크에서 삭제한다.
+     */
+    public void delete(String url) {
+        if (url == null || !url.startsWith(URL_PREFIX)) {
+            return;
+        }
+        try {
+            String relPath = url.substring(URL_PREFIX.length());
+            Path target = baseDir.resolve(relPath).normalize();
+            if (target.startsWith(baseDir)) {
+                boolean deleted = Files.deleteIfExists(target);
+                if (deleted) {
+                    log.info("이미지 파일 삭제 완료: url={}", url);
+                }
+            }
+        } catch (IOException e) {
+            log.warn("이미지 파일 삭제 실패: url={}", url, e);
+        }
+    }
+
     // 확장자나 Content-Type이 아니라 "실제로 이미지로 읽히는가"로 판정한다.
     // ImageIO가 못 읽으면 null을 반환하므로, 그것이 곧 "이미지가 아님"의 판정 근거다.
     private BufferedImage readImageOrThrow(MultipartFile file) {

@@ -5,6 +5,7 @@ import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.dto.NotificationListResponse;
 import com.gong9ri.gong9ri.dto.RefundRequestResponse;
 import com.gong9ri.gong9ri.dto.RevenueResponse;
+import com.gong9ri.gong9ri.dto.SellerOrderResponse;
 import com.gong9ri.gong9ri.dto.SellerProductResponse;
 import com.gong9ri.gong9ri.dto.SellerTeamResponse;
 import com.gong9ri.gong9ri.service.SellerMypageService;
@@ -25,6 +26,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class SellerMypageController {
 
     private final SellerMypageService sellerMypageService;
+
+    @GetMapping("/orders")
+    public ResponseEntity<ApiResponse<List<SellerOrderResponse>>> orders(
+            @AuthenticationPrincipal MemberUserDetails principal) {
+        return ResponseEntity.ok(ApiResponse.success(sellerMypageService.orders(principal)));
+    }
 
     @GetMapping("/products")
     public ResponseEntity<ApiResponse<List<SellerProductResponse>>> products(

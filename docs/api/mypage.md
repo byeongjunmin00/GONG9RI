@@ -100,6 +100,42 @@
 
 ---
 
+### GET /api/seller/mypage/orders — 주문·배송 내역 (2026-08-21 추가)
+
+내 상품을 결제한 구매자 정보와 배송 준비 상태를 반환한다(`docs/dev/mypage/view/changes/005-seller-order-shipment-management.md`). 결제 상태·팀 상태로부터 서버가 계산한 `preparationStatus`/`preparationStatusLabel`을 함께 내려준다 — 프론트는 이 값을 그대로 배지로 표시하면 된다.
+
+- 응답: `200 OK`
+  ```json
+  [
+    {
+      "paymentId": 10,
+      "buyerName": "홍길동",
+      "buyerEmail": "buyer1@test.com",
+      "productId": 1,
+      "productName": "유기농 딸기 1kg",
+      "amount": 15000,
+      "status": "PAID",
+      "paidAt": "2026-08-21T14:35:00",
+      "teamId": null,
+      "teamStatus": null,
+      "teamCurrentCount": null,
+      "teamMaxParticipants": null,
+      "preparationStatus": "PREPARING",
+      "preparationStatusLabel": "🚚 배송 준비 중"
+    }
+  ]
+  ```
+
+  > `preparationStatus`는 `REFUNDED`(환불/취소됨) · `RECRUITING`(공구 모집 중) · `FAILED`(공구 실패) · `PREPARING`(배송 준비 중, 공구 성공 또는 솔로 구매) 중 하나다.
+
+- 에러:
+  | 코드 | HTTP | 설명 |
+  |------|------|------|
+  | `FORBIDDEN` | 403 | 구매자 계정으로 시도 |
+  | `UNAUTHORIZED` | 401 | 미인증 |
+
+---
+
 ### GET /api/seller/mypage/revenue — 수익 현황
 
 내 상품 전체에 대한 결제 집계를 반환한다.

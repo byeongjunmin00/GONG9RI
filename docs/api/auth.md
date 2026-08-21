@@ -204,3 +204,31 @@
   | 코드 | HTTP | 설명 |
   |------|------|------|
   | `UNAUTHORIZED` | 401 | 미인증 상태(세션 없음/만료) — 로그인 안 한 것으로 프론트가 판정 |
+
+> `MemberResponse`는 2026-08-21 `profileImageUrl`(String, 프로필 사진 없으면 `null`) 필드가 추가됐다(`docs/dev/mypage/view/changes/006-member-profile-image-upload.md`) — 위 예시들은 간결함을 위해 원래도 `email`/`emailVerified`와 함께 생략돼 있었다.
+
+---
+
+## POST /api/member/profile-image — 프로필 사진 업로드/변경 (2026-08-21 추가)
+
+`docs/dev/mypage/view/changes/006-member-profile-image-upload.md`. 상품 이미지와 동일한 파이프라인(`ProductImageStorage`)을 재사용한다 — 5MB 이하, 실제 디코딩 가능한 이미지만 허용, 긴 변 1600px로 축소해 JPEG로 재인코딩 후 저장(EXIF 등 메타데이터 제거).
+
+- 요청: `multipart/form-data`, 파트 이름 `file`
+- 응답: `200 OK` → `MemberResponse`(변경된 `profileImageUrl` 포함)
+- 에러:
+  | 코드 | HTTP | 설명 |
+  |------|------|------|
+  | `INVALID_IMAGE_FILE` | 400 | 빈 파일이거나 실제로 이미지로 디코딩되지 않음(확장자 위장 포함) |
+  | `IMAGE_FILE_TOO_LARGE` | 400 | 5MB 초과 |
+  | `UNAUTHORIZED` | 401 | 미인증 |
+
+---
+
+## DELETE /api/member/profile-image — 프로필 사진 삭제/초기화 (2026-08-21 추가)
+
+- 요청 body: 없음 — `profileImageUrl`을 `null`로 초기화한다.
+- 응답: `200 OK` → `MemberResponse`(`profileImageUrl: null`)
+- 에러:
+  | 코드 | HTTP | 설명 |
+  |------|------|------|
+  | `UNAUTHORIZED` | 401 | 미인증 |

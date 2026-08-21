@@ -9,10 +9,11 @@ public record MemberResponse(
         String name,
         String email,
         boolean emailVerified,
-        Role role
+        Role role,
+        String profileImageUrl
 ) {
     public static MemberResponse from(Member member) {
         return new MemberResponse(member.getId(), member.getUsername(), member.getName(),
-                member.getEmail(), member.isEmailVerified(), member.getRole());
+                member.getEmail(), member.isEmailVerified(), member.getRole(), member.getProfileImageUrl());
     }
 }

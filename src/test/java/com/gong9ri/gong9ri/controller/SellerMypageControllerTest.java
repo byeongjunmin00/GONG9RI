@@ -420,4 +420,80 @@ class SellerMypageControllerTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
     }
+
+    @Test
+    @DisplayName("판매자가 주문·배송 내역을 조회하면 구매자 정보 및 배송 준비 상태가 함께 반환된다")
+    void orders_asSeller_returnsSellerOrdersWithBuyerInfo() throws Exception {
+        Member seller = saveMember("orderSeller1", Role.SELLER);
+        Product product = saveProduct(seller, "유기농 딸기 1kg", 5);
+        Member buyer = saveMember("orderBuyer1", Role.BUYER, "홍길동");
+        Payment payment = paymentRepository.save(new Payment(buyer, product, null, 15000));
+
+        mockMvc.perform(get("/api/seller/mypage/orders").with(asUser(seller)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].buyerName").value("홍길동"))
+                .andExpect(jsonPath("$.data[0].buyerEmail").value("orderBuyer1@test.com"))
+                .andExpect(jsonPath("$.data[0].productName").value("유기농 딸기 1kg"))
+                .andExpect(jsonPath("$.data[0].amount").value(15000))
+                .andExpect(jsonPath("$.data[0].preparationStatus").value("PREPARING"))
+                .andExpect(jsonPath("$.data[0].preparationStatusLabel").value("🚚 배송 준비 중"));
+    }
+
+    @Test
+    @DisplayName("주문·배송 내역은 다른 판매자의 결제 건은 안 보인다 (스코핑)")
+    void orders_scoping_onlyOwnSalesPayments() throws Exception {
+        Member sellerA = saveMember("orderSeller2", Role.SELLER);
+        Member sellerB = saveMember("orderSeller3", Role.SELLER);
+        Product productA = saveProduct(sellerA, "제주 감귤 5kg", 10);
+        Product productB = saveProduct(sellerB, "경북 사과 3kg", 8);
+        Member buyer = saveMember("orderBuyer2", Role.BUYER, "김철수");
+        paymentRepository.save(new Payment(buyer, productA, null, 20000));
+        paymentRepository.save(new Payment(buyer, productB, null, 10000));
+
+        mockMvc.perform(get("/api/seller/mypage/orders").with(asUser(sellerA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].productName").value("제주 감귤 5kg"));
+    }
+
+    @Test
+    @DisplayName("구매자 계정으로 주문·배송 내역 조회 시 403 FORBIDDEN")
+    void orders_forbidden_buyer() throws Exception {
+        Member buyer = saveMember("mpBuyerC6", Role.BUYER);
+
+        mockMvc.perform(get("/api/seller/mypage/orders").with(asUser(buyer)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("비로그인으로 주문·배송 내역 조회 시 401 UNAUTHORIZED")
+    void orders_unauthorized() throws Exception {
+        mockMvc.perform(get("/api/seller/mypage/orders"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    @DisplayName("주문·배송 내역은 결제 미확정(PENDING)·실패(FAILED) 건은 제외한다")
+    void orders_excludesPendingAndFailedPayments() throws Exception {
+        Member seller = saveMember("orderSeller4", Role.SELLER);
+        Product product = saveProduct(seller, "제주 감귤 5kg", 10);
+        Member buyer = saveMember("orderBuyer3", Role.BUYER, "이영희");
+
+        Payment pending = new Payment(buyer, product, null, 9000, "pg-pending-1");
+        paymentRepository.save(pending);
+
+        Payment failed = new Payment(buyer, product, null, 8000, "pg-failed-1");
+        failed.fail();
+        paymentRepository.save(failed);
+
+        Payment paid = paymentRepository.save(new Payment(buyer, product, null, 15000));
+
+        mockMvc.perform(get("/api/seller/mypage/orders").with(asUser(seller)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].paymentId").value(paid.getId()));
+    }
 }

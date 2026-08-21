@@ -6,7 +6,8 @@
 
 ## API / 인터페이스
 
-- `GET /api/buyer/mypage/{purchases,teams,refund-requests,wishlist}`, `GET /api/seller/mypage/{products,revenue,teams}` — 상세: `docs/api/mypage.md`, 찜은 `docs/api/wishlist.md`
+- `GET /api/buyer/mypage/{purchases,teams,refund-requests,wishlist}`, `GET /api/seller/mypage/{products,orders,revenue,teams}` — 상세: `docs/api/mypage.md`, 찜은 `docs/api/wishlist.md`
+- `POST /api/member/profile-image`, `DELETE /api/member/profile-image` — 상세: `docs/api/auth.md`
 
 ## 데이터 모델
 
@@ -27,19 +28,34 @@
   - **기존 데이터 백필(1회성)**: 이번 upsert 전환 이전부터 있던 결제 이력이 있는데 아직 요약 행이 없는 판매자는 `SellerRevenueSummaryBackfillService`(대상 탐색은 `PaymentRepository.findDistinctSellerIdsWithPayments` + 기존 집계 쿼리 `findRevenueSummaryBySellerId`, 둘 다 삭제하지 않고 유지)로 채운다. 조회마다 실행되면 안 되므로(예전 지연 부트스트랩과 같은 문제 재발) `SellerRevenueSummaryBackfillRunner`(`ApplicationRunner`, 기본 비활성, `app.backfill.seller-revenue-summary=true`로만 opt-in 실행)를 통해서만, 배포 시점에 딱 한 번 트리거한다.
   - Redis 캐싱(`@Cacheable`/`CacheConfig.SELLER_REVENUE_CACHE`)은 이미 제거된 상태(003) — product 목록/상세 캐싱과는 무관.
 
+- **판매자 주문·배송 준비 상태 관리** (`GET /api/seller/mypage/orders`, 2026-08-21 `005-seller-order-shipment-management` 개편):
+  - 판매자가 자신의 상품을 결제한 구매자 정보(이름/이메일)와 결제 금액·일시, 배송 준비 진행 단계를 한 번에 조회.
+  - `preparationStatus`는 저장된 컬럼이 아니라 `SellerOrderResponse.from()`이 결제 상태(`REFUNDED`/`REFUND_PENDING`)와 공구팀 상태(`RECRUITING`/`FAILED`)로부터 그때그때 계산한 파생값(`REFUNDED`/`RECRUITING`/`FAILED`/`PREPARING`) — 다른 곳에 저장하지 않는다.
+  - **`PENDING`/`FAILED` 결제는 조회 대상에서 제외**한다(`PaymentRepository.findAllBySellerIdWithProductAndMemberAndTeam`의 `WHERE` 조건) — 결제가 아직 확정되지 않았거나 실패한 건까지 포함하면 `preparationStatus` 파생 로직이 걸러내지 못하고 전부 `PREPARING`(배송 준비 중)으로 잘못 표시되기 때문(리뷰에서 발견, 2026-08-21 수정).
+
+- **회원 프로필 사진 변경 및 삭제 기능** (`POST /api/member/profile-image`, `DELETE /api/member/profile-image`, 2026-08-21 `006-member-profile-image-upload` 개편):
+  - 회원이 프로필 사진을 업로드하거나 삭제/초기화할 수 있는 API 및 마이페이지 UI 구현.
+  - `Member.profileImageUrl` 필드 추가 및 `ProductImageStorage`를 통한 5MB 이하 축소 JPEG 저장 파이프라인 연동(상품 이미지와 동일한 `/uploads/{yyyy}/{MM}/{uuid}.jpg` 저장소를 공유).
+  - **사진 교체/삭제 시 이전 파일을 디스크에서 함께 지운다**(`ProductImageStorage.delete()`, 2026-08-21 리뷰에서 발견해 추가) — 안 지우면 회원이 사진을 바꿀 때마다 고아 파일이 유한한 Railway 볼륨에 계속 쌓이는 문제였다. 새 파일 저장이 성공한 뒤에만 이전 파일을 지우므로, 업로드 자체가 실패(잘못된 파일 등)하면 기존 사진은 그대로 남는다. `delete()`는 `/uploads/` 접두사가 아니거나 정규화 후 저장 루트를 벗어나는 URL은 조용히 무시한다(경로 탈출 방지, `store()`와 같은 방어 원칙).
+  - **세션의 SecurityContext를 즉시 갱신**한다(`AuthController.updateMe()`와 동일한 패턴) — 안 하면 재로그인 전까지 `GET /api/auth/me`가 사진 변경 전 값을 계속 돌려주는 버그였다(리뷰 중 실측으로 발견, 2026-08-21 수정).
+
 ## 관련 코드 위치
 
-- `dto/{PurchaseResponse,BuyerTeamResponse,SellerProductResponse,RevenueResponse,SellerTeamResponse}.java` — `RevenueResponse.empty()`(요약 행 없을 때 순수 0 응답) 추가. 호출부가 전혀 없던 `RevenueResponse.from(RevenueSummaryProjection)` 오버로드는 죽은 코드로 확인되어 제거(Evaluate에서 grep으로 무호출 확인 후 정리)
-- `entity/SellerRevenueSummary.java`, `repository/SellerRevenueSummaryRepository.java`(`incrementPaid`: 네이티브 `INSERT ... ON DUPLICATE KEY UPDATE` upsert, `applyRefund`: 조건부 UPDATE) — 신규
-- `repository/PaymentRepository.java` — `findAllByMemberIdWithProduct`, `findRevenueSummaryBySellerId`(`RevenueSummaryProjection` 경유, 백필/드리프트 검증용으로 유지), `findDistinctSellerIdsWithPayments`(백필 대상 탐색용, 신규)
-- `service/SellerRevenueSummaryBackfillService.java`(1회성 백필, 판매자 1명당 트랜잭션 분리), `batch/SellerRevenueSummaryBackfillRunner.java`(`ApplicationRunner`, 기본 비활성, `app.backfill.seller-revenue-summary=true`로만 opt-in 실행) — 신규
-- `repository/TeamParticipationRepository.java` — `findAllByMemberIdWithTeamAndProduct`
-- `repository/GroupBuyTeamRepository.java` — `findAllBySellerIdWithProduct`
-- `repository/ProductRepository.java` — `findAllBySellerIdOrderByCreatedAtDesc`
-- `entity/{TeamParticipation,Product,GroupBuyTeam}.java` — 누락돼있던 인덱스 추가
-- `entity/Payment.java` — `refund()` 도메인 메서드 추가(REFUNDED 전이 테스트/향후 `payment/refund`용, 이번 스코프에서 실제로 트리거하는 API는 없음)
-- `service/{BuyerMypageService,SellerMypageService,PaymentService,TeamDeadlineService}.java` — `SellerMypageService.revenue()`는 쓰기 없는 순수 조회(클래스 기본 `@Transactional(readOnly = true)` 그대로 사용), `TeamDeadlineService.processDeadline()`은 `applyRefund` 리턴값이 0이면 WARN 로그
-- `controller/{BuyerMypageController,SellerMypageController}.java`
-- `config/CacheConfig.java` — 판매자 수익 캐시 관련 코드 제거(product 목록/상세 캐시만 남음)
-- 테스트: `controller/{BuyerMypageControllerTest(11케이스),SellerMypageControllerTest(15케이스)}.java` — 스코핑 테스트(구매/상품 각 1개), 매출 집계 테스트(요약 행 직접 seed해 GET 응답 wiring 검증 + 무결제 0건 케이스) 포함
-- 테스트: `service/SellerRevenueSummaryTest.java`(결제 시 upsert로 요약 행 생성·증가, 환불 시 감소, 결제 이력 없는 판매자의 순수 0 조회, 1회성 백필, 대량 더미 데이터 드리프트 검증), `service/SellerRevenueSummaryConcurrencyTest.java`(요약 행이 아예 없는 상태에서 동시에 여러 "첫 결제"가 들어와도 정확히 합산되는지 검증, `@SpringBootTest` 논트랜잭션 멀티스레드). `config/CacheConfigTest.java`(순수 단위 테스트) — product 목록/상세 값 직렬화기 검증만 유지
+- `dto/{PurchaseResponse,BuyerTeamResponse,SellerProductResponse,RevenueResponse,SellerTeamResponse}.java`
+- `dto/SellerOrderResponse.java` — 신규(005). `preparationStatus`/`preparationStatusLabel` 파생 로직 포함.
+- `repository/PaymentRepository.java` — `findAllBySellerIdWithProductAndMemberAndTeam`(005, N+1 방지 패치 조인)
+- `service/SellerMypageService.java` — `orders()`(005)
+- `controller/SellerMypageController.java` — `GET /api/seller/mypage/orders`(005)
+- `seller/mypage.html`, `js/seller-mypage.js` — 📦 주문·배송 관리 탭, `loadOrders()`(005)
+- 테스트(005): `controller/SellerMypageControllerTest.java` — `orders_asSeller_returnsSellerOrdersWithBuyerInfo`, `orders_scoping_onlyOwnSalesPayments`, `orders_forbidden_buyer`, `orders_unauthorized`, `orders_excludesPendingAndFailedPayments`
+- 경위(005): `docs/dev/mypage/view/changes/005-seller-order-shipment-management.md`, 실행 로그: `docs/logs/frontend/seller/005-seller-order-shipment-management.md`
+
+- `dto/MemberResponse.java` — `profileImageUrl` 추가(006)
+- `entity/Member.java` — `profileImageUrl` 필드 및 `updateProfileImage()` 도메인 메서드 추가(006).
+- `controller/MemberProfileImageController.java` — 신규 프로필 사진 업로드/삭제 컨트롤러(006). 업로드/삭제 성공 후 `SecurityContextHolder`를 새 `MemberUserDetails`로 교체 + `securityContextRepository.saveContext()` 호출(세션 즉시 갱신).
+- `service/MemberService.java` — `updateProfileImage()`, `deleteProfileImage()` 구현(006).
+- `service/ProductImageStorage.java` — `delete(String url)` 신규(006). `/uploads/` 접두사가 아니거나 정규화 후 저장 루트를 벗어나는 URL은 조용히 무시.
+- `buyer/mypage.html`, `seller/mypage.html`, `js/account-info.js` — 계정 정보 탭 [사진 변경]/[삭제] UI 및 아바타 실시간 렌더링(006).
+- 테스트(006): `controller/MemberProfileImageControllerTest.java` — `uploadProfileImage_success`, `deleteProfileImage_success`, `uploadProfileImage_unauthorized`, `deleteProfileImage_unauthorized`, `uploadProfileImage_replacingDeletesOldFile`, `uploadProfileImage_refreshesSessionPrincipalImmediately`, `deleteProfileImage_refreshesSessionPrincipalImmediately`
+- 테스트(006): `service/ProductImageStorageTest.java` — `delete_removesStoredFile`, `delete_ignoresInvalidOrTraversalUrls`, `delete_doesNotThrowWhenFileAlreadyGone`
+- 경위(006): `docs/dev/mypage/view/changes/006-member-profile-image-upload.md`, 실행 로그: `docs/logs/frontend/mypage/006-member-profile-image-upload.md`

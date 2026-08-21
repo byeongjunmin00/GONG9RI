@@ -99,6 +99,9 @@ public class Member {
         this.suspended = false;
     }
 
+    @Column(length = 500)
+    private String profileImageUrl;
+
     // 정보수정(마이페이지) — 이름은 항상 갱신하고, 이메일은 바뀐 경우에만 emailVerified를 다시
     // false로 되돌린다(가입 때와 같은 원칙 — 실제로 그 주소를 본인이 쓸 수 있는지 재확인 전에는
     // 인증된 상태로 두면 안 됨). emailChanged 여부는 호출부(MemberService)가 변경 전/후 값을
@@ -110,6 +113,10 @@ public class Member {
         if (emailChanged) {
             this.emailVerified = false;
         }
+    }
+
+    public void updateProfileImage(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
     }
 
     // 카카오 신규 가입 전용 팩토리 — 일반 가입(생성자)과 달리 이메일 인증을 건너뛴다(카카오 로그인
