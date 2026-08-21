@@ -7,7 +7,9 @@ import com.gong9ri.gong9ri.dto.KakaoLoginResult;
 import com.gong9ri.gong9ri.dto.MemberInfoUpdateRequest;
 import com.gong9ri.gong9ri.dto.MemberResponse;
 import com.gong9ri.gong9ri.dto.MemberSignupRequest;
+import com.gong9ri.gong9ri.config.CacheConfig;
 import com.gong9ri.gong9ri.entity.Member;
+import com.gong9ri.gong9ri.entity.Product;
 import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.event.MemberEmailChangedEvent;
 import com.gong9ri.gong9ri.event.MemberSignedUpEvent;
@@ -17,6 +19,8 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import com.gong9ri.gong9ri.repository.ProductRepository;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +37,8 @@ public class MemberService {
 
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
+    // 판매자 탈퇴 시 그 사람 상품을 숨기기 위해 필요하다(배송할 사람 없는 상품이 계속 팔리는 걸 막는다).
+    private final ProductRepository productRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final ProductImageStorage productImageStorage;
 
@@ -60,6 +66,59 @@ public class MemberService {
         deleteFileAfterCommit(oldUrl);
         log.info("프로필 사진 삭제 완료: memberId={}", memberId);
         return MemberResponse.from(member);
+    }
+
+    /**
+     * 회원 탈퇴 (member/withdraw, 2026-08-21).
+     *
+     * <p><b>행을 지우지 않는다.</b> 이 회원을 참조하는 테이블이 12개이고, 결제·공구팀 참여는 남의
+     * 화면에도 영향을 준다 — 지우면 판매자 정산 합계가 틀어지고 같은 팀에 있던 다른 사람들 화면에서
+     * 인원이 어긋난다. 관리자 하드 삭제를 "활동 기록이 하나도 없을 때만" 허용한 것과 같은 판단이다.
+     *
+     * <p><b>비밀번호를 다시 확인시키는 이유</b>: 되돌릴 수 없는 동작이고, 로그인된 브라우저를 잠깐
+     * 빌려 쓴 사람이 누를 수 있다. 카카오 계정은 비밀번호가 없으므로(랜덤 값으로 채워져 있다)
+     * 이 확인을 건너뛴다 — 대신 프론트가 한 번 더 확인을 받는다.
+     *
+     * <p>탈퇴 후 프로필 사진 파일은 커밋 뒤에 지운다(교체·삭제와 같은 이유 — 롤백되면 DB는 옛 URL을
+     * 가리키는데 파일이 없는 상태가 된다).
+     */
+    @Transactional
+    @CacheEvict(cacheNames = CacheConfig.PRODUCT_LIST_CACHE, allEntries = true)
+    public void withdraw(Long memberId, String rawPassword) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
+        if (member.isWithdrawn()) {
+            throw new BusinessException(ErrorCode.ACCOUNT_WITHDRAWN);
+        }
+        // 관리자는 스스로 탈퇴할 수 없다 — 마지막 관리자가 나가면 아무도 관리자 화면에 들어갈 수 없다.
+        if (member.getRole() == Role.ADMIN) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+        boolean socialAccount = member.getKakaoId() != null;
+        if (!socialAccount) {
+            if (rawPassword == null || !passwordEncoder.matches(rawPassword, member.getPassword())) {
+                throw new BusinessException(ErrorCode.LOGIN_FAILED);
+            }
+        }
+
+        // 판매자가 나가면 그 사람 상품을 전부 숨긴다. 안 그러면 **배송할 사람이 없는 상품이 계속
+        // 팔린다** — 탈퇴는 로그인만 막을 뿐 상품 목록과는 무관하기 때문. 지우지 않고 숨기는 이유는
+        // 기존 주문의 상품 정보(이름·가격)가 주문 내역·정산에 그대로 필요해서다. 관리자 숨김과 같은
+        // 플래그를 재사용한다(2026-08-21 탈퇴 기능 작업 중 발견).
+        int hiddenCount = 0;
+        if (member.getRole() == Role.SELLER) {
+            for (Product product : productRepository.findAllBySellerIdOrderByCreatedAtDesc(memberId)) {
+                if (!product.isHidden()) {
+                    product.hide();
+                    hiddenCount++;
+                }
+            }
+        }
+
+        String oldProfileImage = member.getProfileImageUrl();
+        member.withdraw(passwordEncoder.encode(UUID.randomUUID().toString()));
+        deleteFileAfterCommit(oldProfileImage);
+        log.info("회원 탈퇴 완료: memberId={}, social={}, 숨긴 상품={}", memberId, socialAccount, hiddenCount);
     }
 
     @Transactional
