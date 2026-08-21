@@ -104,14 +104,36 @@ class SupportChatSubscriptionSecurityTest {
             supportRoomRepository.deleteById(roomId);
         });
         roomIdsToClean.clear();
-        // 상담 메시지가 오가면 관리자에게 알림이 생긴다. 알림이 회원을 참조하므로 회원보다 먼저
-        // 지워야 한다 — 안 지우면 회원 삭제가 FK 위반으로 막힌다(실제로 겪음).
-        for (Long memberId : memberIdsToClean) {
+        memberIdsToClean.forEach(this::deleteMemberWithNotifications);
+        memberIdsToClean.clear();
+    }
+
+    /**
+     * 회원과 그 알림을 지운다. <b>알림이 뒤늦게 도착할 수 있어 재시도한다.</b>
+     *
+     * <p>상담 메시지가 오가면 관리자에게 알림이 생기는데, 그 발행이 {@code AFTER_COMMIT} + {@code @Async}라
+     * 테스트가 끝난 뒤에 INSERT될 수 있다. 알림을 한 번만 지우고 바로 회원을 지우면, 그 사이에 들어온
+     * 알림 때문에 <b>FK 위반으로 회원 삭제가 실패</b>하고 → 다음 테스트가 같은 아이디로 가입하려다
+     * 중복 키로 깨진다. 로컬에서는 빨라서 안 걸리고 <b>CI에서만 터졌다</b>(2026-08-21).
+     */
+    private void deleteMemberWithNotifications(Long memberId) {
+        for (int attempt = 0; attempt < 5; attempt++) {
             notificationRepository.findAllByMemberIdOrderByCreatedAtDesc(memberId)
                     .forEach(n -> notificationRepository.deleteById(n.getId()));
+            try {
+                memberRepository.deleteById(memberId);
+                memberRepository.flush();
+                return;
+            } catch (Exception e) {
+                // 뒤늦게 도착한 알림이 원인일 수 있다 — 잠깐 기다렸다 다시 시도한다.
+                try {
+                    Thread.sleep(200);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
         }
-        memberIdsToClean.forEach(memberRepository::deleteById);
-        memberIdsToClean.clear();
     }
 
     private Member saveMember(String username, Role role) {
