@@ -813,6 +813,14 @@
   }
 }
 
+/* button 태그에 .summary-card를 쓸 때 브라우저 기본 버튼 스타일을 리셋한다. */
+button.summary-card {
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  color: inherit;
+}
+
 .summary-card {
   display: flex;
   flex-direction: column;

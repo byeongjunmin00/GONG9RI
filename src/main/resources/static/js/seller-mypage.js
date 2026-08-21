@@ -10,14 +10,20 @@
  *   로그인 링크를 띄우고, 세 섹션 전체를 숨긴다(서버가 신뢰 SSOT).
  * - 403(FORBIDDEN, 구매자 계정)/기타 에러는 해당 섹션의 상태 영역에 서버 message를 표시하고
  *   다른 섹션은 각자 독립적으로 계속 로드된다(한 섹션의 실패가 페이지 전체를 깨지 않는다).
+ * - 상단 프로필 카드에 판매자 이름/이메일과 수익 KPI(총 매출·결제 완료·환불 건수·대기 환불)를 노출한다.
+ *   수익 KPI는 /revenue 응답으로, 대기 환불 건수는 /refund-requests 응답으로 채운다.
+ * - 탭 네비게이션: [전체 현황], [등록 상품], [공구 현황], [환불 관리], [계정 설정] 탭 스위칭 및
+ *   URL hash(#products 등) 연동을 지원한다.
  * - 상품 목록의 "수정"은 seller/products/edit.html?id={productId}로 이동(API 호출 없음).
  * - 상품 목록의 "삭제"는 confirm 확인 후 DELETE /api/products/{productId} 호출 →
  *   성공(204) 시 목록에서 해당 항목만 제거, 실패는 목록을 유지하고 상태 영역에 안내한다.
  * - 공구 참여 현황의 상태 뱃지/라벨은 js/product.js의 매핑(RECRUITING/SUCCESS/FAILED)과 동일하게 맞춘다.
+ *   RECRUITING 팀에는 인원 달성률 프로그레스 바(.team-progress)와 잔여 시간 배지(.badge-time)를 노출한다.
  * - 환불 요청 관리: GET /api/seller/mypage/refund-requests로 목록을 불러와 PENDING 항목에만
  *   승인/거절 액션을 노출한다. 승인은 즉시 POST .../approve, 거절은 사유 템플릿(select)을 고른 뒤
  *   POST .../reject로 확정한다(자유 텍스트 아님, docs/api/refund.md). 성공하면 그 항목만 다시 그려
  *   전체 목록을 재조회하지 않는다.
+ * - 환불 요청 카드는 요청자명을 타이틀 라인으로 분리하고 금액·날짜·사유를 메타 라인으로 구분한다.
  * - 서버 응답 문자열(에러 message 등)은 textContent로만 대입해 XSS를 방지한다.
  */
 (function () {
@@ -27,14 +33,21 @@
 
   var mypageSectionsEl = document.getElementById('mypage-sections');
 
+  // 상단 프로필 카드 요소
+  var summaryUserNameEl = document.getElementById('summary-user-name');
+  var summaryUserEmailEl = document.getElementById('summary-user-email');
+  var summaryRevenueTotalEl = document.getElementById('summary-revenue-total');
+  var summaryRevenuePaidCountEl = document.getElementById('summary-revenue-paid-count');
+  var summaryRevenueRefundedCountEl = document.getElementById('summary-revenue-refunded-count');
+  var summaryPendingRefundsCountEl = document.getElementById('summary-pending-refunds-count');
+
+  // 탭 요소
+  var tabBtns = document.querySelectorAll('.mypage-tab-btn');
+  var tabPanels = document.querySelectorAll('.mypage-tab-panel');
+  var summaryCards = document.querySelectorAll('.summary-card[data-tab]');
+
   var productsStatusEl = document.getElementById('products-status');
   var productsListEl = document.getElementById('products-list');
-
-  var revenueStatusEl = document.getElementById('revenue-status');
-  var revenueCardsEl = document.getElementById('revenue-cards');
-  var revenueTotalEl = document.getElementById('revenue-total');
-  var revenuePaidCountEl = document.getElementById('revenue-paid-count');
-  var revenueRefundedCountEl = document.getElementById('revenue-refunded-count');
 
   var teamsStatusEl = document.getElementById('teams-status');
   var teamsListEl = document.getElementById('teams-list');
@@ -45,7 +58,6 @@
   if (
     !pageAlertEl || !pageAlertTextEl || !pageAlertLoginLinkEl || !mypageSectionsEl ||
     !productsStatusEl || !productsListEl ||
-    !revenueStatusEl || !revenueCardsEl || !revenueTotalEl || !revenuePaidCountEl || !revenueRefundedCountEl ||
     !teamsStatusEl || !teamsListEl ||
     !refundRequestsStatusEl || !refundRequestsListEl
   ) {
@@ -133,6 +145,147 @@
     return false;
   }
 
+  /**
+   * deadline(ISO 문자열) 기준 남은 유지 기간을 사람이 읽을 수 있는 문구로 변환한다.
+   * @param {string} deadline
+   * @returns {string} 예: "2일 3시간 남음" / "40분 남음" / "마감 임박"
+   */
+  function formatRemaining(deadline) {
+    if (!deadline) {
+      return '';
+    }
+    var deadlineTime = new Date(deadline).getTime();
+    if (isNaN(deadlineTime)) {
+      return '';
+    }
+    var diffMs = deadlineTime - Date.now();
+    if (diffMs <= 0) {
+      return '마감 임박';
+    }
+    var diffMinutes = Math.floor(diffMs / 60000);
+    var days = Math.floor(diffMinutes / (60 * 24));
+    var hours = Math.floor((diffMinutes % (60 * 24)) / 60);
+    var minutes = diffMinutes % 60;
+    if (days > 0) {
+      return days + '일 ' + hours + '시간 남음';
+    }
+    if (hours > 0) {
+      return hours + '시간 ' + minutes + '분 남음';
+    }
+    return minutes + '분 남음';
+  }
+
+  // ---------- 탭 네비게이션 ----------
+
+  function switchTab(targetTab) {
+    if (!targetTab) targetTab = 'all';
+
+    tabBtns.forEach(function (btn) {
+      var isTarget = btn.getAttribute('data-tab') === targetTab;
+      btn.classList.toggle('active', isTarget);
+      btn.setAttribute('aria-selected', isTarget ? 'true' : 'false');
+    });
+
+    tabPanels.forEach(function (panel) {
+      var panelTab = panel.getAttribute('data-tab-panel');
+      panel.hidden = targetTab !== 'all' && panelTab !== targetTab;
+    });
+
+    if (history.replaceState) {
+      history.replaceState(null, '', '#' + targetTab);
+    }
+  }
+
+  function setupTabs() {
+    tabBtns.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        switchTab(btn.getAttribute('data-tab'));
+      });
+    });
+
+    summaryCards.forEach(function (card) {
+      card.addEventListener('click', function () {
+        switchTab(card.getAttribute('data-tab'));
+      });
+    });
+
+    var hash = window.location.hash.replace('#', '');
+    var validTabs = ['all', 'products', 'teams', 'refunds', 'account'];
+    switchTab(validTabs.indexOf(hash) !== -1 ? hash : 'all');
+  }
+
+  function loadProfileInfo() {
+    return window.Api.get('/auth/me')
+      .then(function (user) {
+        if (!user) return;
+        if (summaryUserNameEl) summaryUserNameEl.textContent = user.name || '판매자';
+        if (summaryUserEmailEl) summaryUserEmailEl.textContent = user.email || '';
+      })
+      .catch(function (err) {
+        if (handleUnauthorized(err)) return;
+        // 비로그인이 아니면 기본 텍스트 유지
+      });
+  }
+
+  // ---------- UI 헬퍼: 썸네일 + 메인 레이아웃 래퍼 ----------
+
+  function createThumbnailElement(imageUrl, altText) {
+    var thumbEl = document.createElement('div');
+    thumbEl.className = 'mypage-list-item__thumb';
+
+    if (imageUrl) {
+      var img = document.createElement('img');
+      img.src = imageUrl;
+      img.alt = altText || '상품 이미지';
+      img.onerror = function () {
+        thumbEl.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>';
+      };
+      thumbEl.appendChild(img);
+    } else {
+      thumbEl.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>';
+    }
+
+    return thumbEl;
+  }
+
+  /**
+   * 썸네일 + 정보(infoEl)를 묶는 .mypage-list-item__main 래퍼를 생성한다.
+   * 구매자 마이페이지와 동일한 헬퍼 패턴.
+   */
+  function createListItemMainWrapper(imageUrl, altText, infoEl) {
+    var mainEl = document.createElement('div');
+    mainEl.className = 'mypage-list-item__main';
+    mainEl.appendChild(createThumbnailElement(imageUrl, altText));
+    mainEl.appendChild(infoEl);
+    return mainEl;
+  }
+
+  function createTeamProgressBarElement(currentCount, maxParticipants) {
+    var progressEl = document.createElement('div');
+    progressEl.className = 'team-progress';
+
+    var current = typeof currentCount === 'number' ? currentCount : 0;
+    var max = typeof maxParticipants === 'number' && maxParticipants > 0 ? maxParticipants : 1;
+    var percent = Math.min(100, Math.round((current / max) * 100));
+
+    var trackEl = document.createElement('div');
+    trackEl.className = 'team-progress__track';
+
+    var fillEl = document.createElement('div');
+    fillEl.className = 'team-progress__fill';
+    fillEl.style.width = percent + '%';
+    trackEl.appendChild(fillEl);
+
+    var textEl = document.createElement('div');
+    textEl.className = 'team-progress__text';
+    textEl.innerHTML = '<span>달성 인원</span><span><strong>' + current + '</strong> / ' + max + '명 (' + percent + '%)</span>';
+
+    progressEl.appendChild(trackEl);
+    progressEl.appendChild(textEl);
+
+    return progressEl;
+  }
+
   // ---------- 등록 상품 목록 ----------
 
   function createProductItem(product) {
@@ -156,7 +309,8 @@
     metaEl.textContent = [basePriceText, maxParticipantsText].filter(Boolean).join(' · ');
     infoEl.appendChild(metaEl);
 
-    li.appendChild(infoEl);
+    var mainEl = createListItemMainWrapper(product.imageUrl, product.name, infoEl);
+    li.appendChild(mainEl);
 
     var actionsEl = document.createElement('div');
     actionsEl.className = 'mypage-list-item__actions';
@@ -243,24 +397,25 @@
       });
   }
 
-  // ---------- 수익 현황 ----------
+  // ---------- 수익 현황 (상단 프로필 KPI 카드로 표시) ----------
 
   function renderRevenue(revenue) {
-    revenueTotalEl.textContent = formatPrice(revenue.totalRevenue);
-    revenuePaidCountEl.textContent =
-      typeof revenue.paidCount === 'number' ? revenue.paidCount + '건' : '';
-    revenueRefundedCountEl.textContent =
-      typeof revenue.refundedCount === 'number' ? revenue.refundedCount + '건' : '';
-    revenueCardsEl.hidden = false;
+    if (summaryRevenueTotalEl) {
+      summaryRevenueTotalEl.textContent = formatPrice(revenue.totalRevenue) || '0원';
+    }
+    if (summaryRevenuePaidCountEl) {
+      summaryRevenuePaidCountEl.textContent =
+        typeof revenue.paidCount === 'number' ? revenue.paidCount + '건' : '0건';
+    }
+    if (summaryRevenueRefundedCountEl) {
+      summaryRevenueRefundedCountEl.textContent =
+        typeof revenue.refundedCount === 'number' ? revenue.refundedCount + '건' : '0건';
+    }
   }
 
   function loadRevenue() {
-    showStatus(revenueStatusEl, '수익 현황을 불러오는 중입니다...', 'loading');
-    revenueCardsEl.hidden = true;
-
     return window.Api.get('/seller/mypage/revenue')
       .then(function (revenue) {
-        hideStatus(revenueStatusEl);
         renderRevenue(revenue || {});
       })
       .catch(function (err) {
@@ -268,8 +423,8 @@
         if (handleUnauthorized(err)) {
           return;
         }
-        var message = (err && err.message) || '수익 현황을 불러오지 못했습니다.';
-        showStatus(revenueStatusEl, message, 'error');
+        // KPI 카드에 에러 표시 — 섹션 전체가 아니라 수치만 못 보여주는 상황이므로
+        // 별도 에러 배너를 띄우지 않고 기본값("-")을 유지한다.
       });
   }
 
@@ -292,7 +447,13 @@
     var current = typeof team.currentCount === 'number' ? team.currentCount : '?';
     var max = typeof team.maxParticipants === 'number' ? team.maxParticipants : '?';
     var deadlineText = team.deadline ? '마감 ' + formatDateTime(team.deadline) : '';
-    metaEl.textContent = [current + ' / ' + max + '명', deadlineText].filter(Boolean).join(' · ');
+
+    if (team.status === 'RECRUITING') {
+      // RECRUITING: 마감 일시 대신 잔여 시간 표시 (마감 일시는 배지로 따로 강조)
+      metaEl.textContent = current + ' / ' + max + '명';
+    } else {
+      metaEl.textContent = [current + ' / ' + max + '명', deadlineText].filter(Boolean).join(' · ');
+    }
     infoEl.appendChild(metaEl);
 
     // 누가 참여했는지 — 인원 수만 보여서 판매자가 알 수 없던 부분(2026-08-20 사용자 리포트).
@@ -309,12 +470,34 @@
       infoEl.appendChild(participantsEl);
     }
 
-    li.appendChild(infoEl);
+    // RECRUITING 상태인 경우 인원 달성률 프로그레스 바 삽입
+    if (team.status === 'RECRUITING') {
+      infoEl.appendChild(createTeamProgressBarElement(team.currentCount, team.maxParticipants));
+    }
+
+    var mainEl = createListItemMainWrapper(team.imageUrl, team.productName, infoEl);
+    li.appendChild(mainEl);
+
+    var actionsEl = document.createElement('div');
+    actionsEl.className = 'mypage-list-item__actions';
+
+    // RECRUITING 팀에 잔여 시간 배지 노출
+    if (team.status === 'RECRUITING') {
+      var remainingText = formatRemaining(team.deadline);
+      if (remainingText) {
+        var timeBadgeEl = document.createElement('span');
+        timeBadgeEl.className = 'badge badge-time';
+        timeBadgeEl.textContent = '⏱️ ' + remainingText;
+        actionsEl.appendChild(timeBadgeEl);
+      }
+    }
 
     var badgeEl = document.createElement('span');
     badgeEl.className = 'badge ' + statusToBadgeClass(team.status);
     badgeEl.textContent = statusToLabel(team.status);
-    li.appendChild(badgeEl);
+    actionsEl.appendChild(badgeEl);
+
+    li.appendChild(actionsEl);
 
     return li;
   }
@@ -381,18 +564,6 @@
     return '대기중';
   }
 
-  function refundRequestMetaText(request) {
-    var amountText = formatPrice(request.amount);
-    var requesterText = request.requesterName ? '요청자 ' + request.requesterName : '';
-    var requestedAtText = request.requestedAt ? '요청일 ' + formatDateTime(request.requestedAt) : '';
-    var reasonText = request.reason ? '사유: ' + request.reason : '사유: 참여 취소';
-    var rejectionText = request.status === 'REJECTED' && request.rejectionReason
-      ? '거절 사유: ' + request.rejectionReason
-      : '';
-    return [requesterText, amountText, requestedAtText, reasonText, rejectionText]
-      .filter(Boolean).join(' · ');
-  }
-
   function createRejectPanel(request, li, badgeEl, metaEl, actionsEl) {
     var panel = document.createElement('div');
     panel.className = 'refund-reject-panel';
@@ -446,13 +617,29 @@
 
   /**
    * 승인/거절 성공 응답으로 그 항목만 다시 그린다(전체 목록 재조회 없음).
+   * 처리 완료 시 대기 환불 카운터도 1 차감한다.
    */
   function applyRefundRequestUpdate(request, li, badgeEl, metaEl, actionsEl) {
     badgeEl.className = 'badge ' + refundRequestStatusToBadgeClass(request.status);
     badgeEl.textContent = refundRequestStatusToLabel(request.status);
-    metaEl.textContent = refundRequestMetaText(request);
+    // 요청자명은 타이틀에 있으므로 metaEl에는 금액·날짜·사유·거절사유만 갱신한다
+    var amountText = formatPrice(request.amount);
+    var requestedAtText = request.requestedAt ? '요청일 ' + formatDateTime(request.requestedAt) : '';
+    var reasonText = request.reason ? '사유: ' + request.reason : '사유: 참여 취소';
+    var rejectionText = request.status === 'REJECTED' && request.rejectionReason
+      ? '거절 사유: ' + request.rejectionReason
+      : '';
+    metaEl.textContent = [amountText, requestedAtText, reasonText, rejectionText].filter(Boolean).join(' · ');
     clearChildren(actionsEl);
     actionsEl.appendChild(badgeEl);
+
+    // 대기 환불 카운터 1 차감 (PENDING → APPROVED/REJECTED)
+    if (summaryPendingRefundsCountEl) {
+      var current = parseInt(summaryPendingRefundsCountEl.textContent, 10);
+      if (!isNaN(current) && current > 0) {
+        summaryPendingRefundsCountEl.textContent = (current - 1) + '건';
+      }
+    }
   }
 
   function createRefundRequestItem(request) {
@@ -462,17 +649,30 @@
     var infoEl = document.createElement('div');
     infoEl.className = 'mypage-list-item__info';
 
+    // 요청자명을 타이틀 라인으로 분리하여 가독성을 높인다.
+    // 상품명은 메타 라인에서 확인 가능하므로 타이틀은 "누가 요청했는지"를 우선 노출한다.
     var titleEl = document.createElement('span');
     titleEl.className = 'mypage-list-item__title';
-    titleEl.textContent = request.productName || '';
+    titleEl.textContent = request.requesterName
+      ? request.requesterName + '님의 환불 요청'
+      : (request.productName || '환불 요청');
     infoEl.appendChild(titleEl);
 
+    // 상품명 + 금액·날짜·사유를 메타 라인으로
     var metaEl = document.createElement('span');
     metaEl.className = 'mypage-list-item__meta';
-    metaEl.textContent = refundRequestMetaText(request);
+    var amountText = formatPrice(request.amount);
+    var requestedAtText = request.requestedAt ? '요청일 ' + formatDateTime(request.requestedAt) : '';
+    var reasonText = request.reason ? '사유: ' + request.reason : '사유: 참여 취소';
+    var rejectionText = request.status === 'REJECTED' && request.rejectionReason
+      ? '거절 사유: ' + request.rejectionReason
+      : '';
+    metaEl.textContent = [request.productName, amountText, requestedAtText, reasonText, rejectionText]
+      .filter(Boolean).join(' · ');
     infoEl.appendChild(metaEl);
 
-    li.appendChild(infoEl);
+    var mainEl = createListItemMainWrapper(request.imageUrl, request.productName, infoEl);
+    li.appendChild(mainEl);
 
     var badgeEl = document.createElement('span');
     badgeEl.className = 'badge ' + refundRequestStatusToBadgeClass(request.status);
@@ -487,6 +687,7 @@
       return li;
     }
 
+    // PENDING 항목: 배지 강조 + 승인/거절 버튼 노출
     actionsEl.appendChild(badgeEl);
 
     var approveBtn = document.createElement('button');
@@ -530,10 +731,19 @@
   function renderRefundRequests(requests) {
     clearChildren(refundRequestsListEl);
     var fragment = document.createDocumentFragment();
+
+    // PENDING 건수를 세어 상단 KPI 카드에 반영한다
+    var pendingCount = 0;
     requests.forEach(function (request) {
+      if (request.status === 'PENDING') pendingCount++;
       fragment.appendChild(createRefundRequestItem(request));
     });
+
     refundRequestsListEl.appendChild(fragment);
+
+    if (summaryPendingRefundsCountEl) {
+      summaryPendingRefundsCountEl.textContent = pendingCount + '건';
+    }
   }
 
   function loadRefundRequests() {
@@ -545,6 +755,7 @@
         var list = Array.isArray(requests) ? requests : [];
         if (list.length === 0) {
           showStatus(refundRequestsStatusEl, '아직 접수된 환불 요청이 없습니다.', 'empty');
+          if (summaryPendingRefundsCountEl) summaryPendingRefundsCountEl.textContent = '0건';
           return;
         }
         hideStatus(refundRequestsStatusEl);
@@ -552,6 +763,7 @@
       })
       .catch(function (err) {
         console.error('[seller-mypage.js] failed to load refund requests:', err);
+        if (summaryPendingRefundsCountEl) summaryPendingRefundsCountEl.textContent = '0건';
         if (handleUnauthorized(err)) {
           return;
         }
@@ -561,6 +773,8 @@
   }
 
   function init() {
+    setupTabs();
+    loadProfileInfo();
     loadProducts();
     loadRevenue();
     loadTeams();
