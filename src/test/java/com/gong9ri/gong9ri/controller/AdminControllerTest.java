@@ -190,6 +190,26 @@ class AdminControllerTest {
     }
 
     @Test
+    @DisplayName("관리자가 status=UPCOMING 파라미터를 넘기면 오픈 예정 상품만 필터링되어 반환된다")
+    void products_withUpcomingStatusFilter_returnsOnlyUpcomingProducts() throws Exception {
+        Member admin = saveMember("admin-search-admin5", Role.ADMIN);
+        Member seller = saveMember("admin-search-seller5", Role.SELLER);
+
+        Product upcomingProduct = new Product(seller, "오픈예정상품", "설명", 10000, 10, null, false, ProductCategory.ETC, java.time.LocalDateTime.now().plusDays(3));
+        Product normalProduct = new Product(seller, "일반공개상품", "설명", 10000, 10, null, false, ProductCategory.ETC, null);
+        productRepository.save(upcomingProduct);
+        productRepository.save(normalProduct);
+
+        mockMvc.perform(get("/api/admin/products")
+                        .param("status", "UPCOMING")
+                        .with(asUser(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].name").value("오픈예정상품"));
+    }
+
+    @Test
     @DisplayName("관리자가 다른 회원을 정지하면 204, 그 회원의 suspended가 true로 바뀐다")
     void suspendMember_asAdmin_succeeds() throws Exception {
         Member admin = saveMember("admin-test-2", Role.ADMIN);

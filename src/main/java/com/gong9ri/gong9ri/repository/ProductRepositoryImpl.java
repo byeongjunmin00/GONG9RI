@@ -155,6 +155,10 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
                         .exists();
 
                 statusCond = product.hidden.isFalse().and(highRatingCond.or(activeProgressCond));
+            } else if ("UPCOMING".equalsIgnoreCase(status)) {
+                statusCond = product.hidden.isFalse()
+                        .and(product.openAt.isNotNull())
+                        .and(product.openAt.gt(LocalDateTime.now()));
             }
         }
 

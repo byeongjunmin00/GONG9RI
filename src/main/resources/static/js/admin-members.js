@@ -40,109 +40,108 @@
   }
 
   function createAvatarElement() {
-    var thumbEl = document.createElement('div');
-    thumbEl.className = 'mypage-list-item__thumb';
-    thumbEl.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>';
-    return thumbEl;
+    var avatarEl = document.createElement('div');
+    avatarEl.style.width = '30px';
+    avatarEl.style.height = '30px';
+    avatarEl.style.borderRadius = '50%';
+    avatarEl.style.flexShrink = '0';
+    avatarEl.style.background = 'var(--color-surface-alt)';
+    avatarEl.style.display = 'flex';
+    avatarEl.style.alignItems = 'center';
+    avatarEl.style.justifyContent = 'center';
+    avatarEl.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>';
+    return avatarEl;
   }
 
   function createMemberItem(member) {
-    var li = document.createElement('li');
-    li.className = 'mypage-list-item';
-    li.setAttribute('data-member-id', String(member.memberId));
+    var card = document.createElement('div');
+    card.className = 'admin-card';
+    card.setAttribute('data-member-id', String(member.memberId));
 
-    var mainEl = document.createElement('div');
-    mainEl.className = 'mypage-list-item__main';
+    // Row 1: Header (Avatar + Name & Badges)
+    var row1 = document.createElement('div');
+    row1.className = 'admin-card__row1';
 
-    var thumbEl = createAvatarElement();
-    mainEl.appendChild(thumbEl);
+    var titleGroup = document.createElement('div');
+    titleGroup.className = 'admin-card__title-group';
 
-    var infoEl = document.createElement('div');
-    infoEl.className = 'mypage-list-item__info';
+    var avatarEl = createAvatarElement();
+    titleGroup.appendChild(avatarEl);
 
-    var titleEl = document.createElement('span');
-    titleEl.className = 'mypage-list-item__title';
-    titleEl.textContent = member.name + ' (' + member.username + ')';
-    infoEl.appendChild(titleEl);
+    var nameEl = document.createElement('h3');
+    nameEl.className = 'admin-card__title';
+    nameEl.textContent = member.name + ' (' + member.username + ')';
+    titleGroup.appendChild(nameEl);
+    row1.appendChild(titleGroup);
 
-    var metaEl = document.createElement('span');
-    metaEl.className = 'mypage-list-item__meta';
-    metaEl.textContent = member.email + ' · 가입일 ' + formatDate(member.createdAt);
-    infoEl.appendChild(metaEl);
-
-    var metricsEl = document.createElement('div');
-    metricsEl.style.display = 'flex';
-    metricsEl.style.gap = 'var(--space-2)';
-    metricsEl.style.flexWrap = 'wrap';
-    metricsEl.style.marginTop = 'var(--space-2)';
+    var badgeGroup = document.createElement('div');
+    badgeGroup.style.display = 'flex';
+    badgeGroup.style.gap = '4px';
+    badgeGroup.style.flexShrink = '0';
 
     var roleBadge = document.createElement('span');
     roleBadge.className = 'badge ' + (member.role === 'SELLER' ? 'badge-primary' : member.role === 'ADMIN' ? 'badge-brand' : 'badge-secondary');
+    roleBadge.style.fontSize = '10px';
+    roleBadge.style.padding = '2px 5px';
     roleBadge.textContent = ROLE_LABELS[member.role] || member.role;
-    metricsEl.appendChild(roleBadge);
+    badgeGroup.appendChild(roleBadge);
 
-    var statusBadge = document.createElement('span');
     if (member.suspended) {
+      var statusBadge = document.createElement('span');
       statusBadge.className = 'badge badge-failed';
-      statusBadge.textContent = '⚠️ 정지됨';
-    } else {
-      statusBadge.className = 'badge badge-success';
-      statusBadge.textContent = '정상 계정';
+      statusBadge.style.fontSize = '10px';
+      statusBadge.style.padding = '2px 5px';
+      statusBadge.textContent = '정지';
+      badgeGroup.appendChild(statusBadge);
     }
-    metricsEl.appendChild(statusBadge);
+    row1.appendChild(badgeGroup);
+    card.appendChild(row1);
 
-    var purchaseBadge = document.createElement('span');
-    purchaseBadge.className = 'badge';
-    purchaseBadge.style.background = 'var(--color-surface-alt)';
-    purchaseBadge.style.color = 'var(--color-text)';
-    purchaseBadge.textContent = '🛍️ 구매 ' + (member.purchaseCount || 0) + '건';
-    metricsEl.appendChild(purchaseBadge);
+    // Row 2: Meta (Email & Joined Date)
+    var row2 = document.createElement('div');
+    row2.className = 'admin-card__row2';
+    row2.textContent = member.email + (member.createdAt ? ' · 가입 ' + formatDate(member.createdAt) : '');
+    card.appendChild(row2);
 
-    var teamBadge = document.createElement('span');
-    teamBadge.className = 'badge';
-    teamBadge.style.background = 'var(--color-surface-alt)';
-    teamBadge.style.color = 'var(--color-text)';
-    teamBadge.textContent = '👥 공구 ' + (member.teamCount || 0) + '건';
-    metricsEl.appendChild(teamBadge);
-
+    // Row 3: Stats Inline Badges
+    var row3 = document.createElement('div');
+    row3.className = 'admin-card__row3';
+    var statParts = [
+      '🛍️ ' + (member.purchaseCount || 0) + '건',
+      '👥 ' + (member.teamCount || 0) + '건'
+    ];
     if (member.role === 'SELLER') {
-      var productBadge = document.createElement('span');
-      productBadge.className = 'badge';
-      productBadge.style.background = 'var(--color-surface-alt)';
-      productBadge.style.color = 'var(--color-text)';
-      productBadge.textContent = '📦 상품 ' + (member.productCount || 0) + '개';
-      metricsEl.appendChild(productBadge);
+      statParts.push('📦 ' + (member.productCount || 0) + '개');
     }
+    row3.textContent = statParts.join(' · ');
+    card.appendChild(row3);
 
-    infoEl.appendChild(metricsEl);
-    mainEl.appendChild(infoEl);
-    li.appendChild(mainEl);
-
-    var actionsEl = document.createElement('div');
-    actionsEl.className = 'mypage-list-item__actions';
+    // Row 4: Actions
+    var row4 = document.createElement('div');
+    row4.className = 'admin-card__row4';
 
     if (member.memberId !== currentAdminId) {
       var suspendBtn = document.createElement('button');
       suspendBtn.type = 'button';
-      suspendBtn.className = 'btn btn-secondary btn-sm';
-      suspendBtn.textContent = member.suspended ? '정지 해제' : '정지';
+      suspendBtn.className = 'btn btn-secondary btn-sm admin-card__btn-xs';
+      suspendBtn.textContent = member.suspended ? '해제' : '정지';
       suspendBtn.addEventListener('click', function () {
-        handleToggleSuspend(member, li, suspendBtn);
+        handleToggleSuspend(member, card, suspendBtn);
       });
-      actionsEl.appendChild(suspendBtn);
+      row4.appendChild(suspendBtn);
 
       var deleteBtn = document.createElement('button');
       deleteBtn.type = 'button';
-      deleteBtn.className = 'btn btn-ghost btn-sm';
+      deleteBtn.className = 'btn btn-ghost btn-sm admin-card__btn-xs';
       deleteBtn.textContent = '삭제';
       deleteBtn.addEventListener('click', function () {
-        handleDelete(member, li, deleteBtn);
+        handleDelete(member, card, deleteBtn);
       });
-      actionsEl.appendChild(deleteBtn);
+      row4.appendChild(deleteBtn);
     }
+    card.appendChild(row4);
 
-    li.appendChild(actionsEl);
-    return li;
+    return card;
   }
 
   function clearChildren(parent) {

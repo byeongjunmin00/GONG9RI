@@ -35,24 +35,6 @@
     return typeof value === 'number' ? value.toLocaleString('ko-KR') + '원' : '';
   }
 
-  function createThumbnailElement(imageUrl, altText) {
-    var thumbEl = document.createElement('div');
-    thumbEl.className = 'mypage-list-item__thumb';
-
-    if (imageUrl) {
-      var img = document.createElement('img');
-      img.src = imageUrl;
-      img.alt = altText || '상품 이미지';
-      img.onerror = function () {
-        thumbEl.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>';
-      };
-      thumbEl.appendChild(img);
-    } else {
-      thumbEl.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>';
-    }
-    return thumbEl;
-  }
-
   function isPushCandidate(product) {
     if (product.hidden) return false;
     var highRating = typeof product.ratingAverage === 'number' && product.ratingAverage >= 4.5;
@@ -63,118 +45,182 @@
     return highRating || activeProgressRatio >= 0.5;
   }
 
-  function createProductItem(product) {
-    var li = document.createElement('li');
-    li.className = 'mypage-list-item';
-    li.setAttribute('data-product-id', String(product.productId));
-
-    var mainEl = document.createElement('div');
-    mainEl.className = 'mypage-list-item__main';
-
-    var thumbEl = createThumbnailElement(product.imageUrl, product.name);
-    mainEl.appendChild(thumbEl);
-
-    var infoEl = document.createElement('div');
-    infoEl.className = 'mypage-list-item__info';
-
-    var titleEl = document.createElement('span');
-    titleEl.className = 'mypage-list-item__title';
-    titleEl.textContent = product.name || '';
-    infoEl.appendChild(titleEl);
-
-    var metaEl = document.createElement('span');
-    metaEl.className = 'mypage-list-item__meta';
-    var metaParts = [
-      product.sellerName ? '판매자: ' + product.sellerName : '',
-      product.category || '',
-      formatPrice(product.basePrice)
-    ].filter(Boolean);
-    metaEl.textContent = metaParts.join(' · ');
-    infoEl.appendChild(metaEl);
-
-    var badgeGroupEl = document.createElement('div');
-    badgeGroupEl.style.display = 'flex';
-    badgeGroupEl.style.gap = 'var(--space-2)';
-    badgeGroupEl.style.flexWrap = 'wrap';
-    badgeGroupEl.style.marginTop = 'var(--space-2)';
-
-    if (product.hidden) {
-      var hiddenBadge = document.createElement('span');
-      hiddenBadge.className = 'badge badge-failed';
-      hiddenBadge.textContent = '⚠️ 숨김 (제재됨)';
-      badgeGroupEl.appendChild(hiddenBadge);
-    } else {
-      var visibleBadge = document.createElement('span');
-      visibleBadge.className = 'badge badge-success';
-      visibleBadge.textContent = '정상 공개';
-      badgeGroupEl.appendChild(visibleBadge);
+  function getStatusEmoji(product) {
+    if (product.openAt && new Date(product.openAt).getTime() > Date.now()) {
+      return '⏱️';
     }
+    if (product.hidden) {
+      return '⚠️';
+    }
+    if (isPushCandidate(product)) {
+      return '🚀';
+    }
+    return '📦';
+  }
+
+
+  function createCompactProductThumb(product) {
+    var thumbEl = document.createElement('div');
+    thumbEl.style.width = '30px';
+    thumbEl.style.height = '30px';
+    thumbEl.style.borderRadius = 'var(--radius-sm)';
+    thumbEl.style.overflow = 'hidden';
+    thumbEl.style.flexShrink = '0';
+    thumbEl.style.background = 'var(--color-surface-alt)';
+    thumbEl.style.display = 'flex';
+    thumbEl.style.alignItems = 'center';
+    thumbEl.style.justifyContent = 'center';
+    thumbEl.style.fontSize = '14px';
+
+    var emoji = getStatusEmoji(product);
+
+    if (product.imageUrl) {
+      var img = document.createElement('img');
+      img.src = product.imageUrl;
+      img.alt = product.name || '상품';
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.objectFit = 'cover';
+      img.onerror = function () {
+        thumbEl.textContent = emoji;
+      };
+      thumbEl.appendChild(img);
+    } else {
+      thumbEl.textContent = emoji;
+    }
+    return thumbEl;
+  }
+
+  function createProductItem(product) {
+    var card = document.createElement('div');
+    card.className = 'admin-card';
+    card.setAttribute('data-product-id', String(product.productId));
+
+    // Row 1: Header (Thumb + Name + Price)
+    var row1 = document.createElement('div');
+    row1.className = 'admin-card__row1';
+
+    var titleGroup = document.createElement('div');
+    titleGroup.className = 'admin-card__title-group';
+
+    var thumbEl = createCompactProductThumb(product);
+    titleGroup.appendChild(thumbEl);
+
+    var nameEl = document.createElement('h3');
+    nameEl.className = 'admin-card__title';
+    nameEl.textContent = product.name || '';
+    titleGroup.appendChild(nameEl);
+    row1.appendChild(titleGroup);
+
+    var priceEl = document.createElement('span');
+    priceEl.style.fontSize = '12px';
+    priceEl.style.fontWeight = '700';
+    priceEl.style.color = 'var(--color-brand)';
+    priceEl.style.flexShrink = '0';
+    priceEl.textContent = formatPrice(product.basePrice);
+    row1.appendChild(priceEl);
+    card.appendChild(row1);
+
+    // Row 2: Meta (Seller + 상태 배지 — 썸네일이 이미지로 가려져도 항상 보이도록)
+    var row2 = document.createElement('div');
+    row2.className = 'admin-card__row2';
+    row2.style.display = 'flex';
+    row2.style.alignItems = 'center';
+    row2.style.justifyContent = 'space-between';
+
+    var sellerText = document.createElement('span');
+    sellerText.textContent = (product.sellerName ? '판매자: ' + product.sellerName : '') + (product.category ? ' · ' + product.category : '');
+    sellerText.style.whiteSpace = 'nowrap';
+    sellerText.style.overflow = 'hidden';
+    sellerText.style.textOverflow = 'ellipsis';
+    row2.appendChild(sellerText);
+
+    var statusBadgeGroup = document.createElement('div');
+    statusBadgeGroup.style.display = 'flex';
+    statusBadgeGroup.style.gap = '3px';
+    statusBadgeGroup.style.flexShrink = '0';
+
+    var isUpcoming = product.openAt && new Date(product.openAt).getTime() > Date.now();
+    var statusBadge = document.createElement('span');
+    statusBadge.style.fontSize = '10px';
+    statusBadge.style.padding = '2px 4px';
+    if (product.hidden) {
+      statusBadge.className = 'badge badge-failed';
+      statusBadge.textContent = '⚠️ 숨김';
+    } else if (isUpcoming) {
+      statusBadge.className = 'badge badge-time';
+      statusBadge.textContent = '⏱️ 오픈예정';
+    } else {
+      statusBadge.className = 'badge badge-success';
+      statusBadge.textContent = '공개';
+    }
+    statusBadgeGroup.appendChild(statusBadge);
 
     if (isPushCandidate(product)) {
       var pushBadge = document.createElement('span');
       pushBadge.className = 'badge badge-brand';
-      pushBadge.textContent = '🚀 추천/인기 푸시 대상';
-      badgeGroupEl.appendChild(pushBadge);
+      pushBadge.style.fontSize = '10px';
+      pushBadge.style.padding = '2px 4px';
+      pushBadge.textContent = '🚀푸시';
+      statusBadgeGroup.appendChild(pushBadge);
     }
+    row2.appendChild(statusBadgeGroup);
+    card.appendChild(row2);
 
-    if (product.openAt && new Date(product.openAt).getTime() > Date.now()) {
-      var openAtBadge = document.createElement('span');
-      openAtBadge.className = 'badge badge-time';
-      openAtBadge.textContent = '⏱️ 오픈예정';
-      badgeGroupEl.appendChild(openAtBadge);
-    }
-
+    // Row 3: Stats (Rating & Team Progress)
+    var row3 = document.createElement('div');
+    row3.className = 'admin-card__row3';
+    var statParts = [];
     if (typeof product.ratingAverage === 'number' && product.ratingAverage > 0) {
-      var ratingBadge = document.createElement('span');
-      ratingBadge.className = 'badge';
-      ratingBadge.style.background = 'var(--color-surface-alt)';
-      ratingBadge.style.color = 'var(--color-text)';
-      ratingBadge.textContent = '⭐ ' + product.ratingAverage.toFixed(1) + ' (' + (product.reviewCount || 0) + '개)';
-      badgeGroupEl.appendChild(ratingBadge);
+      statParts.push('⭐ ' + product.ratingAverage.toFixed(1) + '(' + (product.reviewCount || 0) + ')');
     }
-
     if (typeof product.activeTeamCurrentCount === 'number' && typeof product.activeTeamTargetParticipants === 'number') {
-      var teamProgressBadge = document.createElement('span');
-      teamProgressBadge.className = 'badge';
-      teamProgressBadge.style.background = 'var(--color-surface-alt)';
-      teamProgressBadge.style.color = 'var(--color-brand)';
-      teamProgressBadge.textContent = '👥 활성팀 ' + product.activeTeamCurrentCount + '/' + product.activeTeamTargetParticipants + '명';
-      badgeGroupEl.appendChild(teamProgressBadge);
+      statParts.push('👥 팀 ' + product.activeTeamCurrentCount + '/' + product.activeTeamTargetParticipants);
     }
+    row3.textContent = statParts.length > 0 ? statParts.join(' · ') : '등록상품';
+    card.appendChild(row3);
 
-    infoEl.appendChild(badgeGroupEl);
-    mainEl.appendChild(infoEl);
-    li.appendChild(mainEl);
+    // Row 4: Actions
+    var row4 = document.createElement('div');
+    row4.className = 'admin-card__row4';
+    row4.style.justifyContent = 'space-between';
 
-    var actionsEl = document.createElement('div');
-    actionsEl.className = 'mypage-list-item__actions';
+    var statusEmojiEl = document.createElement('span');
+    statusEmojiEl.style.fontSize = '14px';
+    statusEmojiEl.textContent = getStatusEmoji(product);
+    row4.appendChild(statusEmojiEl);
+
+    var actionGroup = document.createElement('div');
+    actionGroup.style.display = 'flex';
+    actionGroup.style.gap = 'var(--space-2)';
 
     var viewLink = document.createElement('a');
-    viewLink.className = 'btn btn-secondary btn-sm';
+    viewLink.className = 'btn btn-secondary btn-sm admin-card__btn-xs';
     viewLink.href = '/product.html?id=' + product.productId;
-    viewLink.textContent = '상세보기';
-    actionsEl.appendChild(viewLink);
+    viewLink.textContent = '상세';
+    actionGroup.appendChild(viewLink);
 
     var hideBtn = document.createElement('button');
     hideBtn.type = 'button';
-    hideBtn.className = 'btn btn-secondary btn-sm';
-    hideBtn.textContent = product.hidden ? '숨김 해제' : '숨기기';
+    hideBtn.className = 'btn btn-secondary btn-sm admin-card__btn-xs';
+    hideBtn.textContent = product.hidden ? '해제' : '숨김';
     hideBtn.addEventListener('click', function () {
-      handleToggleHidden(product, li, hideBtn);
+      handleToggleHidden(product, card, hideBtn);
     });
-    actionsEl.appendChild(hideBtn);
+    actionGroup.appendChild(hideBtn);
 
     var deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
-    deleteBtn.className = 'btn btn-ghost btn-sm';
+    deleteBtn.className = 'btn btn-ghost btn-sm admin-card__btn-xs';
     deleteBtn.textContent = '삭제';
     deleteBtn.addEventListener('click', function () {
-      handleDelete(product, li, deleteBtn);
+      handleDelete(product, card, deleteBtn);
     });
-    actionsEl.appendChild(deleteBtn);
+    actionGroup.appendChild(deleteBtn);
 
-    li.appendChild(actionsEl);
-    return li;
+    row4.appendChild(actionGroup);
+    card.appendChild(row4);
+    return card;
   }
 
   function clearChildren(parent) {
@@ -282,7 +328,7 @@
     if (searchQuery) {
       queryParams.push('search=' + encodeURIComponent(searchQuery));
     }
-    if (activeFilter === 'VISIBLE' || activeFilter === 'HIDDEN' || activeFilter === 'PUSH') {
+    if (activeFilter === 'VISIBLE' || activeFilter === 'HIDDEN' || activeFilter === 'PUSH' || activeFilter === 'UPCOMING') {
       queryParams.push('status=' + activeFilter);
     }
 

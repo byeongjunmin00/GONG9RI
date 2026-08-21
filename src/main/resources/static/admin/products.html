@@ -35,7 +35,7 @@
       <div class="section__head">
         <h1><span class="text-gradient">상품 종합 관리 및 푸시/제재 현황</span></h1>
         <p class="text-muted" style="margin-top: var(--space-2);">
-          상품 성과 및 인사이트 배지(🚀 추천 푸시 대상 vs ⚠️ 숨김/제재 대상)를 확인하고 관리자 조치를 수행합니다.
+          상품 성과 및 인사이트를 확인하고 관리자 조치를 수행합니다.
         </p>
       </div>
 
@@ -56,9 +56,10 @@
         <div style="display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; justify-content: space-between;">
           <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
             <button type="button" class="btn btn-primary btn-sm product-filter-btn active" data-filter="ALL">전체 상품</button>
-            <button type="button" class="btn btn-secondary btn-sm product-filter-btn" data-filter="VISIBLE">공개 상품</button>
+            <button type="button" class="btn btn-secondary btn-sm product-filter-btn" data-filter="VISIBLE">📦 공개 상품</button>
             <button type="button" class="btn btn-secondary btn-sm product-filter-btn" data-filter="HIDDEN">⚠️ 숨김/제재 상품</button>
             <button type="button" class="btn btn-secondary btn-sm product-filter-btn" data-filter="PUSH">🚀 추천/인기 푸시</button>
+            <button type="button" class="btn btn-secondary btn-sm product-filter-btn" data-filter="UPCOMING">⏱️ 오픈 예정 상품</button>
           </div>
           <div style="width: 280px; max-width: 100%;">
             <input type="text" id="product-search-input" class="form-input" placeholder="상품명, 판매자명 검색..." autocomplete="off" />
@@ -67,7 +68,7 @@
       </div>
 
       <div id="products-status" class="product-status">불러오는 중...</div>
-      <ul id="products-list" class="mypage-list"></ul>
+      <div id="products-list" class="admin-grid-list"></div>
 
       <button type="button" id="load-more-btn" class="btn btn-secondary btn-block" style="margin-top: var(--space-4);" hidden>더 보기</button>
     </section>
