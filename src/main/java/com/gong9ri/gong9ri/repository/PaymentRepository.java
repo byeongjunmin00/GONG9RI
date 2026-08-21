@@ -39,4 +39,8 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>, Payment
     // 관리자 회원 활동 수치 배치 조회 (N+1 방지)
     @Query("SELECT p.member.id, COUNT(p) FROM Payment p WHERE p.member.id IN :memberIds GROUP BY p.member.id")
     List<Object[]> countPaymentsByMemberIds(@Param("memberIds") List<Long> memberIds);
+
+    // 판매자 마이페이지 — 내가 판매한 상품들에 대한 결제 건과 구매자, 상품, 팀 정보 배치 패치 조회 (N+1 방지)
+    @Query("SELECT p FROM Payment p JOIN FETCH p.product pr JOIN FETCH p.member m LEFT JOIN FETCH p.team t WHERE pr.seller.id = :sellerId AND p.status <> 'PENDING' AND p.status <> 'FAILED' ORDER BY p.paidAt DESC")
+    List<Payment> findAllBySellerIdWithProductAndMemberAndTeam(@Param("sellerId") Long sellerId);
 }

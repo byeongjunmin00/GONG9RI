@@ -7,12 +7,14 @@ import com.gong9ri.gong9ri.dto.NotificationListResponse;
 import com.gong9ri.gong9ri.dto.NotificationResponse;
 import com.gong9ri.gong9ri.dto.RefundRequestResponse;
 import com.gong9ri.gong9ri.dto.RevenueResponse;
+import com.gong9ri.gong9ri.dto.SellerOrderResponse;
 import com.gong9ri.gong9ri.dto.SellerProductResponse;
 import com.gong9ri.gong9ri.dto.SellerTeamResponse;
 import com.gong9ri.gong9ri.entity.GroupBuyTeam;
 import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.NotificationRepository;
+import com.gong9ri.gong9ri.repository.PaymentRepository;
 import com.gong9ri.gong9ri.repository.ProductRepository;
 import com.gong9ri.gong9ri.repository.RefundRequestRepository;
 import com.gong9ri.gong9ri.repository.SellerRevenueSummaryRepository;
@@ -37,7 +39,15 @@ public class SellerMypageService {
     private final NotificationRepository notificationRepository;
     private final RefundRequestRepository refundRequestRepository;
     private final TeamParticipationRepository teamParticipationRepository;
+    private final PaymentRepository paymentRepository;
     private final NotificationService notificationService;
+
+    public List<SellerOrderResponse> orders(MemberUserDetails principal) {
+        requireSeller(principal);
+        return paymentRepository.findAllBySellerIdWithProductAndMemberAndTeam(principal.getMember().getId()).stream()
+                .map(SellerOrderResponse::from)
+                .toList();
+    }
 
     public List<SellerProductResponse> products(MemberUserDetails principal) {
         requireSeller(principal);

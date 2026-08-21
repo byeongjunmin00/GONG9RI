@@ -87,11 +87,23 @@
         <!-- 탭 네비게이션 -->
         <nav class="mypage-nav-tabs" role="tablist" aria-label="판매자 마이페이지 메뉴">
           <button type="button" class="mypage-tab-btn active" role="tab" aria-selected="true" aria-controls="mypage-sections" id="tab-btn-all" data-tab="all">전체 현황</button>
+          <button type="button" class="mypage-tab-btn" role="tab" aria-selected="false" aria-controls="tab-orders" id="tab-btn-orders" data-tab="orders">📦 주문·배송 관리</button>
           <button type="button" class="mypage-tab-btn" role="tab" aria-selected="false" aria-controls="tab-products" id="tab-btn-products" data-tab="products">등록 상품</button>
           <button type="button" class="mypage-tab-btn" role="tab" aria-selected="false" aria-controls="tab-teams" id="tab-btn-teams" data-tab="teams">공구 현황</button>
           <button type="button" class="mypage-tab-btn" role="tab" aria-selected="false" aria-controls="tab-refunds" id="tab-btn-refunds" data-tab="refunds">환불 관리</button>
           <button type="button" class="mypage-tab-btn" role="tab" aria-selected="false" aria-controls="tab-account" id="tab-btn-account" data-tab="account">계정 설정</button>
         </nav>
+
+        <!-- 주문·배송 관리 -->
+        <section id="tab-orders" class="mypage-section mypage-tab-panel" role="tabpanel" aria-labelledby="tab-btn-orders" data-tab-panel="orders">
+          <div class="section__head">
+            <h2>주문 및 배송 준비 관리</h2>
+          </div>
+
+          <div id="orders-status" class="product-status" role="status" hidden></div>
+
+          <ul id="orders-list" class="mypage-list"></ul>
+        </section>
 
         <!-- 등록 상품 목록 -->
         <section id="tab-products" class="mypage-section mypage-tab-panel" role="tabpanel" aria-labelledby="tab-btn-products" data-tab-panel="products">

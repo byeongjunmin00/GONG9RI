@@ -49,6 +49,9 @@
   var productsStatusEl = document.getElementById('products-status');
   var productsListEl = document.getElementById('products-list');
 
+  var ordersStatusEl = document.getElementById('orders-status');
+  var ordersListEl = document.getElementById('orders-list');
+
   var teamsStatusEl = document.getElementById('teams-status');
   var teamsListEl = document.getElementById('teams-list');
 
@@ -58,6 +61,7 @@
   if (
     !pageAlertEl || !pageAlertTextEl || !pageAlertLoginLinkEl || !mypageSectionsEl ||
     !productsStatusEl || !productsListEl ||
+    !ordersStatusEl || !ordersListEl ||
     !teamsStatusEl || !teamsListEl ||
     !refundRequestsStatusEl || !refundRequestsListEl
   ) {
@@ -772,9 +776,98 @@
       });
   }
 
+  function createOrderItem(order) {
+    var li = document.createElement('li');
+    li.className = 'mypage-list-item';
+    li.setAttribute('data-payment-id', String(order.paymentId));
+
+    var mainEl = document.createElement('div');
+    mainEl.className = 'mypage-list-item__main';
+
+    var thumbEl = document.createElement('div');
+    thumbEl.className = 'mypage-list-item__thumb';
+    thumbEl.style.display = 'flex';
+    thumbEl.style.alignItems = 'center';
+    thumbEl.style.justifyContent = 'center';
+    thumbEl.style.fontSize = '18px';
+    thumbEl.textContent = '📦';
+    mainEl.appendChild(thumbEl);
+
+    var infoEl = document.createElement('div');
+    infoEl.className = 'mypage-list-item__info';
+
+    var buyerEl = document.createElement('span');
+    buyerEl.className = 'mypage-list-item__title';
+    buyerEl.textContent = '👤 구매자: ' + order.buyerName + (order.buyerEmail ? ' (' + order.buyerEmail + ')' : '');
+    infoEl.appendChild(buyerEl);
+
+    var metaEl = document.createElement('span');
+    metaEl.className = 'mypage-list-item__meta';
+    metaEl.textContent = '📦 ' + order.productName + ' · ' + formatPrice(order.amount) + ' · 결제일 ' + formatDateTime(order.paidAt);
+    infoEl.appendChild(metaEl);
+
+    var badgeGroup = document.createElement('div');
+    badgeGroup.style.display = 'flex';
+    badgeGroup.style.gap = 'var(--space-2)';
+    badgeGroup.style.marginTop = 'var(--space-2)';
+
+    var prepBadge = document.createElement('span');
+    if (order.preparationStatus === 'PREPARING') {
+      prepBadge.className = 'badge badge-success';
+    } else if (order.preparationStatus === 'RECRUITING') {
+      prepBadge.className = 'badge badge-time';
+    } else if (order.preparationStatus === 'REFUNDED') {
+      prepBadge.className = 'badge badge-failed';
+    } else {
+      prepBadge.className = 'badge badge-secondary';
+    }
+    prepBadge.textContent = order.preparationStatusLabel || order.preparationStatus;
+    badgeGroup.appendChild(prepBadge);
+
+    infoEl.appendChild(badgeGroup);
+    mainEl.appendChild(infoEl);
+    li.appendChild(mainEl);
+
+    return li;
+  }
+
+  function renderOrders(orders) {
+    clearChildren(ordersListEl);
+    var fragment = document.createDocumentFragment();
+    orders.forEach(function (order) {
+      fragment.appendChild(createOrderItem(order));
+    });
+    ordersListEl.appendChild(fragment);
+  }
+
+  function loadOrders() {
+    showStatus(ordersStatusEl, '주문 및 결제 목록을 불러오는 중입니다...', 'loading');
+    clearChildren(ordersListEl);
+
+    return window.Api.get('/seller/mypage/orders')
+      .then(function (orders) {
+        var list = Array.isArray(orders) ? orders : [];
+        if (list.length === 0) {
+          showStatus(ordersStatusEl, '아직 접수된 결제/주문 내역이 없습니다.', 'empty');
+          return;
+        }
+        hideStatus(ordersStatusEl);
+        renderOrders(list);
+      })
+      .catch(function (err) {
+        console.error('[seller-mypage.js] failed to load orders:', err);
+        if (handleUnauthorized(err)) {
+          return;
+        }
+        var message = (err && err.message) || '주문 내역을 불러오지 못했습니다.';
+        showStatus(ordersStatusEl, message, 'error');
+      });
+  }
+
   function init() {
     setupTabs();
     loadProfileInfo();
+    loadOrders();
     loadProducts();
     loadRevenue();
     loadTeams();
