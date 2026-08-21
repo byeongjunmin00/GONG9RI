@@ -34,6 +34,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
@@ -134,6 +135,11 @@ class MemberProfileImageControllerTest {
 
     @Test
     @DisplayName("프로필 이미지를 다시 업로드하면 이전 이미지 파일이 디스크에서 삭제된다")
+    // 이 테스트만 클래스의 @Transactional에서 빠진다. 옛 파일 삭제는 **커밋 이후**에 일어나는데
+    // (롤백 시 파일만 사라지는 상태를 막기 위해, MemberService.deleteFileAfterCommit 참고),
+    // 롤백되는 테스트 트랜잭션 안에서는 커밋이 없어 삭제가 영영 실행되지 않는다.
+    // 롤백이 없으므로 만든 데이터는 끝에서 직접 치운다.
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     void uploadProfileImage_replacingDeletesOldFile() throws Exception {
         Member member = saveMember("profileUser3");
 
@@ -156,6 +162,20 @@ class MemberProfileImageControllerTest {
                 .andExpect(jsonPath("$.data.profileImageUrl").value(org.hamcrest.Matchers.not(firstUrl)));
 
         assertFalse(Files.exists(firstSaved), "두 번째 업로드 후엔 첫 번째 파일이 지워져야 한다");
+
+        // 롤백이 없으므로 직접 정리한다(남은 두 번째 파일 포함).
+        memberRepository.findById(member.getId())
+                .ifPresent(m -> {
+                    if (m.getProfileImageUrl() != null) {
+                        try {
+                            Files.deleteIfExists(Path.of(uploadDir)
+                                    .resolve(m.getProfileImageUrl().substring("/uploads/".length())));
+                        } catch (Exception ignored) {
+                            // 정리 실패는 테스트 결과와 무관하다.
+                        }
+                    }
+                    memberRepository.delete(m);
+                });
     }
 
     @Test
