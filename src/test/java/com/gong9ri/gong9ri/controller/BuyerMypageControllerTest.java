@@ -83,7 +83,7 @@ class BuyerMypageControllerTest {
     @DisplayName("구매 완료 목록 조회 성공")
     void purchases_success() throws Exception {
         Member seller = saveMember("mpSeller1", Role.SELLER);
-        Product product = saveProduct(seller, 10);
+        Product product = productRepository.save(new Product(seller, "제주 감귤 5kg", "설명", 25000, 10, "https://example.com/orange.jpg"));
         Member buyer = saveMember("mpBuyer1", Role.BUYER);
         paymentRepository.save(new Payment(buyer, product, null, 25000));
 
@@ -91,7 +91,8 @@ class BuyerMypageControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(1))
                 .andExpect(jsonPath("$.data[0].amount").value(25000))
-                .andExpect(jsonPath("$.data[0].productName").value("제주 감귤 5kg"));
+                .andExpect(jsonPath("$.data[0].productName").value("제주 감귤 5kg"))
+                .andExpect(jsonPath("$.data[0].imageUrl").value("https://example.com/orange.jpg"));
     }
 
     @Test
