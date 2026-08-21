@@ -12,9 +12,17 @@ public record AdminMemberResponse(
         Role role,
         boolean emailVerified,
         boolean suspended,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        // 회원의 종합 활동 정보 (구매 결제 수, 공구 참여 수, 등록 상품 수)
+        int purchaseCount,
+        int teamCount,
+        int productCount
 ) {
     public static AdminMemberResponse from(Member member) {
+        return of(member, 0, 0, 0);
+    }
+
+    public static AdminMemberResponse of(Member member, int purchaseCount, int teamCount, int productCount) {
         return new AdminMemberResponse(
                 member.getId(),
                 member.getUsername(),
@@ -23,7 +31,10 @@ public record AdminMemberResponse(
                 member.getRole(),
                 member.isEmailVerified(),
                 member.isSuspended(),
-                member.getCreatedAt()
+                member.getCreatedAt(),
+                purchaseCount,
+                teamCount,
+                productCount
         );
     }
 }

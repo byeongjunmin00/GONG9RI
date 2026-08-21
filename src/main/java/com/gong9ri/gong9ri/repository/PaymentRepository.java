@@ -5,6 +5,8 @@ import com.gong9ri.gong9ri.entity.PaymentStatus;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
 public interface PaymentRepository extends JpaRepository<Payment, Long>, PaymentRepositoryCustom {
@@ -33,4 +35,8 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>, Payment
 
     // 관리자 회원 삭제 — 결제 이력이 하나라도 있으면 하드 삭제를 막는다(product/admin).
     boolean existsByMemberId(Long memberId);
+
+    // 관리자 회원 활동 수치 배치 조회 (N+1 방지)
+    @Query("SELECT p.member.id, COUNT(p) FROM Payment p WHERE p.member.id IN :memberIds GROUP BY p.member.id")
+    List<Object[]> countPaymentsByMemberIds(@Param("memberIds") List<Long> memberIds);
 }

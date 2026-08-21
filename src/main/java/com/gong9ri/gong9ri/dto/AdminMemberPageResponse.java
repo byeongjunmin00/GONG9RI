@@ -18,4 +18,13 @@ public record AdminMemberPageResponse(
                 page.getTotalElements()
         );
     }
+
+    public static AdminMemberPageResponse of(Page<Member> page, List<AdminMemberResponse> content) {
+        return new AdminMemberPageResponse(
+                content,
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements()
+        );
+    }
 }

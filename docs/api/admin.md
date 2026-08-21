@@ -29,6 +29,9 @@
   |----------|------|------|--------|------|
   | page | int | N | 0 | 페이지 번호 (0-based) |
   | size | int | N | 20 | 페이지 크기 |
+  | search | String | N | null | 검색 키워드 (이름, 아이디, 이메일 대소문자 무시 검색) |
+  | role | String | N | null | 회원 역할 필터 (`BUYER`, `SELLER`, `ADMIN`) |
+  | suspended | Boolean | N | null | 정지 여부 필터 (`true`, `false`) |
 
 - 응답: `200 OK`
   ```json
@@ -42,7 +45,10 @@
         "role": "BUYER",
         "emailVerified": true,
         "suspended": false,
-        "createdAt": "2026-08-10T05:53:47.456061"
+        "createdAt": "2026-08-10T05:53:47.456061",
+        "purchaseCount": 5,
+        "teamCount": 3,
+        "productCount": 0
       }
     ],
     "page": 0,

@@ -53,17 +53,21 @@
 `js/admin-guard.js`의 `AdminGuard.requireAdmin()`으로 진입 시 role을 확인하고, ADMIN이 아니면
 (비로그인 포함) `/admin/login.html`로 돌려보낸다 — 최종 판정은 항상 서버(403)고 이건 UX 보조다.
 
-- **대시보드 UI/UX 및 서브 탭 네비게이션** (2026-08-21 `003-admin-dashboard-redesign` 개편):
-  - 대시보드(`admin/dashboard.html`): 상단 관리자 프로필 배너 헤더(`.mypage-profile-card`), KPI 요약 카드 그리드(`.mypage-summary-grid` + `.summary-card`), 클릭 시 관련 서브 페이지로 이동하는 퀵 액션 연동, 하단 주요 기능 퀵 링크 카드 구성.
-  - 서브 탭 네비게이션: 5개 관리자 페이지 전체에 브랜드 공용 탭 컴포넌트(`.mypage-nav-tabs`, `.mypage-tab-btn`)를 적용하여 위치 기반 활성화 상태 및 일관된 UI 제공.
+- **대시보드 UI/UX 및 서브 탭 네비게이션** (2026-08-21 `003-admin-dashboard-redesign` 및 `007-admin-dashboard-layout-cleanup` 개편):
+  - 대시보드(`admin/dashboard.html`): 상단 관리자 프로필 배너 헤더(`.mypage-profile-card`), KPI 요약 카드 그리드(`.mypage-summary-grid` + `.summary-card`), 상단 중복 서브 탭 제거 후 하단 4개 주요 관리 기능 퀵 바로가기 카드를 **2x2 좌우 반응형 그리드**로 깔끔하게 재배치.
+  - 서브 탭 네비게이션: 서브 관리자 페이지들(`members.html`, `products.html` 등)에 브랜드 공용 탭 컴포넌트(`.mypage-nav-tabs`, `.mypage-tab-btn`)를 지속 제공.
+- **회원 관리 & 상품 현황 종합 정보 및 인사이트 개편** (2026-08-21 `004-admin-members-products-redesign`, `005-admin-n1-server-search-fix`, `006-admin-controller-parameter-fix` 개편):
+  - 회원 관리(`admin/members.html`): 회원의 종합 활동 수치(`purchaseCount`, `teamCount`, `productCount`) 배치 JPQL 집계로 N+1 쿼리 해결 (쿼리 61개 -> 4개), 역할/상태별 필터 탭 및 서버 사이드 페이징 동적 DB 키워드 검색 적용.
+  - 상품 현황(`admin/products.html`): 대표 썸네일 이미지(`imageUrl`), 리뷰 평점/개수 및 활성 공구팀 진행률 인라인 표시, 관리자 판단용 🚀 **추천/인기 푸시** 배지 vs ⚠️ **숨김/제재** 배지 노출, 상태별 필터 탭 및 서버 사이드 페이징 동적 DB 키워드 검색 적용.
 
 ## 관련 코드
 
 `entity/Role.java`(`ADMIN`), `entity/Member.java`(`suspended`/`suspend()`/`unsuspend()`),
 `service/MemberService.signup()`(ADMIN 가입 차단), `controller/AuthController.login()`(정지 계정
 거절), `service/AdminService.java`, `controller/AdminController.java`,
+`repository/MemberRepositoryCustom.java`/`MemberRepositoryImpl.java`,
 `dto/AdminMemberResponse.java`/`AdminMemberPageResponse.java`/`AdminDashboardResponse.java`/
 `AdminRefundPageResponse.java`, `static/admin/*.html`, `static/js/admin-*.js`,
 `static/partials/header.html`(`data-role="ADMIN"` nav 링크).
-- 경위: `docs/dev/admin/changes/003-admin-dashboard-redesign.md`, 실행 로그: `docs/logs/frontend/admin/003-admin-dashboard-redesign.md`
+- 경위: `docs/dev/admin/changes/008-admin-push-filter-and-test-fix.md`, 실행 로그: `docs/logs/frontend/admin/008-admin-push-filter-and-test-fix.md`
 

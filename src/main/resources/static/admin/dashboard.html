@@ -86,16 +86,6 @@
           </button>
         </div>
       </div>
-
-      <!-- 공용 탭 네비게이션 -->
-      <nav class="mypage-nav-tabs" role="tablist" aria-label="관리자 메뉴" style="margin-bottom: var(--space-6);">
-        <a href="/admin/dashboard.html" class="mypage-tab-btn active" role="tab" aria-selected="true">대시보드</a>
-        <a href="/admin/members.html" class="mypage-tab-btn" role="tab" aria-selected="false">회원 관리</a>
-        <a href="/admin/products.html" class="mypage-tab-btn" role="tab" aria-selected="false">상품 현황</a>
-        <a href="/admin/refunds.html" class="mypage-tab-btn" role="tab" aria-selected="false">환불 요청 현황</a>
-        <a href="/admin/support.html" class="mypage-tab-btn" role="tab" aria-selected="false">상담 관리</a>
-      </nav>
-
       <div id="dashboard-status" class="product-status">대시보드 정보를 불러오는 중입니다...</div>
 
       <!-- 바로가기 퀵 메뉴 카카오/그리드 -->
@@ -103,7 +93,7 @@
         <div class="section__head">
           <h2>관리 기능 퀵 바로가기</h2>
         </div>
-        <div class="grid grid--2" style="gap: var(--space-4);">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-4);">
           <a href="/admin/members.html" class="card card--interactive" style="padding: var(--space-5); text-decoration: none; color: inherit; display: flex; align-items: center; gap: var(--space-4);">
             <div style="width: 48px; height: 48px; border-radius: var(--radius-md); background: var(--gradient-brand-soft); color: var(--color-brand); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

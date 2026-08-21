@@ -107,6 +107,88 @@ class AdminControllerTest {
     }
 
     @Test
+    @DisplayName("관리자가 회원 목록에 search 및 role 파라미터를 넘기면 조건에 맞는 회원만 반환한다")
+    void members_withSearchAndFilter_returnsFilteredMembers() throws Exception {
+        Member admin = saveMember("admin-search-admin1", Role.ADMIN);
+        Member targetBuyer = saveMember("unique-search-buyer", Role.BUYER);
+        saveMember("unique-search-seller", Role.SELLER);
+
+        mockMvc.perform(get("/api/admin/members")
+                        .param("search", "unique-search-buyer")
+                        .param("role", "BUYER")
+                        .with(asUser(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].username").value("unique-search-buyer"));
+    }
+
+    @Test
+    @DisplayName("관리자가 상품 현황 목록에 search 키워드를 넘기면 매칭되는 상품만 반환한다")
+    void products_withSearchAndFilter_returnsFilteredProducts() throws Exception {
+        Member admin = saveMember("admin-search-admin2", Role.ADMIN);
+        Member seller = saveMember("admin-search-seller2", Role.SELLER);
+        Product targetProduct = new Product(seller, "관리자특별검색상품", "설명", 10000, 10, null, false, ProductCategory.ETC);
+        Product otherProduct = new Product(seller, "다른일반상품", "설명", 10000, 10, null, false, ProductCategory.ETC);
+        productRepository.save(targetProduct);
+        productRepository.save(otherProduct);
+
+        mockMvc.perform(get("/api/admin/products")
+                        .param("search", "특별검색")
+                        .param("status", "VISIBLE")
+                        .with(asUser(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].name").value("관리자특별검색상품"));
+    }
+
+    @Test
+    @DisplayName("관리자가 status=HIDDEN 파라미터를 넘기면 숨김 상품만 필터링되어 반환된다")
+    void products_withHiddenStatusFilter_returnsOnlyHiddenProducts() throws Exception {
+        Member admin = saveMember("admin-search-admin3", Role.ADMIN);
+        Member seller = saveMember("admin-search-seller3", Role.SELLER);
+        Product visibleProduct = new Product(seller, "공개상품", "설명", 10000, 10, null, false, ProductCategory.ETC);
+        Product hiddenProduct = new Product(seller, "숨김상품", "설명", 10000, 10, null, true, ProductCategory.ETC);
+        productRepository.save(visibleProduct);
+        productRepository.save(hiddenProduct);
+
+        mockMvc.perform(get("/api/admin/products")
+                        .param("status", "HIDDEN")
+                        .with(asUser(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].name").value("숨김상품"));
+    }
+
+    @Test
+    @DisplayName("관리자가 status=PUSH 파라미터를 넘기면 평점 4.5 이상인 추천 푸시 대상 상품만 필터링된다")
+    void products_withPushStatusFilter_returnsOnlyPushCandidates() throws Exception {
+        Member admin = saveMember("admin-search-admin4", Role.ADMIN);
+        Member seller = saveMember("admin-search-seller4", Role.SELLER);
+        Member reviewer = saveMember("admin-search-reviewer", Role.BUYER);
+
+        Product pushProduct = new Product(seller, "인기추천상품", "설명", 10000, 10, null, false, ProductCategory.ETC);
+        Product normalProduct = new Product(seller, "일반상품", "설명", 10000, 10, null, false, ProductCategory.ETC);
+        productRepository.save(pushProduct);
+        productRepository.save(normalProduct);
+
+        Review highReview = new Review(pushProduct, reviewer, 5, "최고예요");
+        Review lowReview = new Review(normalProduct, reviewer, 3, "보통이에요");
+        reviewRepository.save(highReview);
+        reviewRepository.save(lowReview);
+
+        mockMvc.perform(get("/api/admin/products")
+                        .param("status", "PUSH")
+                        .with(asUser(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].name").value("인기추천상품"));
+    }
+
+    @Test
     @DisplayName("관리자가 다른 회원을 정지하면 204, 그 회원의 suspended가 true로 바뀐다")
     void suspendMember_asAdmin_succeeds() throws Exception {
         Member admin = saveMember("admin-test-2", Role.ADMIN);

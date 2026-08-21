@@ -10,6 +10,7 @@ import com.gong9ri.gong9ri.dto.NotificationListResponse;
 import com.gong9ri.gong9ri.dto.ProductPageResponse;
 import com.gong9ri.gong9ri.dto.AdminRefundPageResponse;
 import com.gong9ri.gong9ri.entity.RefundRequestStatus;
+import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.service.AdminService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -42,8 +43,11 @@ public class AdminController {
     public ResponseEntity<ApiResponse<AdminMemberPageResponse>> members(
             @AuthenticationPrincipal MemberUserDetails principal,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(ApiResponse.success(adminService.members(principal, page, size)));
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Role role,
+            @RequestParam(required = false) Boolean suspended) {
+        return ResponseEntity.ok(ApiResponse.success(adminService.members(principal, page, size, search, role, suspended)));
     }
 
     @PostMapping("/members/{memberId}/suspend")
@@ -76,8 +80,10 @@ public class AdminController {
     public ResponseEntity<ApiResponse<ProductPageResponse>> products(
             @AuthenticationPrincipal MemberUserDetails principal,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(ApiResponse.success(adminService.products(principal, page, size)));
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String status) {
+        return ResponseEntity.ok(ApiResponse.success(adminService.products(principal, page, size, search, status)));
     }
 
     /**

@@ -5,9 +5,13 @@ import com.gong9ri.gong9ri.common.exception.ErrorCode;
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.dto.AdminDashboardResponse;
 import com.gong9ri.gong9ri.dto.AdminMemberPageResponse;
+import com.gong9ri.gong9ri.dto.AdminMemberResponse;
 import com.gong9ri.gong9ri.dto.AdminRefundPageResponse;
 import com.gong9ri.gong9ri.dto.NotificationListResponse;
 import com.gong9ri.gong9ri.dto.ProductPageResponse;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import com.gong9ri.gong9ri.entity.Member;
 import com.gong9ri.gong9ri.entity.RefundRequest;
 import com.gong9ri.gong9ri.entity.RefundRequestStatus;
@@ -69,10 +73,40 @@ public class AdminService {
     private final SellerRevenueSummaryRepository sellerRevenueSummaryRepository;
 
     public AdminMemberPageResponse members(MemberUserDetails principal, int page, int size) {
+        return members(principal, page, size, null, null, null);
+    }
+
+    public AdminMemberPageResponse members(MemberUserDetails principal, int page, int size, String search, Role role, Boolean suspended) {
         requireAdmin(principal);
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
-        Page<Member> members = memberRepository.findAll(pageable);
-        return AdminMemberPageResponse.of(members);
+        Page<Member> members = memberRepository.findAllForAdmin(pageable, search, role, suspended);
+
+        List<Long> memberIds = members.getContent().stream().map(Member::getId).toList();
+        Map<Long, Integer> purchaseMap = toCountMap(paymentRepository.countPaymentsByMemberIds(memberIds));
+        Map<Long, Integer> teamMap = toCountMap(teamParticipationRepository.countParticipationsByMemberIds(memberIds));
+        Map<Long, Integer> productMap = toCountMap(productRepository.countProductsBySellerIds(memberIds));
+
+        List<AdminMemberResponse> content = members.getContent().stream()
+                .map(m -> AdminMemberResponse.of(
+                        m,
+                        purchaseMap.getOrDefault(m.getId(), 0),
+                        teamMap.getOrDefault(m.getId(), 0),
+                        productMap.getOrDefault(m.getId(), 0)
+                ))
+                .toList();
+        return AdminMemberPageResponse.of(members, content);
+    }
+
+    private Map<Long, Integer> toCountMap(List<Object[]> results) {
+        if (results == null || results.isEmpty()) {
+            return Map.of();
+        }
+        return results.stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0],
+                        row -> ((Number) row[1]).intValue(),
+                        (v1, v2) -> v1
+                ));
     }
 
     @Transactional
@@ -126,8 +160,12 @@ public class AdminService {
     }
 
     public ProductPageResponse products(MemberUserDetails principal, int page, int size) {
+        return products(principal, page, size, null, null);
+    }
+
+    public ProductPageResponse products(MemberUserDetails principal, int page, int size, String search, String status) {
         requireAdmin(principal);
-        return productService.listForAdmin(page, size);
+        return productService.listForAdmin(page, size, search, status);
     }
 
     // 관리자 알림(support/chat) — 구매자·판매자와 같은 알림 테이블을 쓰지만, 조회 경로가 역할별로

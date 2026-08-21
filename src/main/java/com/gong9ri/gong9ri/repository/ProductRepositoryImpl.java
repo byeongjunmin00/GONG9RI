@@ -6,6 +6,8 @@ import static com.gong9ri.gong9ri.entity.QProduct.product;
 import com.gong9ri.gong9ri.dto.ProductSort;
 import com.gong9ri.gong9ri.entity.Product;
 import com.gong9ri.gong9ri.entity.ProductCategory;
+import com.gong9ri.gong9ri.entity.QGroupBuyTeam;
+import com.gong9ri.gong9ri.entity.QReview;
 import com.gong9ri.gong9ri.entity.TeamStatus;
 import com.querydsl.core.types.Expression;
 import com.querydsl.core.types.Order;
@@ -23,6 +25,7 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.util.StringUtils;
 import org.springframework.data.domain.Sort;
 
 public class ProductRepositoryImpl implements ProductRepositoryCustom {
@@ -113,15 +116,64 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
     // 보여야 하므로 공개 목록과 같은 쿼리를 쓸 수 없다.
     @Override
     public Page<Product> findAllForAdmin(Pageable pageable) {
+        return findAllForAdmin(pageable, null, null);
+    }
+
+    @Override
+    public Page<Product> findAllForAdmin(Pageable pageable, String search, String status) {
+        BooleanExpression searchCond = null;
+        if (StringUtils.hasText(search)) {
+            String keyword = search.trim();
+            searchCond = product.name.containsIgnoreCase(keyword)
+                    .or(product.seller.name.containsIgnoreCase(keyword));
+        }
+
+        BooleanExpression statusCond = null;
+        if (StringUtils.hasText(status)) {
+            if ("VISIBLE".equalsIgnoreCase(status)) {
+                statusCond = product.hidden.isFalse();
+            } else if ("HIDDEN".equalsIgnoreCase(status)) {
+                statusCond = product.hidden.isTrue();
+            } else if ("PUSH".equalsIgnoreCase(status)) {
+                QReview reviewSub = new QReview("reviewSub");
+                QGroupBuyTeam teamSub = new QGroupBuyTeam("teamSub");
+
+                BooleanExpression highRatingCond = JPAExpressions
+                        .select(reviewSub.rating.avg())
+                        .from(reviewSub)
+                        .where(reviewSub.product.eq(product))
+                        .goe(4.5);
+
+                BooleanExpression activeProgressCond = JPAExpressions
+                        .selectOne()
+                        .from(teamSub)
+                        .where(
+                                teamSub.product.eq(product),
+                                teamSub.status.eq(TeamStatus.RECRUITING),
+                                teamSub.currentCount.multiply(2).goe(teamSub.maxParticipants)
+                        )
+                        .exists();
+
+                statusCond = product.hidden.isFalse().and(highRatingCond.or(activeProgressCond));
+            }
+        }
+
         List<Product> content = queryFactory
                 .selectFrom(product)
                 .join(product.seller).fetchJoin()
+                .where(searchCond, statusCond)
                 .orderBy(product.createdAt.desc())
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();
 
-        Long total = queryFactory.select(product.count()).from(product).fetchOne();
+        Long total = queryFactory
+                .select(product.count())
+                .from(product)
+                .join(product.seller)
+                .where(searchCond, statusCond)
+                .fetchOne();
+
         return new PageImpl<>(content, pageable, Objects.requireNonNullElse(total, 0L));
     }
 

@@ -40,6 +40,10 @@ public interface TeamParticipationRepository
     // 관리자 회원 삭제 — 참여 중인(또는 참여했던) 공구팀이 하나라도 있으면 하드 삭제를 막는다(product/admin).
     boolean existsByMember_Id(Long memberId);
 
+    // 관리자 회원 활동 수치 배치 조회 (N+1 방지)
+    @Query("SELECT tp.member.id, COUNT(tp) FROM TeamParticipation tp WHERE tp.member.id IN :memberIds GROUP BY tp.member.id")
+    List<Object[]> countParticipationsByMemberIds(@Param("memberIds") List<Long> memberIds);
+
     // 관리자 강제 삭제(product/admin) — 장난성 게시물처럼 결제·리뷰가 붙어도 지워야 할 때만 쓴다.
     @Transactional
     void deleteByTeam_Product_Id(Long productId);

@@ -220,20 +220,29 @@ public class ProductService {
      * 없어진다. 캐시도 타지 않는다 — 관리자 화면은 방금 한 숨김/삭제가 즉시 반영돼야 한다.
      */
     public ProductPageResponse listForAdmin(int page, int size) {
+        return listForAdmin(page, size, null, null);
+    }
+
+    public ProductPageResponse listForAdmin(int page, int size, String search, String status) {
         if (page < 0 || size < 1) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED);
         }
-        Page<Product> products = productRepository.findAllForAdmin(PageRequest.of(page, size));
+        Page<Product> products = productRepository.findAllForAdmin(PageRequest.of(page, size), search, status);
         List<Long> productIds = products.getContent().stream().map(Product::getId).toList();
         Map<Long, Integer> bestPrices = productIds.isEmpty()
                 ? Map.of()
                 : priceTierRepository.findBestPricesByProductIds(productIds).stream()
                         .collect(Collectors.toMap(BestPriceProjection::getProductId, BestPriceProjection::getBestPrice));
+        Map<Long, ProductReviewStatProjection> reviewStats = reviewStatMap(productIds);
 
-        // 관리자 화면은 신뢰배지·리뷰 통계를 안 쓴다 — 목록에 필요 없는 집계를 위해 쿼리를 더 쏘지 않는다.
-        Page<ProductSummaryResponse> mapped = products.map(product ->
-                ProductSummaryResponse.of(product, bestPrices.get(product.getId()), false, null, 0));
-        return ProductPageResponse.of(mapped);
+        Page<ProductSummaryResponse> mapped = products.map(product -> {
+            ProductReviewStatProjection stat = reviewStats.get(product.getId());
+            Double ratingAvg = stat != null ? stat.averageRating() : null;
+            Integer reviewCnt = (stat != null && stat.reviewCount() != null) ? stat.reviewCount().intValue() : 0;
+            return ProductSummaryResponse.of(product, bestPrices.get(product.getId()), false, ratingAvg, reviewCnt);
+        });
+        ProductPageResponse pageResponse = ProductPageResponse.of(mapped);
+        return attachActiveTeamProgress(pageResponse);
     }
 
     // 상품 상세도 등록/수정/삭제 전까지 안 변해 productId 기준으로 캐싱한다 (docs/policy/caching.md).

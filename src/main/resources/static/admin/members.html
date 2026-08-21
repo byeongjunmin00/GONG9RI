@@ -3,11 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- 파비콘 — 헤더 로고의 너구리 마크를 배경 없이 그대로 쓴다(꼬리까지, 브랜드 그라데이션).
-       크기별로 선 굵기만 다르다: 작게 줄일수록 원본 아웃라인이 픽셀보다 얇아져 사라지기 때문.
-       16px에서는 그래도 뭉개지는데, 요즘 디스플레이는 16px 자리에도 32px를 가져가므로
-       실사용에서는 대부분 또렷한 쪽을 보게 된다(2026-08-20).
-       하위 디렉터리 페이지도 있어 경로는 절대경로다. -->
+  <!-- 파비콘 — 헤더 로고의 너구리 마크를 배경 없이 그대로 쓴다(꼬리까지, 브랜드 그라데이션). -->
   <link rel="icon" href="/images/favicon.ico" sizes="any" />
   <link rel="icon" type="image/png" href="/images/favicon-32.png" sizes="32x32" />
   <link rel="apple-touch-icon" href="/images/favicon-180.png" />
@@ -37,9 +33,9 @@
   <main>
     <section class="section container">
       <div class="section__head">
-        <h1><span class="text-gradient">회원 관리</span></h1>
+        <h1><span class="text-gradient">회원 종합 관리</span></h1>
         <p class="text-muted" style="margin-top: var(--space-2);">
-          정지는 언제든 되돌릴 수 있어요. 삭제는 상품·결제·리뷰 등 활동 기록이 하나도 없는 계정만 가능합니다.
+          회원별 플랫폼 종합 활동 이력(구매·공구·판매)과 계정 상태를 한눈에 파악하고 정지/해제 조치를 수행합니다.
         </p>
       </div>
 
@@ -54,6 +50,21 @@
         <a href="/admin/refunds.html" class="mypage-tab-btn" role="tab" aria-selected="false">환불 요청 현황</a>
         <a href="/admin/support.html" class="mypage-tab-btn" role="tab" aria-selected="false">상담 관리</a>
       </nav>
+
+      <!-- 검색 및 역할/상태 필터 바 -->
+      <div class="card" style="padding: var(--space-4); margin-bottom: var(--space-5);">
+        <div style="display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; justify-content: space-between;">
+          <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
+            <button type="button" class="btn btn-primary btn-sm member-filter-btn active" data-filter="ALL">전체 회원</button>
+            <button type="button" class="btn btn-secondary btn-sm member-filter-btn" data-filter="BUYER">구매자</button>
+            <button type="button" class="btn btn-secondary btn-sm member-filter-btn" data-filter="SELLER">판매자</button>
+            <button type="button" class="btn btn-secondary btn-sm member-filter-btn" data-filter="SUSPENDED">⚠️ 정지된 회원</button>
+          </div>
+          <div style="width: 280px; max-width: 100%;">
+            <input type="text" id="member-search-input" class="form-input" placeholder="이름, 아이디, 이메일 검색..." autocomplete="off" />
+          </div>
+        </div>
+      </div>
 
       <div id="members-status" class="product-status">불러오는 중...</div>
       <ul id="members-list" class="mypage-list"></ul>
