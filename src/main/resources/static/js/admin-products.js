@@ -179,10 +179,10 @@
     row3.className = 'admin-card__row3';
     var statParts = [];
     if (typeof product.ratingAverage === 'number' && product.ratingAverage > 0) {
-      statParts.push('⭐ ' + product.ratingAverage.toFixed(1) + '(' + (product.reviewCount || 0) + ')');
+      statParts.push('평점 ' + product.ratingAverage.toFixed(1) + ' (리뷰 ' + (product.reviewCount || 0) + '건)');
     }
     if (typeof product.activeTeamCurrentCount === 'number' && typeof product.activeTeamTargetParticipants === 'number') {
-      statParts.push('👥 팀 ' + product.activeTeamCurrentCount + '/' + product.activeTeamTargetParticipants);
+      statParts.push('공구 참여 ' + product.activeTeamCurrentCount + '/' + product.activeTeamTargetParticipants + '명');
     }
     row3.textContent = statParts.length > 0 ? statParts.join(' · ') : '등록상품';
     card.appendChild(row3);

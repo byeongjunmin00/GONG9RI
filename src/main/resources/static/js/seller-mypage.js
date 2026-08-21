@@ -825,27 +825,27 @@
     badgeGroup.style.gap = 'var(--space-2)';
     badgeGroup.style.marginTop = 'var(--space-2)';
 
-    var prepBadge = document.createElement('span');
-    if (order.preparationStatus === 'PREPARING') {
-      prepBadge.className = 'badge badge-success';
-    } else if (order.preparationStatus === 'RECRUITING') {
-      prepBadge.className = 'badge badge-time';
-    } else if (order.preparationStatus === 'REFUNDED') {
-      prepBadge.className = 'badge badge-failed';
-    } else {
-      prepBadge.className = 'badge badge-secondary';
-    }
-    prepBadge.textContent = order.preparationStatusLabel || order.preparationStatus;
-    badgeGroup.appendChild(prepBadge);
-
-    // 배송 단계는 preparationStatus가 PREPARING(실제 배송 대상)인 주문에만 조작 UI를 보여준다 —
-    // 환불됐거나 아직 공구가 진행/실패 중인 주문은 서버도 변경을 거절한다(SellerMypageService).
+    // preparationStatus가 PREPARING(실제 배송 대상)인 주문은 고정 문구("🚚 배송 준비 중") 대신
+    // 판매자가 직접 조작하는 진짜 배송 단계 배지 하나만 보여준다 — 둘 다 보여주면 판매자가 "배송중"으로
+    // 바꿔놔도 옆에 "배송 준비 중"이 그대로 남아 두 배지가 서로 모순돼 보이는 문제가 있었다
+    // (2026-08-21 사용자가 스크린샷으로 실제 화면에서 발견).
     var shipmentBadge = null;
     if (order.preparationStatus === 'PREPARING') {
       shipmentBadge = document.createElement('span');
       shipmentBadge.className = 'badge ' + shipmentStatusToBadgeClass(order.shipmentStatus);
       shipmentBadge.textContent = order.shipmentStatusLabel || order.shipmentStatus;
       badgeGroup.appendChild(shipmentBadge);
+    } else {
+      var prepBadge = document.createElement('span');
+      if (order.preparationStatus === 'RECRUITING') {
+        prepBadge.className = 'badge badge-time';
+      } else if (order.preparationStatus === 'REFUNDED') {
+        prepBadge.className = 'badge badge-failed';
+      } else {
+        prepBadge.className = 'badge badge-secondary';
+      }
+      prepBadge.textContent = order.preparationStatusLabel || order.preparationStatus;
+      badgeGroup.appendChild(prepBadge);
     }
 
     infoEl.appendChild(badgeGroup);
