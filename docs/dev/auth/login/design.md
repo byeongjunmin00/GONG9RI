@@ -45,6 +45,13 @@ IP 레이어만으로는 "여러 IP를 돌려가며 특정 계정 하나만 노�
 
 `POST /api/auth/login`에 이메일 인증 여부 확인이 추가됐다 — 상세 설계는 `docs/dev/auth/email-verification/design.md` 참고. 요약: 비밀번호 인증까지 성공한 뒤(`loginAttemptGuard.recordSuccess()` 호출 이후) `member.isEmailVerified()`가 false면 세션을 만들지 않고 `EMAIL_NOT_VERIFIED`(403)로 거절한다. `recordSuccess()`를 먼저 호출하는 이유: 비밀번호는 실제로 맞았으므로 로그인 시도 제한 카운터 관점에서는 "성공"으로 취급해야 하고, 그 뒤에 별도 조건(이메일 인증)으로 세션 발급만 막는 구조다.
 
+## 프론트엔드 로그인 폼 키보드 인터랙션 (2026-08-21)
+
+일반 로그인(`login.html`, `js/login.js`) 및 관리자 로그인(`admin/login.html`, `js/admin-login.js`)에서 키보드 편의성을 제공한다.
+- 아이디(`username`) 입력 필드에서 Enter 입력 시: 비밀번호(`password`)가 비어 있으면 비밀번호 필드로 자동 포커스 이동(`passwordInput.focus()`), 이미 입력되어 있으면 바로 폼 제출.
+- 비밀번호(`password`) 입력 필드에서 Enter 입력 시: 폼 제출 및 로그인 시도.
+- 한글 IME 입력 조합 중 중복 제출 방지(`event.isComposing`).
+
 ## 관련 코드 위치
 
 - `dto/MemberLoginRequest.java`
@@ -55,4 +62,6 @@ IP 레이어만으로는 "여러 IP를 돌려가며 특정 계정 하나만 노�
 - `common/exception/ErrorCode.java` — `LOGIN_FAILED`, `LOGIN_ATTEMPTS_EXCEEDED` 추가
 - `common/filter/RateLimitFilter.java` — 로그인 IP 규칙 추가(규칙 리스트로 일반화)
 - `common/security/LoginAttemptGuard.java` — 계정 단위 실패 횟수 제한(신규)
+- `src/main/resources/static/js/login.js` — 일반 로그인 폼 Enter 인터랙션
+- `src/main/resources/static/js/admin-login.js` — 관리자 로그인 폼 Enter 인터랙션
 - 테스트: `src/test/.../controller/AuthControllerTest.java`(signup 테스트와 같은 클래스에 이어서 작성, 계정 잠금 통합 시나리오 2케이스 추가), `common/security/LoginAttemptGuardTest.java`(신규), `common/filter/LoginRateLimitFilterTest.java`(신규)
