@@ -8,6 +8,11 @@
 
 - `GET/POST /api/products/{productId}/teams`, `POST /api/teams/{teamId}/join`,
   `POST /api/teams/{teamId}/leave`, `GET /api/teams/{teamId}/participants` — 상세: `docs/api/team.md`
+- `TeamResponse`(목록/신설 응답)에 `joinedByCurrentMember`(boolean) 필드가 있다 — 이 요청을 보낸
+  로그인 사용자 자신이 그 팀의 현재 참여자인지 여부(다른 참여자의 신원은 여전히 비공개). 비로그인
+  요청이면 항상 `false`. `GET .../teams`는 `@AuthenticationPrincipal`을 nullable로 받아(permitAll)
+  이 값을 채운다 — 상세: `team/reservation-expiry` 작업과 함께 도입, `docs/dev/team/reservation-expiry/design.md`
+  참고.
 
 ## 데이터 모델
 
@@ -87,9 +92,25 @@
   재사용해, 취소와 동시에 다른 사람이 참가를 시도하는 경합을 직렬화한다.
 - **한 트랜잭션 안에서 처리**: 참여 기록 실제 삭제(`TeamParticipationRepository.deleteByTeamIdAndMemberId`, 이 기능에서만 하드 삭제 — `docs/db/team_participation.md`) →
   `GroupBuyTeam.decreaseParticipant()`로 정원 감소(자리 즉시 반환 / 0명 시 FAILED 전환) → 취소한 사람이 리더였고 팀이 FAILED가 아니라면 `changeLeader()`로 그다음 최초 참가자에게 승계 → 취소한 사람의 `PAID` 결제가 있으면 `RefundRequestService.createFromTeamLeave()`로 환불 요청 자동 생성(같은 결제에 이미 대기 중인 요청이 있으면 스킵 — `docs/dev/refund/request/design.md` 참고).
+- **내부 구조(team-payment-enforcement 이후)**: `leave(principal, teamId)`는 여전히 API 계약대로
+  락 획득 → 참여자 검증(`FORBIDDEN`) → `RECRUITING` 검증(`TEAM_NOT_RECRUITING`)까지 담당하고, 검증
+  통과 후의 실제 취소 효과(위 문단의 삭제→정원감소→리더승계→환불요청)는 package-private
+  `cancelParticipation(GroupBuyTeam team, Member member)`로 추출돼 있다. 이 메서드는 `@Transactional`을
+  별도로 걸지 않는다 — 항상 호출자가 이미 열어 둔 트랜잭션(과 그 트랜잭션이 쥔 팀 row 비관적 락) 안에서
+  실행되는 게 전제라 새 트랜잭션 경계가 불필요하기 때문이다. `leave()` 자신(같은 인스턴스 내부 호출) 외에,
+  같은 패키지의 `TeamReservationExpiryService`(미결제 참여 자동 만료 스케줄러, 신규 개념
+  `team/reservation-expiry`)가 principal 없이 팀+참여자만으로 이 메서드를 재사용한다 — 상세:
+  `docs/dev/team/reservation-expiry/design.md`.
 - **실시간 브로드캐스트**: 기존 `TeamCapacityChangedEvent`(`join()`과 동일 이벤트/토픽)를 그대로
   재사용 — 신규 이벤트 불필요, 취소도 정원 변경이므로 같은 채널로 나간다.
 - **에러**: `TEAM_NOT_FOUND`(404), `TEAM_NOT_RECRUITING`(409), `FORBIDDEN`(403), `UNAUTHORIZED`(401).
+- **참가/신설 후 결제 강제(team-payment-enforcement)**: 참가(`join`)/신설(`create`) 성공 시
+  프론트(`product.js`)가 성공 배너 대신 곧바로 결제 페이지(`checkout.html?productId=...&teamId=...`)로
+  이동시킨다 — 결제를 끝내지 않고 이탈하면 10분 뒤 자동으로 자리가 반환된다(스케줄러, 상세
+  `docs/dev/team/reservation-expiry/design.md`). 결제 페이지의 "취소하기"(`checkout.js`)와, 상품 상세
+  페이지 팀 목록에서 `joinedByCurrentMember=true`인 팀에 새로 뜨는 "참여 취소" 버튼(`product.js`)
+  모두 이 `POST /api/teams/{teamId}/leave`를 그대로 호출한다 — 서버 로직 변경 없이 기존 엔드포인트를
+  재사용(마이페이지의 참여 취소와 동일 경로).
 
 ## 트래픽 제어 (발제 백엔드 도전과제)
 
@@ -123,16 +144,25 @@ k6 스파이크 테스트(`docs/logs/team/crud/004-spike-test.md`)로 `team/join
   0이 되면 `FAILED`)/`changeLeader(Member)`(리더 승계)
 - `dto/{TeamResponse,TeamJoinResponse,TeamCreateRequest,TeamParticipantResponse}.java` — `TeamCreateRequest`는
   팀 신설 요청 body(`targetParticipants`), `TeamParticipantResponse`는 참여자 목록 응답(마스킹된 이름/팀장
-  여부/참여 시각), `TeamJoinResponse`는 `join()`/`leave()` 공용 응답
+  여부/참여 시각), `TeamJoinResponse`는 `join()`/`leave()` 공용 응답. `TeamResponse`는 `joinedByCurrentMember`
+  (boolean, team-payment-enforcement) 필드를 가지며 `from(GroupBuyTeam team, boolean joinedByCurrentMember)`로
+  생성한다(호출부가 항상 명시적으로 채우도록 정적 팩터리 시그니처에 강제).
 - `repository/{GroupBuyTeamRepository,TeamParticipationRepository,PriceTierRepository}.java` —
   `findByIdForUpdate`(락 경로), `incrementIfCapacity`(원자적 경로), `findByProductIdOrderByMinCountAsc`
   (신설 시 `targetParticipants` 존재 검증), `findAllByTeamIdWithMemberOrderByJoinedAtAsc`(참여자 목록 fetch join),
-  `deleteByTeamIdAndMemberId`/`findFirstByTeamIdOrderByJoinedAtAsc`(team/leave에서 추가 — 참여 기록 삭제/리더 승계 대상 조회)
+  `deleteByTeamIdAndMemberId`/`findFirstByTeamIdOrderByJoinedAtAsc`(team/leave에서 추가 — 참여 기록 삭제/리더 승계 대상 조회),
+  `existsByTeamIdAndMemberId`(`joinedByCurrentMember` 판정에도 재사용)
 - `service/TeamService.java` — `create()`가 `PriceTierRepository`로 `price_tier.minCount` 존재 검증 후
-  그 값으로 팀 생성, `join()`은 `team.join-strategy`로 `joinWithLock`/`joinAtomic` 분기, `participants()`는
-  팀 존재 검증 후 리더 우선 정렬+마스킹 매핑, `leave()`는 `findByIdForUpdate` 재사용 + RECRUITING 가드 +
-  마지막 참여자 취소 시 FAILED 전환 + 리더 승계 + `RefundRequestService.createFromTeamLeave()` 호출
-- `controller/TeamController.java` — `leave()` 추가(`POST /api/teams/{teamId}/leave`)
+  그 값으로 팀 생성(응답은 `joinedByCurrentMember=true` 고정), `join()`은 `team.join-strategy`로
+  `joinWithLock`/`joinAtomic` 분기, `list(productId, principal)`은 principal이 null(비로그인)이면
+  팀마다 `joinedByCurrentMember=false`, 로그인이면 팀별로 개별 판정, `participants()`는 팀 존재 검증 후
+  리더 우선 정렬+마스킹 매핑, `leave()`는 `findByIdForUpdate` 재사용 + 참여자/RECRUITING 검증까지만
+  담당하고 실제 취소 효과(정원 감소·리더 승계·환불 요청)는 package-private `cancelParticipation(team, member)`로
+  위임 — 이 메서드는 `@Transactional` 없이 호출자의 트랜잭션(과 팀 row 락) 안에서만 실행되는 게 전제이며,
+  같은 패키지의 `TeamReservationExpiryService`(`team/reservation-expiry`)도 재사용한다.
+- `controller/TeamController.java` — `leave()`(`POST /api/teams/{teamId}/leave`), `list()`는
+  `@AuthenticationPrincipal MemberUserDetails principal`을 nullable로 받는다(permitAll이라 비로그인은
+  자동으로 null 주입).
 - `common/exception/ErrorCode.java` — `TEAM_NOT_FOUND`/`TEAM_FULL`/`ALREADY_JOINED`/`INVALID_TARGET_PARTICIPANTS`/`TEAM_NOT_RECRUITING` 추가 (`LAST_PARTICIPANT_CANNOT_LEAVE` 제거)
 - `src/main/resources/application.yaml` — `team.join-strategy: lock`(기본값)
 - `k6/team-join-load-test.js` — 두 전략 공통 부하테스트 스크립트(설정값만 바꿔 재사용)
@@ -141,10 +171,20 @@ k6 스파이크 테스트(`docs/logs/team/crud/004-spike-test.md`)로 `team/join
 - `k6/team-join-rate-limit-test.js` — 트래픽 제어 전용 검증 스크립트(처리량이 아니라 429 발동 여부 확인)
 - `config/WebSocketConfig.java` — STOMP 엔드포인트/브로커 설정
 - `event/{TeamCapacityChangedEvent,TeamCapacityChangedEventListener}.java` — 실시간 메시징
-- `src/main/resources/static/product.html`, `js/product.js` — 실시간 갱신 구독(프론트)
+- `src/main/resources/static/product.html`, `js/product.js` — 실시간 갱신 구독(프론트). 참가/신설(`handleJoin`/
+  `handleCreateTeam`) 성공 시 배너 대신 `window.location.href`로 `checkout.html?productId=...&teamId=...`로
+  강제 이동(team-payment-enforcement). `createTeamItem()`은 `team.joinedByCurrentMember`가 true면
+  "참가하기" 대신 "참여 취소" 버튼(`handleLeaveTeam`, 확인창 후 `POST /teams/{teamId}/leave` →
+  `loadTeams()` 재조회)을 렌더링한다.
+- `src/main/resources/static/js/checkout.js` — `handleCancel()`이 `currentTeamId`가 있으면 상품
+  페이지로 돌아가기 전에 먼저 `POST /teams/{teamId}/leave`를 호출한다(team-payment-enforcement,
+  실패해도 이동은 진행 — 이미 취소된 상태 등은 사용자에게 에러로 막을 필요가 없어서).
 - 테스트: `controller/TeamControllerTest.java`(일반 케이스 13개 + 참여자 목록 5개 + 참여 취소(leave) 12개 —
   성공/자리재참가/리더승계/마지막참여자탈퇴시FAILED전환(`leave_lastParticipant_teamBecomesFailed`)/
   TEAM_NOT_RECRUITING/FORBIDDEN/TEAM_NOT_FOUND/UNAUTHORIZED/PAID결제환불요청자동생성/결제없으면생성안됨/
-  자동환불설정즉시APPROVED/재참가후재탈퇴중복방지), `service/TeamConcurrencyTest.java`(락 경로 동시성 검증),
+  자동환불설정즉시APPROVED/재참가후재탈퇴중복방지 + `joinedByCurrentMember` 비로그인/로그인별 검증 3개
+  — team-payment-enforcement), `service/TeamConcurrencyTest.java`(락 경로 동시성 검증),
   `service/TeamConcurrencyAtomicTest.java`(원자적 경로 동시성 검증, `@TestPropertySource`로 전략 전환),
   `common/filter/RateLimitFilterTest.java`(트래픽 제어 검증), `event/TeamCapacityBroadcastTest.java`(실시간 메시징 검증)
+- **미결제 참여 자동 만료**(신규 개념, 신설/참가 후 10분 안에 결제 미완료 시 자동 취소)는 이 기능
+  범위 밖이다 — `docs/dev/team/reservation-expiry/design.md` 참고.

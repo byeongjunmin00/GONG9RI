@@ -57,13 +57,20 @@ public class TeamService {
     @Value("${team.join-strategy:lock}")
     private String joinStrategy;
 
-    public List<TeamResponse> list(Long productId) {
+    // 로그인 여부와 무관하게 호출 가능(SecurityConfig permitAll) — principal이 null이면 비로그인으로
+    // 보고 joinedByCurrentMember를 전부 false로 채운다.
+    public List<TeamResponse> list(Long productId, MemberUserDetails principal) {
         if (!productRepository.existsById(productId)) {
             throw new BusinessException(ErrorCode.PRODUCT_NOT_FOUND);
         }
+        Long memberId = principal == null ? null : principal.getMember().getId();
         return groupBuyTeamRepository.findByProductIdAndStatus(productId, TeamStatus.RECRUITING).stream()
-                .map(TeamResponse::from)
+                .map(team -> TeamResponse.from(team, isJoinedByMember(team.getId(), memberId)))
                 .toList();
+    }
+
+    private boolean isJoinedByMember(Long teamId, Long memberId) {
+        return memberId != null && teamParticipationRepository.existsByTeamIdAndMemberId(teamId, memberId);
     }
 
     @Transactional
@@ -91,7 +98,8 @@ public class TeamService {
 
         log.info("공구팀 신설 완료: teamId={}, productId={}, leaderId={}, targetParticipants={}",
                 saved.getId(), productId, leader.getId(), targetParticipants);
-        return TeamResponse.from(saved);
+        // 신설자(leader)는 곧 이 팀의 첫 참여자다 — 조회 없이 바로 true로 채운다.
+        return TeamResponse.from(saved, true);
     }
 
     @Transactional
@@ -183,13 +191,10 @@ public class TeamService {
     /**
      * 공구팀 참여 취소(team/leave) — join()과 대칭적인 API다. 취소 가능 조건: 로그인한 구매자가 그
      * 팀의 현재 참여자여야 하고, 팀 상태가 RECRUITING이어야 한다(그 외 상태는 거절 —
-     * {@code TEAM_NOT_RECRUITING}). 마지막 남은 참여자가 취소하는 경우 정원이 0이 되면서 팀 상태가
-     * {@code FAILED}로 자동 전환된다(공구 무산). join()의 락 경로 ({@code findByIdForUpdate})를
-     * 그대로 재사용해 동시성을 제어한다(취소와 동시에 다른 사람이 참가를 시도하는 경합 방지).
-     *
-     * <p>한 트랜잭션 안에서: 참여 기록 제거 → 정원(currentCount) 감소(자리 즉시 반환 / 0명 시 FAILED 전환) →
-     * 취소한 사람이 리더였고 팀이 여전히 FAILED가 아니라면 그다음 최초 참가자에게 리더 승계 → 취소한 사람의
-     * PAID 결제가 있으면 환불 요청 자동 생성({@code RefundRequestService.createFromTeamLeave}).
+     * {@code TEAM_NOT_RECRUITING}). join()의 락 경로({@code findByIdForUpdate})를 그대로 재사용해
+     * 동시성을 제어한다(취소와 동시에 다른 사람이 참가를 시도하는 경합 방지). 검증 이후의 실제 취소
+     * 효과는 {@link #cancelParticipation}에 위임한다 — team/reservation-expiry(미결제 참여 자동 만료
+     * 스케줄러)도 팀 락을 직접 쥔 뒤 같은 메서드를 재사용한다.
      */
     @Transactional
     public TeamJoinResponse leave(MemberUserDetails principal, Long teamId) {
@@ -206,6 +211,23 @@ public class TeamService {
             throw new BusinessException(ErrorCode.TEAM_NOT_RECRUITING);
         }
 
+        return cancelParticipation(team, member);
+    }
+
+    /**
+     * 참여 취소의 핵심 효과 — 참여 기록 제거 → 정원(currentCount) 감소(자리 즉시 반환 / 0명 시 FAILED
+     * 전환) → 취소한 사람이 리더였고 팀이 여전히 FAILED가 아니라면 그다음 최초 참가자에게 리더 승계 →
+     * 취소한 사람의 PAID 결제가 있으면 환불 요청 자동 생성({@code RefundRequestService.createFromTeamLeave}).
+     *
+     * <p><b>호출 전제(호출자 책임)</b>: 이 팀 row에 비관적 락({@code findByIdForUpdate})이 이미 걸려
+     * 있고, {@code member}가 이 팀의 현재 참여자이며 팀 상태가 {@code RECRUITING}임이 이미 검증된
+     * 상태여야 한다 — 이 메서드 자체는 그 검증을 반복하지 않는다. {@link #leave}(principal 경유)와
+     * team/reservation-expiry 스케줄러(principal 없이 팀+참여자만으로) 양쪽에서 재사용한다.
+     * {@code @Transactional}을 별도로 걸지 않는다 — 항상 호출자가 이미 열어 둔 트랜잭션(과 그 트랜잭션이
+     * 쥔 팀 row 락) 안에서 실행돼야 하므로, 새 트랜잭션 경계를 만들 필요가 없다.
+     */
+    TeamJoinResponse cancelParticipation(GroupBuyTeam team, Member member) {
+        Long teamId = team.getId();
         boolean wasLeader = team.getLeader().getId().equals(member.getId());
 
         teamParticipationRepository.deleteByTeamIdAndMemberId(teamId, member.getId());

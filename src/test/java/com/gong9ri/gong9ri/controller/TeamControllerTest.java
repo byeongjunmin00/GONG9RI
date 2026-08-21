@@ -146,6 +146,39 @@ class TeamControllerTest {
     }
 
     @Test
+    @DisplayName("비로그인으로 조회하면 joinedByCurrentMember는 항상 false다")
+    void list_publicAccess_joinedByCurrentMemberIsFalse() throws Exception {
+        Member seller = saveMember("teamSeller24", Role.SELLER);
+        Product product = saveProduct(seller, 10);
+        Member leader = saveMember("teamLeader24", Role.BUYER);
+        saveTeam(product, leader, 10);
+
+        mockMvc.perform(get("/api/products/" + product.getId() + "/teams"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].joinedByCurrentMember").value(false));
+    }
+
+    @Test
+    @DisplayName("로그인한 요청자 자신이 참여 중인 팀은 joinedByCurrentMember가 true, 아니면 false다")
+    void list_loggedIn_joinedByCurrentMemberReflectsRequester() throws Exception {
+        Member seller = saveMember("teamSeller25", Role.SELLER);
+        Product product = saveProduct(seller, 10);
+        Member leader = saveMember("teamLeader25", Role.BUYER);
+        GroupBuyTeam joinedTeam = saveTeam(product, leader, 10);
+        Member outsider = saveMember("teamOutsider25", Role.BUYER);
+        GroupBuyTeam notJoinedTeam = saveTeam(product, outsider, 10);
+
+        // 순서를 가정하지 않고 teamId로 각 팀의 joinedByCurrentMember를 개별 확인한다.
+        mockMvc.perform(get("/api/products/" + product.getId() + "/teams").with(asUser(leader)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andExpect(jsonPath("$.data[?(@.teamId == " + joinedTeam.getId() + ")].joinedByCurrentMember")
+                        .value(org.hamcrest.Matchers.contains(true)))
+                .andExpect(jsonPath("$.data[?(@.teamId == " + notJoinedTeam.getId() + ")].joinedByCurrentMember")
+                        .value(org.hamcrest.Matchers.contains(false)));
+    }
+
+    @Test
     @DisplayName("존재하지 않는 상품의 팀 목록 조회 시 404 PRODUCT_NOT_FOUND")
     void list_productNotFound() throws Exception {
         mockMvc.perform(get("/api/products/999999/teams"))
@@ -169,7 +202,8 @@ class TeamControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.currentCount").value(1))
                 .andExpect(jsonPath("$.data.maxParticipants").value(5))
-                .andExpect(jsonPath("$.data.status").value("RECRUITING"));
+                .andExpect(jsonPath("$.data.status").value("RECRUITING"))
+                .andExpect(jsonPath("$.data.joinedByCurrentMember").value(true));
 
         GroupBuyTeam saved = groupBuyTeamRepository.findAll().stream()
                 .filter(t -> t.getLeader().getId().equals(buyer.getId()))

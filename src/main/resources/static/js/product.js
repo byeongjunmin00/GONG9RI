@@ -720,15 +720,29 @@
 
     li.appendChild(infoEl);
 
-    var joinBtn = document.createElement('button');
-    joinBtn.type = 'button';
-    joinBtn.className = 'btn btn-secondary btn-sm team-item-join-btn';
-    joinBtn.textContent = '참가하기';
-    joinBtn.disabled = !refundNoticeAccepted();
-    joinBtn.addEventListener('click', function () {
-      handleJoin(team.teamId, joinBtn);
-    });
-    li.appendChild(joinBtn);
+    // 로그인 사용자 자신이 이미 이 팀의 참여자면(joinedByCurrentMember) "참가하기" 대신 "참여 취소"를
+    // 보여준다(team-payment-enforcement) — 마이페이지(buyer-mypage.js)의 참여 취소 버튼과 동일한
+    // 확인창 문구·비활성화 처리를 따른다.
+    if (team.joinedByCurrentMember) {
+      var leaveBtn = document.createElement('button');
+      leaveBtn.type = 'button';
+      leaveBtn.className = 'btn btn-ghost btn-sm team-item-leave-btn';
+      leaveBtn.textContent = '참여 취소';
+      leaveBtn.addEventListener('click', function () {
+        handleLeaveTeam(team.teamId, leaveBtn);
+      });
+      li.appendChild(leaveBtn);
+    } else {
+      var joinBtn = document.createElement('button');
+      joinBtn.type = 'button';
+      joinBtn.className = 'btn btn-secondary btn-sm team-item-join-btn';
+      joinBtn.textContent = '참가하기';
+      joinBtn.disabled = !refundNoticeAccepted();
+      joinBtn.addEventListener('click', function () {
+        handleJoin(team.teamId, joinBtn);
+      });
+      li.appendChild(joinBtn);
+    }
 
     var toggleParticipantsBtn = document.createElement('button');
     toggleParticipantsBtn.type = 'button';
@@ -845,12 +859,36 @@
 
     window.Api.post('/teams/' + teamId + '/join')
       .then(function () {
-        var payLink = 'checkout.html?productId=' + currentProductId + '&teamId=' + teamId;
-        showPageAlert('공구팀에 참가했습니다.', 'success', false, payLink);
-        loadTeams(currentProductId);
+        // 참가 성공 시 결제 페이지로 강제 이동시킨다(team-payment-enforcement) — 배너로 안내만 하고
+        // 그냥 남아 있으면 결제 없이도 참여자로 남는 문제가 있었다.
+        window.location.href = 'checkout.html?productId=' + currentProductId + '&teamId=' + teamId;
       })
       .catch(function (err) {
         joinBtn.disabled = !refundNoticeAccepted();
+        handleActionError(err, currentProductId);
+      });
+  }
+
+  /**
+   * 상품 상세 페이지의 "참여 취소" 버튼(team-payment-enforcement) — 확인창 문구·비활성화 처리는
+   * buyer-mypage.js의 참여 취소 버튼과 동일하게 맞췄다.
+   */
+  function handleLeaveTeam(teamId, leaveBtn) {
+    var confirmed = window.confirm(
+      '이 공구팀 참여를 취소하시겠습니까? 결제하신 금액이 있으면 환불 요청이 자동으로 생성됩니다.');
+    if (!confirmed) {
+      return;
+    }
+
+    hidePageAlert();
+    leaveBtn.disabled = true;
+
+    window.Api.post('/teams/' + teamId + '/leave')
+      .then(function () {
+        loadTeams(currentProductId);
+      })
+      .catch(function (err) {
+        leaveBtn.disabled = false;
         handleActionError(err, currentProductId);
       });
   }
@@ -871,14 +909,11 @@
     window.Api.post('/products/' + currentProductId + '/teams', { targetParticipants: selectedTargetParticipants })
       .then(function (team) {
         var newTeamId = team && team.teamId;
-        var payLink = 'checkout.html?productId=' + currentProductId + '&teamId=' + newTeamId;
-        showPageAlert('신규 공구팀을 만들었습니다.', 'success', false, payLink);
-        loadTeams(currentProductId);
+        // 신설 성공 시 결제 페이지로 강제 이동시킨다(team-payment-enforcement, handleJoin과 동일한 이유).
+        window.location.href = 'checkout.html?productId=' + currentProductId + '&teamId=' + newTeamId;
       })
       .catch(function (err) {
         handleActionError(err, currentProductId);
-      })
-      .then(function () {
         updateCreateTeamButtonState();
       });
   }

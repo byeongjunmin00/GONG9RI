@@ -3,8 +3,10 @@ package com.gong9ri.gong9ri.repository;
 import static com.gong9ri.gong9ri.entity.QTeamParticipation.teamParticipation;
 
 import com.gong9ri.gong9ri.entity.TeamParticipation;
+import com.gong9ri.gong9ri.entity.TeamStatus;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public class TeamParticipationRepositoryImpl implements TeamParticipationRepositoryCustom {
@@ -35,6 +37,16 @@ public class TeamParticipationRepositoryImpl implements TeamParticipationReposit
                 .join(teamParticipation.team.leader).fetchJoin()
                 .where(teamParticipation.team.id.eq(teamId))
                 .orderBy(teamParticipation.joinedAt.asc())
+                .fetch();
+    }
+
+    @Override
+    public List<Long> findTeamIdsWithParticipationBefore(TeamStatus status, LocalDateTime cutoff) {
+        return queryFactory
+                .select(teamParticipation.team.id)
+                .from(teamParticipation)
+                .where(teamParticipation.team.status.eq(status), teamParticipation.joinedAt.before(cutoff))
+                .distinct()
                 .fetch();
     }
 }

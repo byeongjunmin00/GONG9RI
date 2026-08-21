@@ -26,9 +26,13 @@ public class TeamController {
 
     private final TeamService teamService;
 
+    // permitAll(SecurityConfig) — 비로그인도 호출 가능하므로 principal이 null일 수 있다
+    // (joinedByCurrentMember는 그 경우 전부 false로 채워진다, TeamService.list 참고).
     @GetMapping("/api/products/{productId}/teams")
-    public ResponseEntity<ApiResponse<List<TeamResponse>>> list(@PathVariable Long productId) {
-        return ResponseEntity.ok(ApiResponse.success(teamService.list(productId)));
+    public ResponseEntity<ApiResponse<List<TeamResponse>>> list(
+            @AuthenticationPrincipal MemberUserDetails principal,
+            @PathVariable Long productId) {
+        return ResponseEntity.ok(ApiResponse.success(teamService.list(productId, principal)));
     }
 
     @PostMapping("/api/products/{productId}/teams")

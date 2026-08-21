@@ -292,8 +292,24 @@
       });
   }
 
+  /**
+   * "취소하기" — 공구팀 결제(currentTeamId가 있는 경우)라면 상품 페이지로 돌아가기 전에 먼저
+   * 예약(팀 참여)을 반환한다(team-payment-enforcement). leave()가 실패해도(이미 취소된 상태 등)
+   * 사용자는 그냥 상품 페이지로 돌아가면 되므로 에러로 이동을 막지 않는다.
+   */
   function handleCancel() {
-    window.location.href = 'product.html?id=' + currentProductId;
+    if (currentTeamId === null) {
+      window.location.href = 'product.html?id=' + currentProductId;
+      return;
+    }
+
+    window.Api.post('/teams/' + currentTeamId + '/leave')
+      .catch(function (err) {
+        console.error('[checkout.js] failed to leave team on cancel:', err);
+      })
+      .then(function () {
+        window.location.href = 'product.html?id=' + currentProductId;
+      });
   }
 
   function init() {

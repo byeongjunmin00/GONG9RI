@@ -23,12 +23,17 @@
       "maxParticipants": 10,
       "status": "RECRUITING",
       "deadline": "2026-07-31T23:59:59",
-      "createdAt": "2026-07-24T10:00:00"
+      "createdAt": "2026-07-24T10:00:00",
+      "joinedByCurrentMember": false
     }
   ]
   ```
 
   > 상태가 `RECRUITING`인 팀만 반환한다.
+  > `joinedByCurrentMember`는 **이 요청을 보낸 로그인 사용자 자신이** 그 팀의 현재 참여자인지
+  > 여부다(다른 참여자의 신원은 여전히 비공개 — `GET /api/teams/{teamId}/participants`의 마스킹
+  > 원칙과 동일). 비로그인 요청이면 항상 `false`. 프론트(`product.js`)가 이 값으로 "참가하기" 대신
+  > "참여 취소" 버튼을 보여줄지 판단한다.
 
 - 에러:
   | 코드 | HTTP | 설명 |
@@ -57,12 +62,15 @@
     "maxParticipants": 10,
     "status": "RECRUITING",
     "deadline": "2026-07-31T23:59:59",
-    "createdAt": "2026-07-24T10:00:00"
+    "createdAt": "2026-07-24T10:00:00",
+    "joinedByCurrentMember": true
   }
   ```
 
   > `maxParticipants`는 요청의 `targetParticipants` 값 그대로다 — 이 값이 팀 생애 동안 불변인 정원(스냅샷)이 되고, `payment/crud`의 가격 계산(`PaymentService.resolveTeamPrice`)이 이 값을 기준으로 `price_tier`를 찾는다.
-  > 팀 신설 직후 `POST /api/payments`(결제 생성)으로 이어진다 — 신설자(leader)는 결제까지 완료해야 참가가 확정된다.
+  > 팀 신설 직후 프론트가 자동으로 결제 페이지(`checkout.html`)로 이동시킨다 — 신설자(leader)는
+  > 결제까지 완료해야 참가가 확정된 채로 유지된다. 10분 안에 결제가 `PAID`로 확정되지 않으면
+  > 자동으로 참가가 취소된다(아래 "미결제 참여 자동 만료" 참고).
 
 - 에러:
   | 코드 | HTTP | 설명 |
@@ -92,6 +100,8 @@
   ```
 
   > 참가로 인해 `current_count`가 `max_participants`에 도달하면 `status`가 `SUCCESS`로 바뀔 수 있다.
+  > 참가 직후 프론트가 자동으로 결제 페이지(`checkout.html`)로 이동시킨다 — 10분 안에 결제가 `PAID`로
+  > 확정되지 않으면 자동으로 참가가 취소된다(아래 "미결제 참여 자동 만료" 참고).
 
 - 에러:
   | 코드 | HTTP | 설명 |
@@ -166,6 +176,28 @@ team-leave-and-refund-request.md`의 악용 방지 근거 참고).
   | `TEAM_NOT_RECRUITING` | 409 | 팀이 이미 `SUCCESS`/`FAILED`로 전환됨 — 참여 취소 불가 |
   | `FORBIDDEN` | 403 | 그 팀의 참여자가 아님, 또는 판매자 계정으로 시도 |
   | `UNAUTHORIZED` | 401 | 미인증 |
+
+  > **프론트 사용처**: 결제 페이지(`checkout.html`)의 "취소하기"가 `teamId`가 있는 경우 이동 전에
+  > 이 API를 호출해 예약을 즉시 반환한다. 상품 상세 페이지(`product.html`)의 팀 목록에서도
+  > `joinedByCurrentMember`가 `true`인 팀에는 "참가하기" 대신 이 API를 호출하는 "참여 취소" 버튼을
+  > 보여준다(마이페이지의 참여 취소와 동일 엔드포인트).
+
+---
+
+## 미결제 참여 자동 만료 (사용자 대면 API 아님, 내부 스케줄러)
+
+팀 참가/신설(`join`/`create`)은 결제 완료 여부와 무관하게 자리를 즉시 반영한다("예약 후 유예" 모델).
+결제 페이지로 자동 이동은 시키지만, 사용자가 결제를 끝까지 완료하지 않고 이탈(창 닫기 등)할 수 있으므로
+자리가 영구히 묶이지 않도록 서버가 보장한다.
+
+- **규칙**: 참가/신설 시점(`TeamParticipation.joinedAt`) 기준 **10분** 안에 그 참여에 연결된 `Payment`가
+  `PAID`로 확정되지 않으면, 그 참여를 `POST /api/teams/{teamId}/leave`와 동일한 효과로 자동 취소한다
+  (정원 감소, 필요 시 리더 승계, 마지막 참여자면 팀 `FAILED` 전환). 결제가 애초에 `PAID`가 아니므로
+  환불 요청은 생성되지 않는다.
+- **트리거**: 사용자 요청이 아니라 내부 스케줄러다 — 엔드포인트 없음.
+- **경계**: 팀 마감(`docs/policy/refund-trigger.md`, `team/deadline-check`)과는 별개 개념이다 — 마감은
+  "팀이 정원을 못 채운 채 마감 시각이 지난 경우"를, 이 자동 만료는 "개별 참여자가 결제를 안 끝낸 경우"를
+  다룬다.
 
 ---
 
