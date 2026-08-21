@@ -51,3 +51,11 @@
 또한 `.card:hover`/`.btn-primary:hover`/`.btn-secondary:hover`/`.card-wishlist-btn:hover`의 리프트(transform)·그림자 효과에 `@media (hover: hover)` 가드가 전혀 없었다 — 터치 기기는 탭을 hover로 흉내 내는 경우가 있어, 가드 없이 두면 카드를 탭한 뒤 다음 탭 전까지 리프트 효과가 "붙어 있는" 상태로 남을 수 있다(상품 카드처럼 여러 개를 계속 탭하는 화면에서 특히 거슬리는 유형). → 위 hover 규칙을 `@media (hover: hover)` 안으로 옮겨, 실제 hover 가능한 입력 장치(마우스 등)에서만 적용되게 했다. 변형이 없는 `.btn-ghost:hover`(색상만 변경)는 sticky 되어도 거슬림이 적어 범위에서 제외했다.
 
 카드 2열 모바일 그리드(카드 폭 ~165px)에서 판매자명·가격·진행률 텍스트가 겹치거나 줄바꿈될 우려가 있어 실측했으나, 실제 콘텐츠 길이(판매자명 9자+신뢰배지, 5자리 가격 2종)로는 `.card-title`의 의도된 말줄임(ellipsis) 외에 줄바꿈·겹침이 없어 추가 조정은 하지 않았다.
+
+## 5) 다른 페이지들의 같은 패턴 후속 정리 (hover 가드 · 터치 타겟)
+
+헤더/카드 외 페이지들을 코드 리딩으로 훑어보니 같은 두 패턴이 몇 군데 더 있었다.
+
+- **hover 가드 누락**: `.btn-ghost`, `.summary-card`(마이페이지·admin dashboard 탭 전환 버튼), `.mypage-list-item`(구매/판매내역·팀목록 항목), `.chat-widget__button`/`.support-widget__button`(대부분 페이지 우하단 플로팅 버튼) — 전부 `@media (hover: hover)`로 감쌌다.
+- **작은 터치 타겟**: `.chat-widget__close`/`.support-widget__close`(글자 크기만큼이라 32px 미만) → 모바일에서 패딩 추가. `.image-preview-remove`(상품 등록/수정 이미지 삭제 버튼, 22px 고정) → 모바일에서 32px로.
+- **이번엔 건드리지 않은 것**: `.btn-sm`(마이페이지·admin 액션 버튼, ~28px 추정) — 사이트 전역에 광범위하게 쓰여 파급 범위가 커서, 실측 후 별도로 판단하기로 함.

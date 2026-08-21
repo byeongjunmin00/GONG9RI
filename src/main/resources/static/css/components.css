@@ -61,8 +61,10 @@
   padding: 10px 16px;
 }
 
-.btn-ghost:hover {
-  color: var(--color-brand);
+@media (hover: hover) {
+  .btn-ghost:hover {
+    color: var(--color-brand);
+  }
 }
 
 .btn-sm {
@@ -857,10 +859,12 @@ button.summary-card {
   text-align: center;
 }
 
-.summary-card:hover {
-  border-color: var(--color-brand);
-  background-color: var(--color-surface);
-  transform: translateY(-2px);
+@media (hover: hover) {
+  .summary-card:hover {
+    border-color: var(--color-brand);
+    background-color: var(--color-surface);
+    transform: translateY(-2px);
+  }
 }
 
 .summary-card__label {
@@ -947,9 +951,11 @@ button.summary-card {
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.mypage-list-item:hover {
-  border-color: var(--color-brand);
-  box-shadow: var(--shadow-sm);
+@media (hover: hover) {
+  .mypage-list-item:hover {
+    border-color: var(--color-brand);
+    box-shadow: var(--shadow-sm);
+  }
 }
 
 .mypage-list-item__main {
@@ -1487,8 +1493,10 @@ button.summary-card {
   box-shadow: var(--shadow-lg);
 }
 
-.chat-widget__button:hover {
-  transform: translateY(-2px);
+@media (hover: hover) {
+  .chat-widget__button:hover {
+    transform: translateY(-2px);
+  }
 }
 
 .chat-widget__panel {
@@ -1535,6 +1543,13 @@ button.summary-card {
   font-size: var(--fs-xl);
   line-height: 1;
   cursor: pointer;
+}
+
+/* 글자 크기만큼(20px)이라 터치 타겟이 좁다 — 모바일에서 패딩으로 터치 영역을 넓힌다. */
+@media (max-width: 767px) {
+  .chat-widget__close {
+    padding: 8px;
+  }
 }
 
 .chat-widget__close:hover {
@@ -2489,6 +2504,15 @@ button.summary-card {
   cursor: pointer;
 }
 
+/* 22px는 모바일 터치 타겟으로 좁다 — 상품 등록/수정 페이지 이미지 삭제 버튼이라 오터치 방지를 위해 키운다. */
+@media (max-width: 767px) {
+  .image-preview-remove {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+}
+
 .image-preview-remove:hover {
   background-color: rgba(0, 0, 0, 0.75);
 }
@@ -2585,8 +2609,10 @@ button.summary-card {
   box-shadow: var(--shadow-lg);
 }
 
-.support-widget__button:hover {
-  transform: translateY(-2px);
+@media (hover: hover) {
+  .support-widget__button:hover {
+    transform: translateY(-2px);
+  }
 }
 
 .support-widget__badge {
@@ -2643,6 +2669,13 @@ button.summary-card {
   font-size: 1.4rem;
   line-height: 1;
   cursor: pointer;
+}
+
+/* 글자 크기만큼(22.4px)이라 터치 타겟이 좁다 — 모바일에서 패딩으로 터치 영역을 넓힌다. */
+@media (max-width: 767px) {
+  .support-widget__close {
+    padding: 6px;
+  }
 }
 
 .support-widget__status {
