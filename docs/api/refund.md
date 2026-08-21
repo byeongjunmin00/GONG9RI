@@ -41,7 +41,8 @@
     "reason": "단순 변심",
     "rejectionReason": null,
     "requestedAt": "2026-08-14T10:00:00",
-    "decidedAt": null
+    "decidedAt": null,
+    "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg"
   }
   ```
 

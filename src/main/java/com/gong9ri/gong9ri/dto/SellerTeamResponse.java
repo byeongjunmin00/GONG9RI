@@ -18,7 +18,9 @@ public record SellerTeamResponse(
         // 참여한 순서(joinedAt 오름차순). 리더도 참여자이므로 이 목록에 포함된다.
         List<String> participantNames,
         LocalDateTime deadline,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        // 썸네일 표시용 대표 이미지 URL(null이면 프론트에서 기본 아이콘으로 대체).
+        String imageUrl
 ) {
     public static SellerTeamResponse from(GroupBuyTeam team, List<String> participantNames) {
         return new SellerTeamResponse(
@@ -31,7 +33,8 @@ public record SellerTeamResponse(
                 team.getLeader().getName(),
                 participantNames,
                 team.getDeadline(),
-                team.getCreatedAt()
+                team.getCreatedAt(),
+                team.getProduct().getImageUrl()
         );
     }
 }

@@ -93,12 +93,13 @@ class SellerMypageControllerTest {
     @DisplayName("내가 등록한 상품 목록 조회 성공")
     void products_success() throws Exception {
         Member seller = saveMember("mpSellerA1", Role.SELLER);
-        saveProduct(seller, "제주 감귤 5kg", 10);
+        productRepository.save(new Product(seller, "제주 감귤 5kg", "설명", 25000, 10, "https://example.com/orange.jpg"));
 
         mockMvc.perform(get("/api/seller/mypage/products").with(asUser(seller)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(1))
-                .andExpect(jsonPath("$.data[0].name").value("제주 감귤 5kg"));
+                .andExpect(jsonPath("$.data[0].name").value("제주 감귤 5kg"))
+                .andExpect(jsonPath("$.data[0].imageUrl").value("https://example.com/orange.jpg"));
     }
 
     @Test

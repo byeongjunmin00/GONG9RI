@@ -17,7 +17,8 @@
       "amount": 18000,
       "status": "PAID",
       "paidAt": "2026-07-24T14:35:00",
-      "teamId": null
+      "teamId": null,
+      "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg"
     }
   ]
   ```
@@ -48,7 +49,8 @@
       "maxParticipants": 10,
       "status": "SUCCESS",
       "deadline": "2026-07-31T23:59:59",
-      "joinedAt": "2026-07-24T14:30:00"
+      "joinedAt": "2026-07-24T14:30:00",
+      "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg"
     },
     {
       "teamId": 5,
@@ -58,7 +60,8 @@
       "maxParticipants": 8,
       "status": "FAILED",
       "deadline": "2026-07-20T23:59:59",
-      "joinedAt": "2026-07-18T09:00:00"
+      "joinedAt": "2026-07-18T09:00:00",
+      "imageUrl": null
     }
   ]
   ```
@@ -83,7 +86,8 @@
       "name": "제주 감귤 5kg",
       "basePrice": 25000,
       "maxParticipants": 10,
-      "createdAt": "2026-07-24T10:00:00"
+      "createdAt": "2026-07-24T10:00:00",
+      "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg"
     }
   ]
   ```
@@ -134,7 +138,8 @@
       "leaderName": "김팀장",
       "participantNames": ["김팀장", "박참여"],
       "deadline": "2026-07-31T23:59:59",
-      "createdAt": "2026-07-24T10:00:00"
+      "createdAt": "2026-07-24T10:00:00",
+      "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg"
     }
   ]
   ```
@@ -273,7 +278,8 @@
       "reason": "단순 변심",
       "rejectionReason": null,
       "requestedAt": "2026-08-14T10:00:00",
-      "decidedAt": null
+      "decidedAt": null,
+      "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg"
     }
   ]
   ```
@@ -307,7 +313,8 @@
       "reason": "단순 변심",
       "rejectionReason": null,
       "requestedAt": "2026-08-14T10:00:00",
-      "decidedAt": null
+      "decidedAt": null,
+      "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg"
     }
   ]
   ```

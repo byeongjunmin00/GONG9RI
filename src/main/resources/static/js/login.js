@@ -78,8 +78,7 @@
       });
   });
 
-  form.addEventListener('submit', function (event) {
-    event.preventDefault();
+  function submitForm() {
     hideAlert();
 
     var username = usernameInput.value.trim();
@@ -103,5 +102,28 @@
         var message = (err && err.message) || '로그인에 실패했습니다. 잠시 후 다시 시도해주세요.';
         showAlert(message, 'error', err && err.code === 'EMAIL_NOT_VERIFIED');
       });
+  }
+
+  usernameInput.addEventListener('keydown', function (event) {
+    if ((event.key === 'Enter' || event.keyCode === 13) && !event.isComposing) {
+      event.preventDefault();
+      if (!passwordInput.value) {
+        passwordInput.focus();
+      } else {
+        submitForm();
+      }
+    }
+  });
+
+  passwordInput.addEventListener('keydown', function (event) {
+    if ((event.key === 'Enter' || event.keyCode === 13) && !event.isComposing) {
+      event.preventDefault();
+      submitForm();
+    }
+  });
+
+  form.addEventListener('submit', function (event) {
+    event.preventDefault();
+    submitForm();
   });
 })();

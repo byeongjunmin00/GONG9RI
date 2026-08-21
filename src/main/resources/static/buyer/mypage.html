@@ -49,8 +49,97 @@
       </div>
 
       <div id="mypage-sections">
+        <!-- 상단 대시보드 요약 -->
+        <div class="mypage-profile-card">
+          <div class="mypage-profile__user">
+            <div class="mypage-profile__avatar" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+            </div>
+            <div class="mypage-profile__info">
+              <h2 id="summary-user-name" class="mypage-profile__name">구매자</h2>
+              <span id="summary-user-email" class="mypage-profile__email">로딩 중...</span>
+            </div>
+          </div>
+          <div class="mypage-summary-grid">
+            <button type="button" class="summary-card" data-tab="purchases">
+              <span class="summary-card__label">구매 내역</span>
+              <span id="summary-purchases-count" class="summary-card__value">-</span>
+            </button>
+            <button type="button" class="summary-card" data-tab="teams">
+              <span class="summary-card__label">참여 공구</span>
+              <span id="summary-teams-count" class="summary-card__value">-</span>
+            </button>
+            <button type="button" class="summary-card" data-tab="wishlist">
+              <span class="summary-card__label">찜한 상품</span>
+              <span id="summary-wishlist-count" class="summary-card__value">-</span>
+            </button>
+            <button type="button" class="summary-card" data-tab="refunds">
+              <span class="summary-card__label">환불 내역</span>
+              <span id="summary-refunds-count" class="summary-card__value">-</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 탭 네비게이션 -->
+        <nav class="mypage-nav-tabs" role="tablist" aria-label="마이페이지 메뉴">
+          <button type="button" class="mypage-tab-btn active" role="tab" aria-selected="true" aria-controls="mypage-sections" id="tab-btn-all" data-tab="all">전체 현황</button>
+          <button type="button" class="mypage-tab-btn" role="tab" aria-selected="false" aria-controls="tab-purchases" id="tab-btn-purchases" data-tab="purchases">구매 내역</button>
+          <button type="button" class="mypage-tab-btn" role="tab" aria-selected="false" aria-controls="tab-teams" id="tab-btn-teams" data-tab="teams">공구 참여</button>
+          <button type="button" class="mypage-tab-btn" role="tab" aria-selected="false" aria-controls="tab-wishlist" id="tab-btn-wishlist" data-tab="wishlist">찜한 상품</button>
+          <button type="button" class="mypage-tab-btn" role="tab" aria-selected="false" aria-controls="tab-refunds" id="tab-btn-refunds" data-tab="refunds">환불 내역</button>
+          <button type="button" class="mypage-tab-btn" role="tab" aria-selected="false" aria-controls="tab-account" id="tab-btn-account" data-tab="account">계정 설정</button>
+        </nav>
+
+        <!-- 구매 목록 -->
+        <section id="tab-purchases" class="mypage-section mypage-tab-panel" role="tabpanel" aria-labelledby="tab-btn-purchases" data-tab-panel="purchases">
+          <div class="section__head">
+            <h2>구매 목록</h2>
+          </div>
+
+          <!-- 로딩/빈 목록/에러(403 등) 상태. js/buyer-mypage.js가 제어한다. -->
+          <div id="purchases-status" class="product-status" role="status" hidden></div>
+
+          <ul id="purchases-list" class="mypage-list"></ul>
+        </section>
+
+        <!-- 공구 참여 목록 -->
+        <section id="tab-teams" class="mypage-section mypage-tab-panel" role="tabpanel" aria-labelledby="tab-btn-teams" data-tab-panel="teams">
+          <div class="section__head">
+            <h2>공구 참여 목록</h2>
+          </div>
+
+          <div id="teams-status" class="product-status" role="status" hidden></div>
+
+          <ul id="teams-list" class="mypage-list"></ul>
+        </section>
+
+        <!-- 찜한 상품 -->
+        <section id="wishlist-section" class="mypage-section mypage-tab-panel" role="tabpanel" aria-labelledby="tab-btn-wishlist" data-tab-panel="wishlist">
+          <div class="section__head">
+            <h2>찜한 상품</h2>
+          </div>
+
+          <div id="wishlist-status" class="product-status" role="status" hidden></div>
+
+          <ul id="wishlist-list" class="mypage-list"></ul>
+        </section>
+
+        <!-- 환불 요청 내역 -->
+        <section id="tab-refunds" class="mypage-section mypage-tab-panel" role="tabpanel" aria-labelledby="tab-btn-refunds" data-tab-panel="refunds">
+          <div class="section__head">
+            <h2>환불 요청 내역</h2>
+          </div>
+
+          <div id="refund-requests-status" class="product-status" role="status" hidden></div>
+
+          <ul id="refund-requests-list" class="mypage-list"></ul>
+        </section>
+
         <!-- 계정 정보 수정 -->
-        <section class="mypage-section">
+        <section id="tab-account" class="mypage-section mypage-tab-panel" role="tabpanel" aria-labelledby="tab-btn-account" data-tab-panel="account">
           <div class="section__head">
             <h2>계정 정보</h2>
           </div>
@@ -73,51 +162,6 @@
 
             <button type="submit" id="account-info-submit" class="btn btn-primary">저장</button>
           </form>
-        </section>
-
-        <!-- 구매 목록 -->
-        <section class="mypage-section">
-          <div class="section__head">
-            <h2>구매 목록</h2>
-          </div>
-
-          <!-- 로딩/빈 목록/에러(403 등) 상태. js/buyer-mypage.js가 제어한다. -->
-          <div id="purchases-status" class="product-status" role="status" hidden></div>
-
-          <ul id="purchases-list" class="mypage-list"></ul>
-        </section>
-
-        <!-- 찜한 상품 -->
-        <section id="wishlist-section" class="mypage-section">
-          <div class="section__head">
-            <h2>찜한 상품</h2>
-          </div>
-
-          <div id="wishlist-status" class="product-status" role="status" hidden></div>
-
-          <ul id="wishlist-list" class="mypage-list"></ul>
-        </section>
-
-        <!-- 공구 참여 목록 -->
-        <section class="mypage-section">
-          <div class="section__head">
-            <h2>공구 참여 목록</h2>
-          </div>
-
-          <div id="teams-status" class="product-status" role="status" hidden></div>
-
-          <ul id="teams-list" class="mypage-list"></ul>
-        </section>
-
-        <!-- 환불 요청 내역 -->
-        <section class="mypage-section">
-          <div class="section__head">
-            <h2>환불 요청 내역</h2>
-          </div>
-
-          <div id="refund-requests-status" class="product-status" role="status" hidden></div>
-
-          <ul id="refund-requests-list" class="mypage-list"></ul>
         </section>
       </div>
     </section>
