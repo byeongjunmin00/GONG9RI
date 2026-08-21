@@ -527,20 +527,21 @@ class TeamControllerTest {
     }
 
     @Test
-    @DisplayName("마지막 남은 참여자는 참여를 취소할 수 없다(409 LAST_PARTICIPANT_CANNOT_LEAVE)")
-    void leave_lastParticipant_conflict() throws Exception {
+    @DisplayName("마지막 남은 참여자가 참여를 취소하면 200 OK와 함께 팀 상태가 FAILED로 전환되고 currentCount가 0이 된다")
+    void leave_lastParticipant_teamBecomesFailed() throws Exception {
         Member seller = saveMember("leaveSeller4", Role.SELLER);
         Product product = saveProduct(seller, 5);
         Member leader = saveMember("leaveLeader4", Role.BUYER);
         GroupBuyTeam team = saveTeam(product, leader, 5);
 
         mockMvc.perform(post("/api/teams/" + team.getId() + "/leave").with(asUser(leader)))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("LAST_PARTICIPANT_CANNOT_LEAVE"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("FAILED"))
+                .andExpect(jsonPath("$.data.currentCount").value(0));
 
-        GroupBuyTeam unchanged = groupBuyTeamRepository.findById(team.getId()).orElseThrow();
-        assertEquals(1, unchanged.getCurrentCount());
-        assertEquals(TeamStatus.RECRUITING, unchanged.getStatus());
+        GroupBuyTeam refreshed = groupBuyTeamRepository.findById(team.getId()).orElseThrow();
+        assertEquals(0, refreshed.getCurrentCount());
+        assertEquals(TeamStatus.FAILED, refreshed.getStatus());
     }
 
     @Test
