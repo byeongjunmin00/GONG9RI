@@ -1,5 +1,6 @@
 package com.gong9ri.gong9ri.common.mail;
 
+import com.gong9ri.gong9ri.common.config.AppUrlProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,13 +26,11 @@ import org.springframework.stereotype.Component;
 public class EmailService {
 
     private final EmailSender emailSender;
-
-    @Value("${app.base-url}")
-    private String baseUrl;
+    private final AppUrlProperties appUrl;
 
     @Async
     public void sendVerificationEmail(String to, String token) {
-        String link = baseUrl + "/api/auth/verify-email?token=" + token;
+        String link = appUrl.url("/api/auth/verify-email?token=" + token);
         String body = "GONG9RI 회원가입을 완료하려면 아래 링크를 클릭해서 이메일을 인증해주세요.\n\n"
                 + link
                 + "\n\n이 링크는 24시간 동안만 유효합니다.";
@@ -40,7 +39,7 @@ public class EmailService {
 
     @Async
     public void sendPasswordResetEmail(String to, String token) {
-        String link = baseUrl + "/reset-password.html?token=" + token;
+        String link = appUrl.url("/reset-password.html?token=" + token);
         String body = "비밀번호를 재설정하려면 아래 링크를 클릭해주세요.\n\n"
                 + link
                 + "\n\n이 링크는 30분 동안만 유효합니다. 본인이 요청하지 않았다면 이 메일을 무시해도 됩니다.";

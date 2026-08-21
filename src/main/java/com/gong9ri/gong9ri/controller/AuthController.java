@@ -5,6 +5,7 @@ import com.gong9ri.gong9ri.client.KakaoUserInfo;
 import com.gong9ri.gong9ri.common.exception.BusinessException;
 import com.gong9ri.gong9ri.common.exception.ErrorCode;
 import com.gong9ri.gong9ri.common.mail.EmailService;
+import com.gong9ri.gong9ri.common.config.AppUrlProperties;
 import com.gong9ri.gong9ri.common.response.ApiResponse;
 import com.gong9ri.gong9ri.common.security.LoginAttemptGuard;
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
@@ -72,8 +73,7 @@ public class AuthController {
     private final EmailService emailService;
     private final KakaoClient kakaoClient;
 
-    @Value("${app.base-url}")
-    private String appBaseUrl;
+    private final AppUrlProperties appUrl;
 
     @Value("${kakao.client-id}")
     private String kakaoClientId;
@@ -332,7 +332,9 @@ public class AuthController {
     // redirect_uri는 /kakao/login(인가 요청)과 /kakao/callback(토큰 교환) 양쪽에서 정확히 같은 값이어야
     // 한다는 카카오 API 요구사항 때문에 한 곳에서만 조립한다.
     private String kakaoRedirectUri() {
-        return appBaseUrl + "/api/auth/kakao/callback";
+        // 끝 슬래시가 붙으면 //api/... 가 되어 **카카오 콘솔에 등록한 Redirect URI와 문자열이
+        // 어긋나 로그인이 실패한다.** AppUrlProperties가 정규화한 값을 쓴다.
+        return appUrl.url("/api/auth/kakao/callback");
     }
 
     // role 파라미터가 없거나 잘못된 값이면 null — 호출부(kakaoLogin)가 "명시적 role 선택 없음"으로

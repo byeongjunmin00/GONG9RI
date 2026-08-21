@@ -4,6 +4,7 @@ import com.gong9ri.gong9ri.entity.Product;
 import com.gong9ri.gong9ri.repository.ProductRepository;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import com.gong9ri.gong9ri.common.config.AppUrlProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -18,9 +19,7 @@ import org.springframework.stereotype.Service;
 public class SitemapService {
 
     private final ProductRepository productRepository;
-
-    @Value("${app.base-url}")
-    private String baseUrl;
+    private final AppUrlProperties appUrl;
 
     private static final DateTimeFormatter LASTMOD_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE;
 
@@ -35,7 +34,7 @@ public class SitemapService {
 
         List<Product> products = productRepository.findAll();
         for (Product product : products) {
-            String loc = baseUrl + "/product.html?id=" + product.getId();
+            String loc = appUrl.url("/product.html?id=" + product.getId());
             xml.append("  <url>\n");
             xml.append("    <loc>").append(escapeXml(loc)).append("</loc>\n");
             if (product.getUpdatedAt() != null) {
@@ -52,7 +51,7 @@ public class SitemapService {
 
     private void appendStaticUrl(StringBuilder xml, String path, String changefreq, String priority) {
         xml.append("  <url>\n");
-        xml.append("    <loc>").append(escapeXml(baseUrl + path)).append("</loc>\n");
+        xml.append("    <loc>").append(escapeXml(appUrl.url(path))).append("</loc>\n");
         xml.append("    <changefreq>").append(changefreq).append("</changefreq>\n");
         xml.append("    <priority>").append(priority).append("</priority>\n");
         xml.append("  </url>\n");

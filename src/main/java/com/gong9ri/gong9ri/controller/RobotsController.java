@@ -1,6 +1,6 @@
 package com.gong9ri.gong9ri.controller;
 
-import org.springframework.beans.factory.annotation.Value;
+import com.gong9ri.gong9ri.common.config.AppUrlProperties;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,8 +17,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class RobotsController {
 
-    @Value("${app.base-url}")
-    private String baseUrl;
+    private final AppUrlProperties appUrl;
+
+    public RobotsController(AppUrlProperties appUrl) {
+        this.appUrl = appUrl;
+    }
 
     @GetMapping(value = "/robots.txt", produces = MediaType.TEXT_PLAIN_VALUE)
     public ResponseEntity<String> robots() {
@@ -26,8 +29,8 @@ public class RobotsController {
                 User-agent: *
                 Allow: /
 
-                Sitemap: %s/sitemap.xml
-                """.formatted(baseUrl);
+                Sitemap: %s
+                """.formatted(appUrl.url("/sitemap.xml"));
         return ResponseEntity.ok(body);
     }
 }
