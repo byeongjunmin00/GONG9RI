@@ -42,11 +42,123 @@
     emailErrorEl.textContent = '';
   }
 
+  var profileImageInput = document.getElementById('profile-image-input');
+  var btnChangeProfileImage = document.getElementById('btn-change-profile-image');
+  var btnDeleteProfileImage = document.getElementById('btn-delete-profile-image');
+  var profileImagePreview = document.getElementById('profile-image-preview');
+  var profileImageDefaultIcon = document.getElementById('profile-image-default-icon');
+
+  function updateProfileAvatar(url) {
+    if (url) {
+      if (profileImagePreview) {
+        profileImagePreview.src = url;
+        profileImagePreview.hidden = false;
+      }
+      if (profileImageDefaultIcon) {
+        profileImageDefaultIcon.hidden = true;
+      }
+      if (btnDeleteProfileImage) {
+        btnDeleteProfileImage.hidden = false;
+      }
+      var profileAvatarEl = document.querySelector('.mypage-profile__avatar');
+      if (profileAvatarEl) {
+        while (profileAvatarEl.firstChild) {
+          profileAvatarEl.removeChild(profileAvatarEl.firstChild);
+        }
+        var img = document.createElement('img');
+        img.src = url;
+        img.alt = '프로필 사진';
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'cover';
+        img.style.borderRadius = '50%';
+        profileAvatarEl.appendChild(img);
+      }
+    } else {
+      if (profileImagePreview) {
+        profileImagePreview.src = '';
+        profileImagePreview.hidden = true;
+      }
+      if (profileImageDefaultIcon) {
+        profileImageDefaultIcon.hidden = false;
+      }
+      if (btnDeleteProfileImage) {
+        btnDeleteProfileImage.hidden = true;
+      }
+    }
+  }
+
+  if (btnChangeProfileImage && profileImageInput) {
+    btnChangeProfileImage.addEventListener('click', function () {
+      profileImageInput.click();
+    });
+
+    profileImageInput.addEventListener('change', function () {
+      var file = profileImageInput.files && profileImageInput.files[0];
+      if (!file) return;
+
+      if (file.size > 5 * 1024 * 1024) {
+        showAlert('이미지 파일 크기는 5MB 이하만 가능합니다.');
+        profileImageInput.value = '';
+        return;
+      }
+
+      var formData = new FormData();
+      formData.append('file', file);
+
+      btnChangeProfileImage.disabled = true;
+
+      window.fetch('/api/member/profile-image', {
+        method: 'POST',
+        body: formData
+      })
+      .then(function (res) { return res.json(); })
+      .then(function (res) {
+        btnChangeProfileImage.disabled = false;
+        profileImageInput.value = '';
+        if (res && res.success && res.data) {
+          showAlert('프로필 사진이 변경되었습니다.', 'success');
+          updateProfileAvatar(res.data.profileImageUrl);
+        } else {
+          showAlert((res && res.error && res.error.message) || '프로필 사진 변경 실패', 'error');
+        }
+      })
+      .catch(function (err) {
+        btnChangeProfileImage.disabled = false;
+        profileImageInput.value = '';
+        console.error('[account-info.js] profile image upload error:', err);
+        showAlert('프로필 사진 변경 중 오류가 발생했습니다.');
+      });
+    });
+  }
+
+  if (btnDeleteProfileImage) {
+    btnDeleteProfileImage.addEventListener('click', function () {
+      if (!window.confirm('프로필 사진을 삭제하시겠습니까?')) return;
+
+      btnDeleteProfileImage.disabled = true;
+      window.Api.del('/member/profile-image')
+        .then(function (res) {
+          btnDeleteProfileImage.disabled = false;
+          showAlert('프로필 사진이 삭제되었습니다.', 'success');
+          updateProfileAvatar(null);
+        })
+        .catch(function (err) {
+          btnDeleteProfileImage.disabled = false;
+          console.error('[account-info.js] delete profile image error:', err);
+          showAlert('프로필 사진 삭제 실패');
+        });
+    });
+  }
+
   function loadCurrentInfo() {
     window.Api.get('/auth/me')
       .then(function (member) {
         nameInput.value = member.name || '';
         emailInput.value = member.email || '';
+        if (member.profileImageUrl) {
+          updateProfileAvatar(member.profileImageUrl);
+        }
       })
       .catch(function (err) {
         // 401은 다른 스크립트가 이미 안내하므로 조용히 무시. 그 외 에러만 폼을 못 쓰게 막는다.

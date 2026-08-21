@@ -21,6 +21,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.web.multipart.MultipartFile;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -30,6 +32,34 @@ public class MemberService {
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher eventPublisher;
+    private final ProductImageStorage productImageStorage;
+
+    @Transactional
+    public MemberResponse updateProfileImage(Long memberId, MultipartFile file) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
+        String oldUrl = member.getProfileImageUrl();
+        String url = productImageStorage.store(file);
+        if (oldUrl != null) {
+            productImageStorage.delete(oldUrl);
+        }
+        member.updateProfileImage(url);
+        log.info("프로필 사진 변경 완료: memberId={}, url={}", memberId, url);
+        return MemberResponse.from(member);
+    }
+
+    @Transactional
+    public MemberResponse deleteProfileImage(Long memberId) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
+        String oldUrl = member.getProfileImageUrl();
+        if (oldUrl != null) {
+            productImageStorage.delete(oldUrl);
+        }
+        member.updateProfileImage(null);
+        log.info("프로필 사진 삭제 완료: memberId={}", memberId);
+        return MemberResponse.from(member);
+    }
 
     @Transactional
     public MemberResponse signup(MemberSignupRequest request) {

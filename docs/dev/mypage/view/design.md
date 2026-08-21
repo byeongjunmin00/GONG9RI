@@ -7,6 +7,7 @@
 ## API / 인터페이스
 
 - `GET /api/buyer/mypage/{purchases,teams,refund-requests,wishlist}`, `GET /api/seller/mypage/{products,orders,revenue,teams}` — 상세: `docs/api/mypage.md`, 찜은 `docs/api/wishlist.md`
+- `POST /api/member/profile-image`, `DELETE /api/member/profile-image` — 상세: `docs/api/auth.md`
 
 ## 데이터 모델
 
@@ -32,6 +33,12 @@
   - `preparationStatus`는 저장된 컬럼이 아니라 `SellerOrderResponse.from()`이 결제 상태(`REFUNDED`/`REFUND_PENDING`)와 공구팀 상태(`RECRUITING`/`FAILED`)로부터 그때그때 계산한 파생값(`REFUNDED`/`RECRUITING`/`FAILED`/`PREPARING`) — 다른 곳에 저장하지 않는다.
   - **`PENDING`/`FAILED` 결제는 조회 대상에서 제외**한다(`PaymentRepository.findAllBySellerIdWithProductAndMemberAndTeam`의 `WHERE` 조건) — 결제가 아직 확정되지 않았거나 실패한 건까지 포함하면 `preparationStatus` 파생 로직이 걸러내지 못하고 전부 `PREPARING`(배송 준비 중)으로 잘못 표시되기 때문(리뷰에서 발견, 2026-08-21 수정).
 
+- **회원 프로필 사진 변경 및 삭제 기능** (`POST /api/member/profile-image`, `DELETE /api/member/profile-image`, 2026-08-21 `006-member-profile-image-upload` 개편):
+  - 회원이 프로필 사진을 업로드하거나 삭제/초기화할 수 있는 API 및 마이페이지 UI 구현.
+  - `Member.profileImageUrl` 필드 추가 및 `ProductImageStorage`를 통한 5MB 이하 축소 JPEG 저장 파이프라인 연동(상품 이미지와 동일한 `/uploads/{yyyy}/{MM}/{uuid}.jpg` 저장소를 공유).
+  - **사진 교체/삭제 시 이전 파일을 디스크에서 함께 지운다**(`ProductImageStorage.delete()`, 2026-08-21 리뷰에서 발견해 추가) — 안 지우면 회원이 사진을 바꿀 때마다 고아 파일이 유한한 Railway 볼륨에 계속 쌓이는 문제였다. 새 파일 저장이 성공한 뒤에만 이전 파일을 지우므로, 업로드 자체가 실패(잘못된 파일 등)하면 기존 사진은 그대로 남는다. `delete()`는 `/uploads/` 접두사가 아니거나 정규화 후 저장 루트를 벗어나는 URL은 조용히 무시한다(경로 탈출 방지, `store()`와 같은 방어 원칙).
+  - **세션의 SecurityContext를 즉시 갱신**한다(`AuthController.updateMe()`와 동일한 패턴) — 안 하면 재로그인 전까지 `GET /api/auth/me`가 사진 변경 전 값을 계속 돌려주는 버그였다(리뷰 중 실측으로 발견, 2026-08-21 수정).
+
 ## 관련 코드 위치
 
 - `dto/{PurchaseResponse,BuyerTeamResponse,SellerProductResponse,RevenueResponse,SellerTeamResponse}.java`
@@ -42,3 +49,13 @@
 - `seller/mypage.html`, `js/seller-mypage.js` — 📦 주문·배송 관리 탭, `loadOrders()`(005)
 - 테스트(005): `controller/SellerMypageControllerTest.java` — `orders_asSeller_returnsSellerOrdersWithBuyerInfo`, `orders_scoping_onlyOwnSalesPayments`, `orders_forbidden_buyer`, `orders_unauthorized`, `orders_excludesPendingAndFailedPayments`
 - 경위(005): `docs/dev/mypage/view/changes/005-seller-order-shipment-management.md`, 실행 로그: `docs/logs/frontend/seller/005-seller-order-shipment-management.md`
+
+- `dto/MemberResponse.java` — `profileImageUrl` 추가(006)
+- `entity/Member.java` — `profileImageUrl` 필드 및 `updateProfileImage()` 도메인 메서드 추가(006).
+- `controller/MemberProfileImageController.java` — 신규 프로필 사진 업로드/삭제 컨트롤러(006). 업로드/삭제 성공 후 `SecurityContextHolder`를 새 `MemberUserDetails`로 교체 + `securityContextRepository.saveContext()` 호출(세션 즉시 갱신).
+- `service/MemberService.java` — `updateProfileImage()`, `deleteProfileImage()` 구현(006).
+- `service/ProductImageStorage.java` — `delete(String url)` 신규(006). `/uploads/` 접두사가 아니거나 정규화 후 저장 루트를 벗어나는 URL은 조용히 무시.
+- `buyer/mypage.html`, `seller/mypage.html`, `js/account-info.js` — 계정 정보 탭 [사진 변경]/[삭제] UI 및 아바타 실시간 렌더링(006).
+- 테스트(006): `controller/MemberProfileImageControllerTest.java` — `uploadProfileImage_success`, `deleteProfileImage_success`, `uploadProfileImage_unauthorized`, `deleteProfileImage_unauthorized`, `uploadProfileImage_replacingDeletesOldFile`, `uploadProfileImage_refreshesSessionPrincipalImmediately`, `deleteProfileImage_refreshesSessionPrincipalImmediately`
+- 테스트(006): `service/ProductImageStorageTest.java` — `delete_removesStoredFile`, `delete_ignoresInvalidOrTraversalUrls`, `delete_doesNotThrowWhenFileAlreadyGone`
+- 경위(006): `docs/dev/mypage/view/changes/006-member-profile-image-upload.md`, 실행 로그: `docs/logs/frontend/mypage/006-member-profile-image-upload.md`

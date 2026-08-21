@@ -1,5 +1,6 @@
 package com.gong9ri.gong9ri.service;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -123,5 +124,35 @@ class ProductImageStorageTest {
         BufferedImage stored = ImageIO.read(tempDir.resolve(url.substring("/uploads/".length())).toFile());
         assertEquals(320, stored.getWidth());
         assertEquals(240, stored.getHeight());
+    }
+
+    @Test
+    @DisplayName("delete()는 저장된 파일을 실제로 지운다")
+    void delete_removesStoredFile() throws IOException {
+        ProductImageStorage storage = storage();
+        String url = storage.store(new MockMultipartFile("file", "photo.png", "image/png", pngBytes(100, 100)));
+        Path saved = tempDir.resolve(url.substring("/uploads/".length()));
+        assertTrue(Files.exists(saved), "삭제 전엔 파일이 있어야 한다");
+
+        storage.delete(url);
+
+        assertFalse(Files.exists(saved), "delete() 후엔 파일이 없어야 한다");
+    }
+
+    @Test
+    @DisplayName("[보안] URL 접두사가 다르거나 경로 탈출을 노린 값은 무시하고 예외를 던지지 않는다")
+    void delete_ignoresInvalidOrTraversalUrls() {
+        ProductImageStorage storage = storage();
+
+        assertDoesNotThrow(() -> storage.delete(null));
+        assertDoesNotThrow(() -> storage.delete(""));
+        assertDoesNotThrow(() -> storage.delete("/etc/passwd"));
+        assertDoesNotThrow(() -> storage.delete("/uploads/../../../../etc/passwd"));
+    }
+
+    @Test
+    @DisplayName("delete()는 이미 없는 파일을 가리켜도 예외를 던지지 않는다")
+    void delete_doesNotThrowWhenFileAlreadyGone() {
+        assertDoesNotThrow(() -> storage().delete("/uploads/2026/08/nonexistent.jpg"));
     }
 }
