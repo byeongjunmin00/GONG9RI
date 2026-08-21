@@ -189,11 +189,38 @@
     text-align: center;
   }
 
+  /* 로고 → 검색창 → 나머지(알림/로그인 등) 순서를 이 3개 최상위 자식에 명시적으로 고정한다.
+     예전에는 검색창(css/components.css)에만 order:3을 줬는데, 그 order가 nav/알림/로그인을
+     묶는 .site-header__right와는 다른 flex 컨테이너 소속이라 서로 무관하게 작동해 검색창이
+     오히려 그 묶음보다도 더 아래로 밀려났다(2026-08-21, 코드 리뷰로 발견). */
+  .site-header__logo {
+    order: 1;
+  }
+
+  .site-header__right {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+  }
+
   .site-header__nav {
     order: 3;
     width: 100%;
     justify-content: center;
     gap: var(--space-4);
+  }
+
+  /* 알림벨/찜 아이콘(원형 32px)과 로그인·로그아웃 버튼의 높이가 또렷하게 달라 보였다(버튼은
+     padding 8px + 12px 폰트라 실제 28~30px, 아이콘은 32px 고정 — 사용자가 실기기에서 직접
+     발견). 아이콘 쪽을 모바일 터치 타겟 기준(40px)으로 키우고, 버튼도 같은 높이로 맞춘다. */
+  .site-header__notifications-bell,
+  .site-header__wishlist-link {
+    width: 40px;
+    height: 40px;
+  }
+
+  .site-header__auth .btn {
+    min-height: 40px;
   }
 }
 
