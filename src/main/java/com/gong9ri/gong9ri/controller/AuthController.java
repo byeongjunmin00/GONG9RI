@@ -117,6 +117,11 @@ public class AuthController {
                     candidate.getMember().getId(), request.username());
             throw new BusinessException(ErrorCode.ACCOUNT_SUSPENDED);
         }
+        if (candidate.getMember().isWithdrawn()) {
+            log.warn("탈퇴한 계정 로그인 거절: memberId={}, username={}",
+                    candidate.getMember().getId(), request.username());
+            throw new BusinessException(ErrorCode.ACCOUNT_WITHDRAWN);
+        }
 
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authentication);
@@ -305,6 +310,20 @@ public class AuthController {
             KakaoUserInfo userInfo = kakaoClient.getUserInfo(accessToken);
             KakaoLoginResult result = memberService.findOrCreateByKakao(userInfo, intendedRole);
             Member member = result.member();
+
+            // 일반 로그인과 같은 게이트를 여기서도 통과시킨다. 이 검사가 없으면 **정지된 계정이
+            // 카카오로 우회 로그인**된다 — 아이디/비밀번호 경로만 막고 소셜 경로를 열어두면 제재가
+            // 무의미해진다(2026-08-21 탈퇴 기능 작업 중 발견).
+            if (member.isSuspended()) {
+                log.warn("정지된 계정 카카오 로그인 거절: memberId={}", member.getId());
+                httpResponse.sendRedirect("/login.html?error=suspended");
+                return;
+            }
+            if (member.isWithdrawn()) {
+                log.warn("탈퇴한 계정 카카오 로그인 거절: memberId={}", member.getId());
+                httpResponse.sendRedirect("/login.html?error=withdrawn");
+                return;
+            }
 
             MemberUserDetails principal = new MemberUserDetails(member);
             Authentication authentication =

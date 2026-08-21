@@ -66,6 +66,20 @@ public class Member {
     @ColumnDefault("false")
     private boolean suspended;
 
+    /**
+     * 회원 탈퇴 시각 (member/withdraw, 2026-08-21). null이면 탈퇴하지 않은 회원.
+     *
+     * <p><b>행을 지우지 않는 이유</b>: 이 회원을 참조하는 테이블이 12개이고, 그중 결제·공구팀 참여는
+     * <b>남의 화면에도 영향을 준다</b> — 지워버리면 판매자 정산 합계가 틀어지고, 같은 공구팀에 있던
+     * 다른 사람들 화면에서 인원이 어긋난다. 관리자 삭제가 "활동 기록이 하나도 없을 때만" 하드 삭제를
+     * 허용하는 것과 같은 판단이다(docs/dev/admin/design.md).
+     *
+     * <p>대신 <b>로그인을 막고 이름을 가린다.</b> 정지(suspended)와 컬럼을 나눈 이유는 둘의 뜻이
+     * 다르기 때문 — 정지는 관리자가 건 제재라 관리자가 풀 수 있어야 하고, 탈퇴는 본인 의사라
+     * 관리자가 임의로 되돌리면 안 된다. 한 컬럼으로 합치면 관리자 화면에서 구분이 안 된다.
+     */
+    private LocalDateTime withdrawnAt;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -97,6 +111,30 @@ public class Member {
 
     public void unsuspend() {
         this.suspended = false;
+    }
+
+    /**
+     * 회원 탈퇴 (member/withdraw). 행은 남기고 로그인만 막는다.
+     *
+     * <p>이름·이메일을 지우는 게 아니라 <b>고정 문구로 덮어쓴다</b> — 남의 화면(리뷰 작성자, 공구팀
+     * 참여자, 판매자의 주문 목록)에 이 회원의 이름이 이미 노출돼 있어서, 비워두면 그 자리가 빈칸이
+     * 되어 화면이 깨진 것처럼 보인다. username은 그대로 둔다(UNIQUE 제약이 걸려 있고, 같은 아이디로
+     * 재가입해 남의 기록을 이어받는 걸 막는다).
+     *
+     * <p>비밀번호는 다시 못 맞추도록 무효한 값으로 바꾼다 — 로그인은 아래 withdrawn 검사로도
+     * 막히지만, 검사 하나에만 기대지 않는다.
+     */
+    public void withdraw(String unusablePassword) {
+        this.withdrawnAt = LocalDateTime.now();
+        this.name = "탈퇴한 회원";
+        this.email = "withdrawn+" + this.id + "@gong9ri.invalid";
+        this.password = unusablePassword;
+        this.profileImageUrl = null;
+        this.kakaoId = null;
+    }
+
+    public boolean isWithdrawn() {
+        return withdrawnAt != null;
     }
 
     @Column(length = 500)

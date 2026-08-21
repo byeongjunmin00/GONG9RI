@@ -63,6 +63,47 @@
   font-size: var(--fs-xs);
 }
 
+/* 되돌릴 수 없는 동작(회원 탈퇴 등) 전용. --color-danger는 이 프로젝트에서 "미성사"를 뜻하는
+   중립 회색이라 경고로 쓰기엔 약해서, 에러색(--color-error)을 테두리·글자에만 쓴다 — 배경까지
+   채우면 화면에서 가장 강한 버튼이 되어 저장 버튼보다 눈에 띈다. */
+.btn-danger {
+  background: transparent;
+  color: var(--color-error);
+  border: 1px solid var(--color-error);
+}
+
+.btn-danger:hover {
+  background: var(--color-error);
+  color: #fff;
+}
+
+/* 회원 탈퇴 영역 — 계정 정보 폼과 확실히 떼어 놓는다. 붙어 있으면 "저장"을 누르려다 잘못
+   누르기 쉽다. */
+.withdraw-zone {
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-border);
+}
+
+.withdraw-zone__title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-md);
+  color: var(--color-text);
+}
+
+.withdraw-zone__desc {
+  margin: 0 0 var(--space-3);
+  font-size: var(--fs-sm);
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
+
+.withdraw-zone__actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+
 .btn-block {
   width: 100%;
 }

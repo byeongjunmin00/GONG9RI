@@ -181,6 +181,30 @@
 
             <button type="submit" id="account-info-submit" class="btn btn-primary">저장</button>
           </form>
+
+          <!-- 회원 탈퇴 (member/withdraw) — 되돌릴 수 없는 동작이라 계정 정보 폼과 확실히 떼어 놓고,
+               기본 상태에서는 버튼 하나만 보여준다. 눌러야 비밀번호 확인이 펼쳐진다. -->
+          <div class="withdraw-zone">
+            <h3 class="withdraw-zone__title">회원 탈퇴</h3>
+            <p class="withdraw-zone__desc">
+              탈퇴하면 다시 로그인할 수 없어요. 이미 진행한 주문·공구 기록은 판매자 정산과 같은 팀
+              참여자들을 위해 남지만, 이름은 '탈퇴한 회원'으로 바뀝니다.
+            </p>
+            <button type="button" id="btn-withdraw-open" class="btn btn-ghost btn-sm">회원 탈퇴</button>
+
+            <div id="withdraw-confirm" hidden>
+              <div id="withdraw-alert" class="form-alert" role="alert" hidden></div>
+              <div class="form-group" id="withdraw-password-field">
+                <label class="form-label" for="withdraw-password">비밀번호 확인</label>
+                <input class="form-input" type="password" id="withdraw-password"
+                       autocomplete="current-password" />
+              </div>
+              <div class="withdraw-zone__actions">
+                <button type="button" id="btn-withdraw-confirm" class="btn btn-danger btn-sm">탈퇴하기</button>
+                <button type="button" id="btn-withdraw-cancel" class="btn btn-secondary btn-sm">취소</button>
+              </div>
+            </div>
+          </div>
         </section>
       </div>
     </section>
@@ -202,6 +226,7 @@
   <script src="/js/header-wishlist-badge.js"></script>
   <script src="/js/chat-widget.js"></script>
   <script src="/js/account-info.js"></script>
+  <script src="/js/withdraw.js"></script>
   <script src="/js/seller-mypage.js"></script>
 </body>
 </html>

@@ -49,6 +49,12 @@
     showAlert('비밀번호가 변경됐습니다. 새 비밀번호로 로그인해주세요.', 'success', false);
   } else if (params.get('error') === 'kakao') {
     showAlert('카카오 로그인에 실패했습니다. 잠시 후 다시 시도해주세요.', 'error', false);
+  } else if (params.get('error') === 'suspended') {
+    // 카카오 경로도 일반 로그인과 같은 게이트를 지난다(AuthController.kakaoCallback). 리다이렉트로
+    // 돌아오므로 여기서 문구를 맞춰준다 — ErrorCode.ACCOUNT_SUSPENDED와 같은 내용.
+    showAlert('정지된 계정입니다. 문의는 관리자에게 해주세요.', 'error', false);
+  } else if (params.get('error') === 'withdrawn') {
+    showAlert('탈퇴한 계정입니다. 새로 가입해주세요.', 'error', false);
   }
 
   // 다른 페이지에서 "로그인이 필요합니다" 안내를 통해 넘어온 경우 로그인 후 그 페이지로 돌아간다.

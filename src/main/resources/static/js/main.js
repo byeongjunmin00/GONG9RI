@@ -65,6 +65,21 @@
     pageAlertTextEl.textContent = '이미 ' + roleLabel + '로 가입되어 있어 ' + roleLabel + '로 로그인되었습니다.';
   })();
 
+  // 회원 탈퇴 완료 안내(?withdrawn=1) — 탈퇴 직후 서버가 세션을 끊고 메인으로 보낸다. 아무 안내도
+  // 없으면 갑자기 로그아웃된 것처럼 보이므로, 같은 "쿼리파라미터 + 배너" 패턴으로 알린다.
+  (function showWithdrawnBanner() {
+    var pageAlertEl = document.getElementById('page-alert');
+    var pageAlertTextEl = document.getElementById('page-alert-text');
+    if (!pageAlertEl || !pageAlertTextEl) {
+      return;
+    }
+    if (new URLSearchParams(window.location.search).get('withdrawn') !== '1') {
+      return;
+    }
+    pageAlertEl.hidden = false;
+    pageAlertTextEl.textContent = '탈퇴가 완료되었습니다. 그동안 이용해주셔서 감사합니다.';
+  })();
+
   // 메인 히어로 캐러셀 — 3장 고정(1.소개 2.실시간 인기 공구 3.신규 가입).
   // 원래 "슬림 공지 바"(promo-bar)와 소개 캐러셀 두 개가 나란히 있어 난잡해 보인다는 피드백으로
   // 하나로 합쳤다 — 크기는 기존 소개 캐러셀(큰 배너), 테마는 기존 공지 바(어두운 배경 + 흰 글씨)를
