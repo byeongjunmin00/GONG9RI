@@ -80,6 +80,9 @@
     if (userNameEl) {
       userNameEl.textContent = member.name ? member.name + ' (관리자)' : '시스템 관리자';
     }
+    // 관리자도 프로필 사진을 쓸 수 있다(member/profile-image 노출).
+    window.Avatar.fill(document.querySelector('.mypage-profile__avatar'),
+        member.name, member.profileImageUrl);
     if (userEmailEl) {
       userEmailEl.textContent = member.email || '';
     }

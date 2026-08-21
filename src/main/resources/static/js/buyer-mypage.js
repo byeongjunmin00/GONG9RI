@@ -218,6 +218,9 @@
         if (user && summaryUserNameEl && summaryUserEmailEl) {
           summaryUserNameEl.textContent = user.name || '구매자';
           summaryUserEmailEl.textContent = user.email || '';
+          // 프로필 사진(member/profile-image 노출). 컨테이너가 이미 원형·크기를 갖고 있어 fill을 쓴다.
+          window.Avatar.fill(document.querySelector('.mypage-profile__avatar'),
+              user.name, user.profileImageUrl);
         }
       })
       .catch(function (err) {
@@ -752,7 +755,14 @@
     var metaEl = document.createElement('span');
     metaEl.className = 'mypage-list-item__meta';
     var priceText = formatPrice(item.bestPrice != null ? item.bestPrice : item.basePrice);
-    metaEl.textContent = [item.sellerName, priceText].filter(Boolean).join(' · ');
+    if (item.sellerName) {
+      metaEl.appendChild(window.Avatar.withName(item.sellerName, item.sellerProfileImageUrl, 'xs'));
+      var priceEl = document.createElement('span');
+      priceEl.textContent = ' · ' + priceText;
+      metaEl.appendChild(priceEl);
+    } else {
+      metaEl.textContent = priceText;
+    }
     infoEl.appendChild(metaEl);
 
     var mainEl = createListItemMainWrapper(item.imageUrl, item.productName, infoEl);

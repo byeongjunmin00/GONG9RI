@@ -368,7 +368,10 @@
 
     currentSellerId = typeof product.sellerId === 'number' ? product.sellerId : null;
 
-    sellerEl.textContent = product.sellerName || '';
+    // 판매자 사진 + 이름(member/profile-image 노출). 신뢰 판매자 배지는 형제 엘리먼트라 그대로 둔다.
+    while (sellerEl.firstChild) sellerEl.removeChild(sellerEl.firstChild);
+    sellerEl.appendChild(
+        window.Avatar.withName(product.sellerName || '', product.sellerProfileImageUrl, 'sm'));
     sellerTrustEl.hidden = !product.sellerTrustedBadge;
     nameEl.textContent = product.name || '';
 
@@ -975,9 +978,15 @@
     var infoEl = document.createElement('div');
     infoEl.className = 'mypage-list-item__info';
 
+    // 작성자 사진 + 이름, 그 뒤에 별점(member/profile-image 노출). 이름과 별점이 한 덩어리 텍스트였는데
+    // 아바타가 들어가면서 이름만 아바타 옆으로 묶이고 별점은 그 뒤에 따로 붙는다.
     var titleEl = document.createElement('span');
     titleEl.className = 'mypage-list-item__title';
-    titleEl.textContent = review.memberName + ' · ' + review.rating + '점';
+    titleEl.appendChild(
+        window.Avatar.withName(review.memberName || '', review.memberProfileImageUrl, 'sm'));
+    var ratingEl = document.createElement('span');
+    ratingEl.textContent = ' · ' + review.rating + '점';
+    titleEl.appendChild(ratingEl);
     infoEl.appendChild(titleEl);
 
     var metaEl = document.createElement('span');
@@ -1218,7 +1227,11 @@
 
     var titleEl = document.createElement('span');
     titleEl.className = 'mypage-list-item__title';
-    titleEl.textContent = inquiry.memberName + (inquiry.answered ? ' · 답변완료' : ' · 미답변');
+    titleEl.appendChild(
+        window.Avatar.withName(inquiry.memberName || '', inquiry.memberProfileImageUrl, 'sm'));
+    var statusEl = document.createElement('span');
+    statusEl.textContent = inquiry.answered ? ' · 답변완료' : ' · 미답변';
+    titleEl.appendChild(statusEl);
     infoEl.appendChild(titleEl);
 
     var contentEl = document.createElement('span');

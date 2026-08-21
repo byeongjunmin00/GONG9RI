@@ -25,7 +25,19 @@
     var nameEl = document.getElementById('header-auth-user-name');
 
     if (nameEl) {
-      nameEl.textContent = member.name + '님';
+      // 내 프로필 사진 + 이름(member/profile-image 노출). /auth/me가 이미 profileImageUrl을 주므로
+      // 별도 조회가 없다. avatar.js는 헤더가 있는 모든 페이지에서 이 파일보다 먼저 로드되지만,
+      // 혹시 빠진 페이지가 있어도 이름은 그대로 보이도록 폴백을 남긴다.
+      while (nameEl.firstChild) nameEl.removeChild(nameEl.firstChild);
+      if (window.Avatar) {
+        nameEl.appendChild(window.Avatar.create(member.name, member.profileImageUrl, 'sm'));
+        var textEl = document.createElement('span');
+        textEl.textContent = member.name + '님';
+        nameEl.appendChild(textEl);
+        nameEl.classList.add('avatar-name');
+      } else {
+        nameEl.textContent = member.name + '님';
+      }
     }
     if (guest) {
       guest.hidden = true;

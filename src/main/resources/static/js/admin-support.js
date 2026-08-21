@@ -52,7 +52,16 @@
 
     var meta = document.createElement('span');
     meta.className = 'support-message__meta';
-    meta.textContent = (message.sentByAdmin ? '나(상담원)' : message.senderName) + ' · ' + formatTime(message.createdAt);
+    if (message.sentByAdmin) {
+      meta.textContent = '나(상담원) · ' + formatTime(message.createdAt);
+    } else {
+      // 상대방 메시지에만 사진을 붙인다 — 내 메시지에 내 사진을 붙이는 건 구분에 도움이 안 된다.
+      meta.appendChild(window.Avatar.withName(
+          message.senderName || '', message.senderProfileImageUrl, 'xs'));
+      var timeEl = document.createElement('span');
+      timeEl.textContent = ' · ' + formatTime(message.createdAt);
+      meta.appendChild(timeEl);
+    }
     li.appendChild(meta);
 
     threadListEl.appendChild(li);
@@ -75,7 +84,13 @@
 
       var name = document.createElement('span');
       name.className = 'support-admin-room__name';
-      name.textContent = room.memberName + (room.unreadForAdmin > 0 ? ' (' + room.unreadForAdmin + ')' : '');
+      name.appendChild(window.Avatar.withName(
+          room.memberName || '', room.memberProfileImageUrl, 'sm'));
+      if (room.unreadForAdmin > 0) {
+        var unreadEl = document.createElement('span');
+        unreadEl.textContent = ' (' + room.unreadForAdmin + ')';
+        name.appendChild(unreadEl);
+      }
       btn.appendChild(name);
 
       var meta = document.createElement('span');
@@ -143,7 +158,12 @@
     // (연결 하나로 관리자 토픽 + 선택한 방을 함께 구독한다).
     unsubscribeRoom();
     state.roomId = room.roomId;
-    threadTitleEl.textContent = room.memberName + ' 님과의 상담';
+    while (threadTitleEl.firstChild) threadTitleEl.removeChild(threadTitleEl.firstChild);
+    threadTitleEl.appendChild(window.Avatar.create(room.memberName, room.memberProfileImageUrl, 'md'));
+    var titleTextEl = document.createElement('span');
+    titleTextEl.textContent = room.memberName + ' 님과의 상담';
+    threadTitleEl.appendChild(titleTextEl);
+    threadTitleEl.classList.add('avatar-name');
     threadListEl.innerHTML = '';
     threadStatusEl.hidden = false;
     threadStatusEl.textContent = '대화를 불러오는 중...';

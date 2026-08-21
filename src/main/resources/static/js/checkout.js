@@ -170,7 +170,11 @@
   }
 
   function renderProduct(product, teamId) {
-    sellerEl.textContent = product.sellerName || '';
+    // 판매자 사진 + 이름(member/profile-image 노출) — 결제 직전 화면이라 "누구한테 사는지"가 한눈에
+    // 보이는 편이 낫다.
+    while (sellerEl.firstChild) sellerEl.removeChild(sellerEl.firstChild);
+    sellerEl.appendChild(
+        window.Avatar.withName(product.sellerName || '', product.sellerProfileImageUrl, 'sm'));
     nameEl.textContent = product.name || '';
     amountEl.textContent = formatPrice(product.basePrice);
 

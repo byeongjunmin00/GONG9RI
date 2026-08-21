@@ -224,6 +224,9 @@
         if (!user) return;
         if (summaryUserNameEl) summaryUserNameEl.textContent = user.name || '판매자';
         if (summaryUserEmailEl) summaryUserEmailEl.textContent = user.email || '';
+        // 프로필 사진(member/profile-image 노출). 컨테이너가 이미 원형·크기를 갖고 있어 fill을 쓴다.
+        window.Avatar.fill(document.querySelector('.mypage-profile__avatar'),
+            user.name, user.profileImageUrl);
       })
       .catch(function (err) {
         if (handleUnauthorized(err)) return;
@@ -657,9 +660,15 @@
     // 상품명은 메타 라인에서 확인 가능하므로 타이틀은 "누가 요청했는지"를 우선 노출한다.
     var titleEl = document.createElement('span');
     titleEl.className = 'mypage-list-item__title';
-    titleEl.textContent = request.requesterName
-      ? request.requesterName + '님의 환불 요청'
-      : (request.productName || '환불 요청');
+    if (request.requesterName) {
+      titleEl.appendChild(window.Avatar.withName(
+          request.requesterName, request.requesterProfileImageUrl, 'sm'));
+      var suffixEl = document.createElement('span');
+      suffixEl.textContent = '님의 환불 요청';
+      titleEl.appendChild(suffixEl);
+    } else {
+      titleEl.textContent = request.productName || '환불 요청';
+    }
     infoEl.appendChild(titleEl);
 
     // 상품명 + 금액·날짜·사유를 메타 라인으로
@@ -798,7 +807,12 @@
 
     var buyerEl = document.createElement('span');
     buyerEl.className = 'mypage-list-item__title';
-    buyerEl.textContent = '👤 구매자: ' + order.buyerName + (order.buyerEmail ? ' (' + order.buyerEmail + ')' : '');
+    // 이모지 대신 실제 구매자 사진을 쓴다(member/profile-image 노출).
+    buyerEl.appendChild(window.Avatar.create(order.buyerName, order.buyerProfileImageUrl, 'sm'));
+    var buyerTextEl = document.createElement('span');
+    buyerTextEl.textContent = '구매자: ' + order.buyerName + (order.buyerEmail ? ' (' + order.buyerEmail + ')' : '');
+    buyerEl.appendChild(buyerTextEl);
+    buyerEl.classList.add('avatar-name');
     infoEl.appendChild(buyerEl);
 
     var metaEl = document.createElement('span');

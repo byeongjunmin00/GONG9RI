@@ -49,7 +49,12 @@ public record ProductSummaryResponse(
         // false지만, 관리자 목록(listForAdmin)에서는 실제 값이 내려와 화면이 "숨김 해제" 버튼을 띄운다.
         // 이 필드 추가 이전에 캐시된 목록 응답에서는 null이 되는데, 프론트가 그때만 숨김 아님으로
         // 취급하면 되므로 배포 직후에도 깨지지 않는다(Boolean이라 primitive 역직렬화 문제도 없다).
-        Boolean hidden
+        Boolean hidden,
+        // 판매자 프로필 사진(member/profile-image 노출, 2026-08-21). 판매자를 이미 fetch join으로
+        // 가져오고 있어(sellerName과 같은 출처) 추가 쿼리가 생기지 않는다. 사진이 없는 판매자는 null이고
+        // 그때 프론트가 이름 첫 글자 동그라미를 그린다 — 이 필드 추가 이전에 캐시된 응답도 똑같이 null이
+        // 되므로 배포 직후에도 깨지지 않는다(String이라 primitive 역직렬화 문제도 없다).
+        String sellerProfileImageUrl
 ) {
     public static ProductSummaryResponse of(Product product, Integer bestPrice, boolean sellerTrustedBadge) {
         return of(product, bestPrice, sellerTrustedBadge, null, null);
@@ -74,19 +79,20 @@ public record ProductSummaryResponse(
                 sellerTrustedBadge,
                 ratingAverage,
                 reviewCount,
-                product.isHidden());
+                product.isHidden(),
+                product.getSeller().getProfileImageUrl());
     }
 
     public ProductSummaryResponse withActiveTeamProgress(Integer currentCount, Integer targetParticipants,
             LocalDateTime deadline) {
         return new ProductSummaryResponse(productId, name, basePrice, bestPrice, maxParticipants, sellerName,
                 createdAt, imageUrl, category, currentCount, targetParticipants, deadline, openAt, sellerTrustedBadge,
-                ratingAverage, reviewCount, hidden);
+                ratingAverage, reviewCount, hidden, sellerProfileImageUrl);
     }
 
     public ProductSummaryResponse withReviewStats(Double ratingAverage, Integer reviewCount) {
         return new ProductSummaryResponse(productId, name, basePrice, bestPrice, maxParticipants, sellerName,
                 createdAt, imageUrl, category, activeTeamCurrentCount, activeTeamTargetParticipants, activeTeamDeadline,
-                openAt, sellerTrustedBadge, ratingAverage, reviewCount, hidden);
+                openAt, sellerTrustedBadge, ratingAverage, reviewCount, hidden, sellerProfileImageUrl);
     }
 }
