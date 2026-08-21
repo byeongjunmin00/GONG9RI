@@ -87,6 +87,44 @@
         selectRoom(room);
       });
       li.appendChild(btn);
+
+      // 쓸데없는 상담 정리 — 종료(close)는 기록을 남기지만 이건 대화까지 지운다.
+      var delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'btn btn-ghost btn-sm';
+      delBtn.style.marginTop = 'var(--space-1)';
+      delBtn.textContent = '상담 삭제';
+      delBtn.addEventListener('click', function () {
+        if (!window.confirm('"' + room.memberName + '" 님과의 상담을 삭제할까요?\n대화 내용까지 사라지며 되돌릴 수 없습니다.')) {
+          return;
+        }
+        delBtn.disabled = true;
+        window.Api.del('/admin/support/rooms/' + room.roomId)
+          .then(function () {
+            if (state.roomId === room.roomId) {
+              // 보고 있던 방을 지웠으면 오른쪽 대화창도 비운다 — 안 그러면 없는 방을 보고 있게 된다.
+              if (state.client) {
+                state.client.deactivate();
+                state.client = null;
+              }
+              state.roomId = null;
+              threadListEl.innerHTML = '';
+              threadTitleEl.textContent = '상담을 선택하세요';
+              threadStatusEl.hidden = false;
+              threadStatusEl.textContent = '왼쪽에서 상담을 고르면 대화가 보입니다.';
+              threadFormEl.hidden = true;
+              closeRoomBtn.hidden = true;
+            }
+            loadRooms();
+          })
+          .catch(function (err) {
+            console.error('[admin-support.js] delete room failed:', err);
+            window.alert((err && err.message) || '삭제에 실패했습니다.');
+            delBtn.disabled = false;
+          });
+      });
+      li.appendChild(delBtn);
+
       roomsListEl.appendChild(li);
     });
   }

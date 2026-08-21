@@ -2,8 +2,11 @@ package com.gong9ri.gong9ri.repository;
 
 import com.gong9ri.gong9ri.entity.Member;
 import com.gong9ri.gong9ri.entity.Role;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface MemberRepository extends JpaRepository<Member, Long> {
 
@@ -23,4 +26,9 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     Optional<Member> findByEmail(String email);
 
     Optional<Member> findByKakaoId(String kakaoId);
+
+    // 고객센터 상담 알림(support/chat) — 관리자 전원에게 보낸다. 지금은 한 명(demo_admin)이지만
+    // 계정이 늘어도 코드가 그대로 동작하도록 목록으로 받는다. 알림은 id만 쓰므로 프로젝션으로 뽑는다.
+    @Query("SELECT m.id FROM Member m WHERE m.role = :role")
+    List<Long> findIdsByRole(@Param("role") Role role);
 }

@@ -347,7 +347,10 @@ class ProductControllerTest {
     @DisplayName("openAt에 미래 시각을 넣어 등록하면 201이고 응답에 그대로 반영된다")
     void register_withFutureOpenAt_success() throws Exception {
         Member seller = saveMember("seller18", Role.SELLER);
-        String futureOpenAt = LocalDateTime.now().plusDays(3).withNano(0).toString();
+        // 초를 1로 고정한다. withNano(0)만 하면 마침 "초=0"인 순간에 실행될 때
+        // LocalDateTime.toString()이 :00을 생략해(04:15) 응답(04:15:00)과 어긋나 1/60 확률로 깨진다
+        // — 실제로 겪어서 고쳤다(2026-08-21). 값 자체는 "미래 시각"이면 되므로 초를 뭘로 두든 무방하다.
+        String futureOpenAt = LocalDateTime.now().plusDays(3).withSecond(1).withNano(0).toString();
         Map<String, Object> body = Map.of(
                 "name", "오픈예정테스트상품",
                 "basePrice", 10000,

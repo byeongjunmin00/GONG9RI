@@ -1,5 +1,5 @@
 /**
- * header-notifications.js — 헤더 알림 벨(구매자/판매자 공용)
+ * header-notifications.js — 헤더 알림 벨(구매자/판매자/관리자 공용)
  *
  * - 백엔드에 GET/POST /api/{buyer,seller}/mypage/notifications*가 이미 있었는데(환불 완료 등 이벤트마다
  *   실제로 알림이 쌓이고 있었음) 이걸 보여줄 화면이 아예 없었다 — 그 갭을 채운다.
@@ -220,12 +220,20 @@
       var detail = event.detail || {};
       var role = detail.loggedIn && detail.member ? detail.member.role : null;
 
-      if (role !== 'BUYER' && role !== 'SELLER') {
+      // 관리자도 알림을 받는다(고객센터 상담이 오면). 예전엔 조회 경로가 구매자·판매자용뿐이라
+      // 관리자는 알림벨 자체가 안 떴고, 상담이 와도 대시보드에 직접 들어가야만 알 수 있었다
+      // (2026-08-21 사용자 리포트). 경로만 하나 더 갈라주면 나머지 로직은 그대로 쓸 수 있다.
+      var BASE_PATH_BY_ROLE = {
+        BUYER: '/buyer/mypage',
+        SELLER: '/seller/mypage',
+        ADMIN: '/admin/mypage',
+      };
+      if (!BASE_PATH_BY_ROLE[role]) {
         wrapEl.hidden = true;
         return;
       }
 
-      basePath = role === 'BUYER' ? '/buyer/mypage' : '/seller/mypage';
+      basePath = BASE_PATH_BY_ROLE[role];
       wrapEl.hidden = false;
       loadNotifications(true);
     });

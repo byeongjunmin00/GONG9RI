@@ -32,5 +32,14 @@ public enum NotificationType {
     REFUND_REQUEST_APPROVED,
 
     /** 환불 요청이 거절됨 — 요청한 구매자. */
-    REFUND_REQUEST_REJECTED
+    REFUND_REQUEST_REJECTED,
+
+    /**
+     * 고객센터 상담에 새 메시지가 도착함 — 관리자.
+     *
+     * <p><b>메시지마다 보내지 않는다.</b> 그 방의 관리자 미읽음이 0에서 1로 바뀌는 순간에만 보낸다 —
+     * 안 그러면 사용자가 세 줄로 나눠 쓰면 알림이 세 개 온다. 관리자가 읽고 나면 다시 0이 되므로
+     * 그다음 새 메시지에는 또 알림이 간다.
+     */
+    SUPPORT_MESSAGE_RECEIVED
 }

@@ -153,7 +153,7 @@
 
 ## 알림
 
-> **알림 종류(`type`)는 9종이다**(2026-08-20 확장) — `TEAM_REFUNDED`, `TEAM_SUCCESS`, `INQUIRY_CREATED`, `INQUIRY_ANSWERED`, `PAYMENT_RECEIVED`, `REVIEW_CREATED`, `REFUND_REQUESTED`, `REFUND_REQUEST_APPROVED`, `REFUND_REQUEST_REJECTED`. 각 종류가 누구에게 가는지는 `docs/dev/notification/refund-alert/design.md` 참고.
+> **알림 종류(`type`)는 10종이다**(2026-08-21 `SUPPORT_MESSAGE_RECEIVED` 추가) — `TEAM_REFUNDED`, `TEAM_SUCCESS`, `INQUIRY_CREATED`, `INQUIRY_ANSWERED`, `PAYMENT_RECEIVED`, `REVIEW_CREATED`, `REFUND_REQUESTED`, `REFUND_REQUEST_APPROVED`, `REFUND_REQUEST_REJECTED`, `SUPPORT_MESSAGE_RECEIVED`. 각 종류가 누구에게 가는지는 `docs/dev/notification/refund-alert/design.md` 참고.
 >
 > **`linkUrl`**(2026-08-20 추가)은 알림을 눌렀을 때 이동할 앱 내부 경로다. 이 필드가 생기기 전에 만들어진 알림은 `null`이므로 클라이언트는 `null`을 정상 처리해야 한다(이동하지 않음).
 >

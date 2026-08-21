@@ -6,6 +6,7 @@ import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.dto.AdminDashboardResponse;
 import com.gong9ri.gong9ri.dto.AdminMemberPageResponse;
 import com.gong9ri.gong9ri.dto.AdminRefundPageResponse;
+import com.gong9ri.gong9ri.dto.NotificationListResponse;
 import com.gong9ri.gong9ri.dto.ProductPageResponse;
 import com.gong9ri.gong9ri.entity.Member;
 import com.gong9ri.gong9ri.entity.RefundRequest;
@@ -53,6 +54,7 @@ public class AdminService {
 
     private final MemberRepository memberRepository;
     private final ProductService productService;
+    private final NotificationService notificationService;
     private final ProductRepository productRepository;
     private final PaymentRepository paymentRepository;
     private final ReviewRepository reviewRepository;
@@ -126,6 +128,32 @@ public class AdminService {
     public ProductPageResponse products(MemberUserDetails principal, int page, int size) {
         requireAdmin(principal);
         return productService.listForAdmin(page, size);
+    }
+
+    // 관리자 알림(support/chat) — 구매자·판매자와 같은 알림 테이블을 쓰지만, 조회 경로가 역할별로
+    // 갈라져 있어(/api/{buyer,seller}/mypage/notifications) 관리자는 알림벨을 아예 쓸 수 없었다.
+    // 상담이 와도 대시보드에 직접 들어가야만 알 수 있던 문제(2026-08-21 사용자 리포트)를 여기서 푼다.
+    public NotificationListResponse notifications(MemberUserDetails principal, int page, int size) {
+        requireAdmin(principal);
+        if (page < 0 || size < 1) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+        }
+        Long memberId = principal.getMember().getId();
+        return NotificationListResponse.of(
+                notificationRepository.findByMemberIdOrderByCreatedAtDesc(memberId, PageRequest.of(page, size)),
+                notificationRepository.countByMemberIdAndIsReadFalse(memberId));
+    }
+
+    @Transactional
+    public void markNotificationAsRead(MemberUserDetails principal, Long notificationId) {
+        requireAdmin(principal);
+        notificationService.markAsRead(principal, notificationId);
+    }
+
+    @Transactional
+    public void markAllNotificationsAsRead(MemberUserDetails principal) {
+        requireAdmin(principal);
+        notificationService.markAllAsRead(principal);
     }
 
     public AdminDashboardResponse dashboard(MemberUserDetails principal) {

@@ -9,6 +9,7 @@ import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.entity.SupportMessage;
 import com.gong9ri.gong9ri.entity.SupportRoom;
 import com.gong9ri.gong9ri.entity.SupportRoomStatus;
+import com.gong9ri.gong9ri.repository.MemberRepository;
 import com.gong9ri.gong9ri.repository.SupportMessageRepository;
 import com.gong9ri.gong9ri.repository.SupportRoomRepository;
 import java.util.List;
@@ -37,6 +38,8 @@ public class SupportChatService {
 
     private final SupportRoomRepository supportRoomRepository;
     private final SupportMessageRepository supportMessageRepository;
+    private final MemberRepository memberRepository;
+    private final NotificationPublisher notificationPublisher;
 
     /**
      * 상담 시작. <b>이미 열린 방이 있으면 그 방을 그대로 돌려준다</b> — 한 회원이 방을 여러 개 열면
@@ -92,12 +95,39 @@ public class SupportChatService {
         }
 
         boolean byAdmin = isAdmin(sender);
+        // 알림을 보낼지 판정하려면 **올리기 전** 값을 봐야 한다.
+        boolean firstUnreadForAdmin = !byAdmin && room.getUnreadForAdmin() == 0;
+
         SupportMessage saved = supportMessageRepository.save(
                 new SupportMessage(room, sender, byAdmin, content));
         room.onMessageSent(byAdmin);
         // 보낸 쪽은 자기 메시지를 이미 봤으므로 그쪽 미읽음은 0으로 맞춘다.
         room.markReadBy(byAdmin);
+
+        if (firstUnreadForAdmin) {
+            // **메시지마다 보내지 않는다.** 미읽음이 0 → 1로 바뀌는 순간에만 알린다 — 안 그러면
+            // 사용자가 세 줄로 나눠 쓸 때 알림이 세 개 온다. 관리자가 읽으면 다시 0이 되므로
+            // 그다음 새 메시지에는 또 간다(2026-08-21 사용자 리포트: "대시보드에 안 들어가면 모른다").
+            notificationPublisher.supportMessageReceived(
+                    memberRepository.findIdsByRole(Role.ADMIN), sender.getName());
+        }
         return SupportMessageResponse.from(saved);
+    }
+
+    /**
+     * 상담 삭제 (관리자 전용). 쓸데없는 상담이 쌓이는 걸 정리한다.
+     *
+     * <p>종료(close)와 다르다 — 종료는 "대화는 끝났지만 기록은 남긴다"이고, 삭제는 기록까지 없앤다.
+     * 메시지가 방을 참조하므로 <b>메시지를 먼저 지운다</b>(FK 순서).
+     */
+    @Transactional
+    public void deleteRoom(Member admin, Long roomId) {
+        requireAdmin(admin);
+        SupportRoom room = supportRoomRepository.findById(roomId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.SUPPORT_ROOM_NOT_FOUND));
+        supportMessageRepository.deleteByRoom_Id(roomId);
+        supportRoomRepository.delete(room);
+        log.info("관리자 상담 삭제: adminId={}, roomId={}", admin.getId(), roomId);
     }
 
     @Transactional
