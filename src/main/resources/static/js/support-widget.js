@@ -16,7 +16,7 @@
   var state = {
     roomId: null, client: null, opened: false,
     typingTimer: null, lastTypingSent: 0,
-    loggedIn: false, authResolved: false,
+    loggedIn: false, authResolved: false, myMemberId: null,
   };
 
   function showStatus(text) {
@@ -63,7 +63,12 @@
         // 열려 있는 동안 받은 건 바로 읽은 것으로 처리한다.
         window.Api.post('/support/rooms/' + state.roomId + '/read').catch(function () {});
       },
-      onTyping: function () {
+      onTyping: function (payload) {
+        // **내가 친 신호가 나에게 돌아온다.** 브로드캐스트는 구독자 전원에게 가므로 보낸 사람도
+        // 받는다 — 거르지 않으면 자기가 타이핑하는 동안 "상담원이 입력 중"이 뜬다(2026-08-21 리포트).
+        if (payload && state.myMemberId != null && payload.senderId === state.myMemberId) {
+          return;
+        }
         typingEl.hidden = false;
         clearTimeout(state.typingTimer);
         state.typingTimer = setTimeout(function () { typingEl.hidden = true; }, 2500);
@@ -160,6 +165,7 @@
   function applyAuth(detail) {
     var member = (detail && detail.member) || {};
     state.loggedIn = !!(detail && detail.loggedIn);
+    state.myMemberId = member.memberId != null ? member.memberId : null;
     state.authResolved = true;
     widget.hidden = member.role === 'ADMIN';
 

@@ -25,7 +25,7 @@
     return;
   }
 
-  var state = { roomId: null, client: null, typingTimer: null, lastTypingSent: 0 };
+  var state = { roomId: null, client: null, typingTimer: null, lastTypingSent: 0, myMemberId: null };
 
   function showError(text) {
     pageAlertEl.hidden = false;
@@ -178,7 +178,11 @@
         appendMessage(message);
         window.Api.post('/support/rooms/' + state.roomId + '/read').catch(function () {});
       },
-      onTyping: function () {
+      onTyping: function (payload) {
+        // 내가 친 신호는 무시한다 — 안 그러면 관리자가 답변을 쓰는 동안 "고객이 입력 중"이 뜬다.
+        if (payload && state.myMemberId != null && payload.senderId === state.myMemberId) {
+          return;
+        }
         threadTypingEl.hidden = false;
         clearTimeout(state.typingTimer);
         state.typingTimer = setTimeout(function () { threadTypingEl.hidden = true; }, 2500);
@@ -227,6 +231,11 @@
         showError((err && err.message) || '상담 종료에 실패했습니다.');
       });
   });
+
+  // 내가 보낸 입력 신호를 걸러내려면 내 회원 id가 필요하다.
+  window.Api.get('/auth/me')
+    .then(function (member) { state.myMemberId = member.memberId; })
+    .catch(function () {});
 
   loadRooms();
 })();
