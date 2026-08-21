@@ -18,6 +18,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,6 +54,8 @@ import org.springframework.web.socket.messaging.WebSocketStompClient;
 class SupportChatSubscriptionSecurityTest {
 
     private static final String PASSWORD = "password123!";
+    /** 다른 테스트와 rate limit 카운터를 나누기 위한 전용 IP(TEST-NET-3, 실제로 라우팅되지 않는 대역). */
+    private static final String TEST_CLIENT_IP = "203.0.113.201";
 
     @LocalServerPort
     private int port;
@@ -66,6 +69,9 @@ class SupportChatSubscriptionSecurityTest {
     private SupportRoomRepository supportRoomRepository;
 
     @Autowired
+    private com.gong9ri.gong9ri.repository.NotificationRepository notificationRepository;
+
+    @Autowired
     private SupportMessageRepository supportMessageRepository;
 
     @Autowired
@@ -74,16 +80,36 @@ class SupportChatSubscriptionSecurityTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
+
     private final List<Long> memberIdsToClean = new ArrayList<>();
     private final List<Long> roomIdsToClean = new ArrayList<>();
 
+    /**
+     * 이 테스트는 실제 HTTP 로그인을 하므로 rate limit 카운터를 남긴다. 짧은 간격으로 반복 실행하면
+     * 임계값(60초 10회)에 걸려 <b>로그인 자체가 429</b>가 된다 — 테스트가 자기 흔적을 치우지 않으면
+     * 결과가 "언제 마지막으로 돌렸는지"에 의존한다(2026-08-21 실제로 겪음, LoginRateLimitFilterTest와 동일).
+     */
+    @BeforeEach
+    void clearRateLimit() {
+        stringRedisTemplate.delete("rate-limit:login:" + TEST_CLIENT_IP);
+    }
+
     @AfterEach
     void cleanUp() {
+        stringRedisTemplate.delete("rate-limit:login:" + TEST_CLIENT_IP);
         roomIdsToClean.forEach(roomId -> {
             supportMessageRepository.deleteByRoom_Id(roomId);
             supportRoomRepository.deleteById(roomId);
         });
         roomIdsToClean.clear();
+        // 상담 메시지가 오가면 관리자에게 알림이 생긴다. 알림이 회원을 참조하므로 회원보다 먼저
+        // 지워야 한다 — 안 지우면 회원 삭제가 FK 위반으로 막힌다(실제로 겪음).
+        for (Long memberId : memberIdsToClean) {
+            notificationRepository.findAllByMemberIdOrderByCreatedAtDesc(memberId)
+                    .forEach(n -> notificationRepository.deleteById(n.getId()));
+        }
         memberIdsToClean.forEach(memberRepository::deleteById);
         memberIdsToClean.clear();
     }
@@ -97,16 +123,37 @@ class SupportChatSubscriptionSecurityTest {
         return saved;
     }
 
+    /**
+     * 로그인해서 세션 쿠키를 얻는다. <b>같은 계정은 한 번만 로그인하고 결과를 재사용한다</b> —
+     * 로그인에는 IP 단위 rate limit(60초 10회)이 있어, 테스트마다 매번 새로 로그인하면 이 클래스
+     * 하나만으로도 임계값을 넘겨 429가 난다(실제로 겪음).
+     *
+     * <p><b>X-Forwarded-For를 붙이는 이유</b>: 로그인에는 IP 단위 rate limit(60초에 10회)이 걸려 있다.
+     * 헤더 없이 호출하면 전부 127.0.0.1로 묶여, 이 클래스만으로도 한 번 실행에 여러 번 로그인하므로
+     * 다른 테스트와 합쳐지면 임계값을 넘겨 <b>로그인 자체가 429로 막힌다</b>(실제로 겪음).
+     * 테스트 전용 IP를 써서 실사용·다른 테스트와 카운터를 분리한다.
+     */
+    private final java.util.Map<String, String> cookieCache = new java.util.HashMap<>();
+
     private String loginCookie(String username) {
+        String cached = cookieCache.get(username);
+        if (cached != null) {
+            return cached;
+        }
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.add("X-Forwarded-For", TEST_CLIENT_IP);
         ResponseEntity<String> login = restTemplate.postForEntity(
                 "http://localhost:" + port + "/api/auth/login",
                 new HttpEntity<>("{\"username\":\"" + username + "\",\"password\":\"" + PASSWORD + "\"}", headers),
                 String.class);
         List<String> cookies = login.getHeaders().get(HttpHeaders.SET_COOKIE);
-        assertNotNull(cookies, "로그인 세션 쿠키가 있어야 WebSocket 핸드셰이크에서 인증된다");
-        return cookies.get(0).split(";", 2)[0];
+        // 실패 원인을 메시지에 담는다 — "쿠키가 null"만으로는 401인지 429인지 알 수 없어 진단이 오래 걸린다.
+        assertNotNull(cookies, "로그인 세션 쿠키가 있어야 WebSocket 핸드셰이크에서 인증된다. "
+                + "status=" + login.getStatusCode() + ", body=" + login.getBody());
+        String cookie = cookies.get(0).split(";", 2)[0];
+        cookieCache.put(username, cookie);
+        return cookie;
     }
 
     private StompSession connect(String sessionCookie) throws Exception {
@@ -193,5 +240,68 @@ class SupportChatSubscriptionSecurityTest {
     }
 
     private record SendPayload(String content) {
+    }
+
+    @Test
+    @DisplayName("[보안] 관리자가 아니면 상담 목록 갱신 토픽을 구독해도 신호가 오지 않는다")
+    void adminTopic_rejected_forNonAdmin() throws Exception {
+        // 이 토픽에는 대화 내용이 없지만, 신호만 받아도 "상담이 몇 건 오가는지"가 샌다.
+        Member buyer = saveMember("ws-admintopic-buyer", Role.BUYER);
+        Member other = saveMember("ws-admintopic-other", Role.BUYER);
+        Long roomId = supportChatService.openRoom(buyer).roomId();
+        roomIdsToClean.add(roomId);
+
+        StompSession session = connect(loginCookie(other.getUsername()));
+        BlockingQueue<Object> received = new LinkedBlockingQueue<>();
+        session.subscribe("/topic/admin/support", new StompFrameHandler() {
+            @Override
+            public Type getPayloadType(StompHeaders headers) {
+                return Object.class;
+            }
+
+            @Override
+            public void handleFrame(StompHeaders headers, Object payload) {
+                received.add(payload);
+            }
+        });
+        Thread.sleep(300);
+
+        // 방 주인이 메시지를 보내면 관리자 토픽으로 갱신 신호가 나간다 — 구매자에게는 오면 안 된다.
+        StompSession ownerSession = connect(loginCookie(buyer.getUsername()));
+        ownerSession.send("/app/support/" + roomId + "/send", new SendPayload("문의드려요"));
+
+        assertTrue(received.poll(3, TimeUnit.SECONDS) == null,
+                "관리자가 아닌 사용자에게 상담 발생 신호가 새면 안 된다");
+    }
+
+    @Test
+    @DisplayName("관리자는 다른 방에 온 메시지도 목록 갱신 신호로 받는다 — 새로고침 없이 뜨게")
+    void adminTopic_notifiesAdmin() throws Exception {
+        Member buyer = saveMember("ws-admintopic-buyer2", Role.BUYER);
+        Member admin = saveMember("ws-admintopic-admin", Role.ADMIN);
+        Long roomId = supportChatService.openRoom(buyer).roomId();
+        roomIdsToClean.add(roomId);
+
+        StompSession adminSession = connect(loginCookie(admin.getUsername()));
+        BlockingQueue<Object> received = new LinkedBlockingQueue<>();
+        adminSession.subscribe("/topic/admin/support", new StompFrameHandler() {
+            @Override
+            public Type getPayloadType(StompHeaders headers) {
+                return Object.class;
+            }
+
+            @Override
+            public void handleFrame(StompHeaders headers, Object payload) {
+                received.add(payload);
+            }
+        });
+        Thread.sleep(300);
+
+        // 관리자는 이 방을 구독하지 않았다 — 그래도 목록 갱신 신호는 와야 한다(그게 이 토픽의 이유다).
+        StompSession ownerSession = connect(loginCookie(buyer.getUsername()));
+        ownerSession.send("/app/support/" + roomId + "/send", new SendPayload("다른 방 메시지"));
+
+        assertNotNull(received.poll(5, TimeUnit.SECONDS),
+                "구독하지 않은 방의 변화도 관리자 목록에는 반영돼야 한다");
     }
 }

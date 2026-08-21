@@ -79,9 +79,58 @@
     client.publish({ destination: '/app/support/' + roomId + '/typing', body: '{}' });
   }
 
+  /**
+   * 토픽 하나만 구독하는 **저수준** 연결. 관리자 화면처럼 여러 토픽을 한 연결로 붙였다 뗐다 해야 할 때
+   * 쓴다 — 방마다 새 WebSocket을 여는 대신 구독만 갈아끼운다.
+   */
+  function connectRaw(options) {
+    if (!isAvailable()) {
+      options.onStatus && options.onStatus('unavailable');
+      return null;
+    }
+    var protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+    var client = new window.StompJs.Client({
+      brokerURL: protocol + window.location.host + ENDPOINT,
+      heartbeatIncoming: 20000,
+      heartbeatOutgoing: 20000,
+      reconnectDelay: 5000,
+      onConnect: function () {
+        options.onConnect && options.onConnect(client);
+        options.onStatus && options.onStatus('connected');
+      },
+      onWebSocketClose: function () {
+        options.onStatus && options.onStatus('disconnected');
+      },
+      onStompError: function (frame) {
+        console.error('[support-chat-client.js] STOMP error:', frame && frame.headers);
+        options.onStatus && options.onStatus('disconnected');
+      },
+    });
+    client.activate();
+    return client;
+  }
+
+  /** 구독 하나. 반환값의 unsubscribe()로 끊는다. 구독이 거절되면 메시지가 안 올 뿐이다(서버가 판정). */
+  function subscribe(client, topic, handler) {
+    if (!client || !client.connected) {
+      return null;
+    }
+    return client.subscribe(topic, function (frame) {
+      var payload = null;
+      try {
+        payload = JSON.parse(frame.body);
+      } catch (e) {
+        return;
+      }
+      handler(payload);
+    });
+  }
+
   window.SupportChatClient = {
     isAvailable: isAvailable,
     connect: connect,
+    connectRaw: connectRaw,
+    subscribe: subscribe,
     send: send,
     sendTyping: sendTyping,
   };

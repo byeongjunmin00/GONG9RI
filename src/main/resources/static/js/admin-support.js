@@ -25,7 +25,7 @@
     return;
   }
 
-  var state = { roomId: null, client: null, typingTimer: null, lastTypingSent: 0 };
+  var state = { roomId: null, client: null, roomSub: null, typingTimer: null, lastTypingSent: 0, myMemberId: null };
 
   function showError(text) {
     pageAlertEl.hidden = false;
@@ -103,10 +103,8 @@
           .then(function () {
             if (state.roomId === room.roomId) {
               // 보고 있던 방을 지웠으면 오른쪽 대화창도 비운다 — 안 그러면 없는 방을 보고 있게 된다.
-              if (state.client) {
-                state.client.deactivate();
-                state.client = null;
-              }
+              // 연결은 유지한다(관리자 목록 갱신 신호를 계속 받아야 한다).
+              unsubscribeRoom();
               state.roomId = null;
               threadListEl.innerHTML = '';
               threadTitleEl.textContent = '상담을 선택하세요';
@@ -141,11 +139,9 @@
   }
 
   function selectRoom(room) {
-    // 방을 바꾸면 이전 구독을 반드시 끊는다 — 안 그러면 다른 방 메시지가 현재 화면에 섞인다.
-    if (state.client) {
-      state.client.deactivate();
-      state.client = null;
-    }
+    // 방을 바꾸면 이전 **구독만** 끊는다. 연결까지 끊으면 관리자 목록 갱신 신호도 같이 끊긴다
+    // (연결 하나로 관리자 토픽 + 선택한 방을 함께 구독한다).
+    unsubscribeRoom();
     state.roomId = room.roomId;
     threadTitleEl.textContent = room.memberName + ' 님과의 상담';
     threadListEl.innerHTML = '';
@@ -162,7 +158,7 @@
       })
       .then(function () {
         loadRooms();
-        connectRealtime();
+        subscribeRoom();
       })
       .catch(function (err) {
         console.error('[admin-support.js] load thread failed:', err);
@@ -171,17 +167,49 @@
       });
   }
 
-  function connectRealtime() {
-    state.client = window.SupportChatClient.connect({
-      roomId: state.roomId,
-      onMessage: function (message) {
-        appendMessage(message);
+  function unsubscribeRoom() {
+    if (state.roomSub) {
+      state.roomSub.unsubscribe();
+      state.roomSub = null;
+    }
+  }
+
+  /** 선택한 방을 구독한다. 연결은 페이지 로드 시 만든 것을 재사용한다. */
+  function subscribeRoom() {
+    unsubscribeRoom();
+    if (!state.client || !state.roomId) {
+      return;
+    }
+    state.roomSub = window.SupportChatClient.subscribe(
+      state.client, '/topic/support/' + state.roomId, function (payload) {
+        if (payload && payload.type === 'TYPING') {
+          // 내가 친 신호는 무시한다 — 안 그러면 답변을 쓰는 동안 "고객이 입력 중"이 뜬다.
+          if (state.myMemberId != null && payload.senderId === state.myMemberId) {
+            return;
+          }
+          threadTypingEl.hidden = false;
+          clearTimeout(state.typingTimer);
+          state.typingTimer = setTimeout(function () { threadTypingEl.hidden = true; }, 2500);
+          return;
+        }
+        appendMessage(payload);
         window.Api.post('/support/rooms/' + state.roomId + '/read').catch(function () {});
-      },
-      onTyping: function () {
-        threadTypingEl.hidden = false;
-        clearTimeout(state.typingTimer);
-        state.typingTimer = setTimeout(function () { threadTypingEl.hidden = true; }, 2500);
+      });
+  }
+
+  /**
+   * 연결은 페이지당 하나. 관리자 토픽(/topic/admin/support)을 상시 구독해 **다른 방에 온 메시지나
+   * 새 상담도 목록에 바로 뜨게** 한다 — 예전엔 선택한 방만 구독해서 새로고침해야만 알 수 있었다
+   * (2026-08-21 사용자 리포트).
+   */
+  function connectRealtime() {
+    state.client = window.SupportChatClient.connectRaw({
+      onConnect: function (client) {
+        window.SupportChatClient.subscribe(client, '/topic/admin/support', function () {
+          // 신호에는 내용이 없다 — 목록을 다시 불러오는 게 전부다(내용은 권한 검사를 거친 조회로).
+          loadRooms();
+        });
+        subscribeRoom();
       },
       onStatus: function (status) {
         if (status === 'unavailable') {
@@ -228,5 +256,11 @@
       });
   });
 
+  // 내가 보낸 입력 신호를 걸러내려면 내 회원 id가 필요하다.
+  window.Api.get('/auth/me')
+    .then(function (member) { state.myMemberId = member.memberId; })
+    .catch(function () {});
+
   loadRooms();
+  connectRealtime();
 })();
