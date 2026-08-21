@@ -14,3 +14,20 @@
 - 증거:
   - `AdminControllerTest`: 27개 전체 통과.
   - 브라우저 실측: `row2Text: "판매자: 박판매 · LIVING⚠️ 숨김"`, `row4` 좌측에 `<span>⚠️</span>`, 회원 카드 5개 전부 아바타 SVG 확인.
+
+## Attempt 2 — 2026-08-21  ✅ PASS (팀 리뷰 지적 수정)
+
+- 시도: 병합 시 돌리는 미정의 CSS 변수 검사에서 `.admin-card`(009에서 안티그래비티가 추가)의
+  `transition: border-color var(--transition-fast), box-shadow var(--transition-fast);`가
+  걸림 — `--transition-fast`는 `tokens.css`를 포함해 이 저장소 어디에도 정의된 적 없는 변수였다.
+  CSS는 미정의 커스텀 프로퍼티가 있어도 에러 없이 그 선언만 조용히 무효화하므로, 화면은 정상
+  렌더링되고 `.admin-card:hover`의 테두리/그림자 전환만 트랜지션 없이 즉시 바뀌는 상태였다 —
+  깨진 걸 알아채기 어려운 종류의 버그.
+  - 이 저장소는 트랜지션에 커스텀 프로퍼티를 쓰는 컨벤션이 없고(`components.css` 전체가
+    `0.15s ease`/`0.2s ease` 하드코딩), 안티그래비티가 다른 토큰(`--space-3` 등) 패턴을 보고
+    있지도 않은 변수명을 추정해서 넣은 것으로 보인다.
+  - `border-color 0.15s ease, box-shadow 0.15s ease`로 다른 카드 hover 트랜지션과 동일한
+    패턴으로 수정.
+- 결과: ✅ **PASS**
+- 증거:
+  - `grep -rn "\-\-transition-fast" src/main/resources/static/css/` → 수정 후 매치 없음.
