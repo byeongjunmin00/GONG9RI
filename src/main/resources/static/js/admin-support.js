@@ -40,6 +40,13 @@
     return isNaN(d.getTime()) ? '' : d.toLocaleString('ko-KR');
   }
 
+  // 화면에 떠 있는 내(상담원) 메시지들의 "읽음" 자리 — 사용자가 읽으면 한꺼번에 채운다.
+  var myReadMarks = [];
+
+  function markAllMineAsRead() {
+    myReadMarks.forEach(function (el) { el.textContent = ' · 읽음'; });
+  }
+
   function appendMessage(message) {
     var li = document.createElement('li');
     // 관리자 화면에서는 내가 보낸 것(sentByAdmin)이 오른쪽이다 — 사용자 위젯과 좌우가 반대다.
@@ -52,7 +59,23 @@
 
     var meta = document.createElement('span');
     meta.className = 'support-message__meta';
-    meta.textContent = (message.sentByAdmin ? '나(상담원)' : message.senderName) + ' · ' + formatTime(message.createdAt);
+    if (message.sentByAdmin) {
+      meta.textContent = '나(상담원) · ' + formatTime(message.createdAt);
+      // 상담원이 보낸 것에만 읽음 표시 — 아직 안 읽혔으면 아무것도 쓰지 않는다("안읽음"을 명시하면
+      // 자리를 비운 것뿐인데 무시당한 것처럼 읽힌다).
+      var readEl = document.createElement('span');
+      readEl.className = 'support-message__read';
+      readEl.textContent = message.readByCounterpart ? ' · 읽음' : '';
+      meta.appendChild(readEl);
+      myReadMarks.push(readEl);
+    } else {
+      // 상대방 메시지에만 사진을 붙인다 — 내 메시지에 내 사진을 붙이는 건 구분에 도움이 안 된다.
+      meta.appendChild(window.Avatar.withName(
+          message.senderName || '', message.senderProfileImageUrl, 'xs'));
+      var timeEl = document.createElement('span');
+      timeEl.textContent = ' · ' + formatTime(message.createdAt);
+      meta.appendChild(timeEl);
+    }
     li.appendChild(meta);
 
     threadListEl.appendChild(li);
@@ -68,14 +91,23 @@
     }
     roomsStatusEl.hidden = true;
     rooms.forEach(function (room) {
+      // 카드(li)가 테두리를 갖고, 그 안에 "선택" 버튼과 "삭제" 버튼이 함께 들어간다 —
+      // 카드 자체가 <button>이면 삭제 버튼을 안에 넣을 수 없다(버튼 중첩 불가).
       var li = document.createElement('li');
+      li.className = 'support-admin-room-card' + (room.roomId === state.roomId ? ' is-active' : '');
       var btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'support-admin-room' + (room.roomId === state.roomId ? ' is-active' : '');
+      btn.className = 'support-admin-room';
 
       var name = document.createElement('span');
       name.className = 'support-admin-room__name';
-      name.textContent = room.memberName + (room.unreadForAdmin > 0 ? ' (' + room.unreadForAdmin + ')' : '');
+      name.appendChild(window.Avatar.withName(
+          room.memberName || '', room.memberProfileImageUrl, 'sm'));
+      if (room.unreadForAdmin > 0) {
+        var unreadEl = document.createElement('span');
+        unreadEl.textContent = ' (' + room.unreadForAdmin + ')';
+        name.appendChild(unreadEl);
+      }
       btn.appendChild(name);
 
       var meta = document.createElement('span');
@@ -92,7 +124,6 @@
       var delBtn = document.createElement('button');
       delBtn.type = 'button';
       delBtn.className = 'btn btn-ghost btn-sm';
-      delBtn.style.marginTop = 'var(--space-1)';
       delBtn.textContent = '상담 삭제';
       delBtn.addEventListener('click', function () {
         if (!window.confirm('"' + room.memberName + '" 님과의 상담을 삭제할까요?\n대화 내용까지 사라지며 되돌릴 수 없습니다.')) {
@@ -107,6 +138,7 @@
               unsubscribeRoom();
               state.roomId = null;
               threadListEl.innerHTML = '';
+              myReadMarks = [];
               threadTitleEl.textContent = '상담을 선택하세요';
               threadStatusEl.hidden = false;
               threadStatusEl.textContent = '왼쪽에서 상담을 고르면 대화가 보입니다.';
@@ -121,7 +153,10 @@
             delBtn.disabled = false;
           });
       });
-      li.appendChild(delBtn);
+      var actionsEl = document.createElement('div');
+      actionsEl.className = 'support-admin-room-card__actions';
+      actionsEl.appendChild(delBtn);
+      li.appendChild(actionsEl);
 
       roomsListEl.appendChild(li);
     });
@@ -143,8 +178,15 @@
     // (연결 하나로 관리자 토픽 + 선택한 방을 함께 구독한다).
     unsubscribeRoom();
     state.roomId = room.roomId;
-    threadTitleEl.textContent = room.memberName + ' 님과의 상담';
+    while (threadTitleEl.firstChild) threadTitleEl.removeChild(threadTitleEl.firstChild);
+    threadTitleEl.appendChild(window.Avatar.create(room.memberName, room.memberProfileImageUrl, 'md'));
+    var titleTextEl = document.createElement('span');
+    titleTextEl.textContent = room.memberName + ' 님과의 상담';
+    threadTitleEl.appendChild(titleTextEl);
+    threadTitleEl.classList.add('avatar-name');
     threadListEl.innerHTML = '';
+    // 방을 바꾸면 이전 방의 읽음 표시 엘리먼트를 계속 들고 있지 않도록 비운다.
+    myReadMarks = [];
     threadStatusEl.hidden = false;
     threadStatusEl.textContent = '대화를 불러오는 중...';
     threadFormEl.hidden = room.status !== 'OPEN';
@@ -182,6 +224,13 @@
     }
     state.roomSub = window.SupportChatClient.subscribe(
       state.client, '/topic/support/' + state.roomId, function (payload) {
+        if (payload && payload.type === 'READ') {
+          // 사용자가 읽었을 때만 내 답변의 읽음 표시를 켠다(관리자인 내가 읽은 신호는 무시).
+          if (!payload.readByAdmin) {
+            markAllMineAsRead();
+          }
+          return;
+        }
         if (payload && payload.type === 'TYPING') {
           // 내가 친 신호는 무시한다 — 안 그러면 답변을 쓰는 동안 "고객이 입력 중"이 뜬다.
           if (state.myMemberId != null && payload.senderId === state.myMemberId) {

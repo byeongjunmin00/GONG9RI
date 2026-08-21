@@ -25,7 +25,10 @@ public record SellerOrderResponse(
         ShipmentStatus shipmentStatus,
         String shipmentStatusLabel,
         String trackingCarrier,
-        String trackingNumber
+        String trackingNumber,
+        // 프로필 사진(member/profile-image 노출, 2026-08-21). 구매자 이름과 같은 회원 엔티티에서 읽으므로
+        // 추가 조회가 없다. 없으면 null → 프론트가 구매자 이름 첫 글자 동그라미를 그린다.
+        String buyerProfileImageUrl
 ) {
     /**
      * 이 주문의 표시용 진행 상태(REFUNDED/RECRUITING/FAILED/PREPARING)를 결제·공구팀 상태로부터
@@ -98,7 +101,8 @@ public record SellerOrderResponse(
                 payment.getShipmentStatus(),
                 payment.getShipmentStatus().label(),
                 payment.getTrackingCarrier(),
-                payment.getTrackingNumber()
+                payment.getTrackingNumber(),
+                payment.getMember() != null ? payment.getMember().getProfileImageUrl() : null
         );
     }
 }

@@ -129,7 +129,14 @@
     row2.style.justifyContent = 'space-between';
 
     var sellerText = document.createElement('span');
-    sellerText.textContent = (product.sellerName ? '판매자: ' + product.sellerName : '') + (product.category ? ' · ' + product.category : '');
+    if (product.sellerName) {
+      sellerText.appendChild(window.Avatar.create(product.sellerName, product.sellerProfileImageUrl, 'xs'));
+      sellerText.classList.add('avatar-name');
+    }
+    var sellerLabelEl = document.createElement('span');
+    sellerLabelEl.textContent = (product.sellerName ? '판매자: ' + product.sellerName : '')
+        + (product.category ? ' · ' + product.category : '');
+    sellerText.appendChild(sellerLabelEl);
     sellerText.style.whiteSpace = 'nowrap';
     sellerText.style.overflow = 'hidden';
     sellerText.style.textOverflow = 'ellipsis';

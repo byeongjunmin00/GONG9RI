@@ -25,7 +25,10 @@ public record RefundRequestResponse(
         LocalDateTime requestedAt,
         LocalDateTime decidedAt,
         // 썸네일 표시용 대표 이미지 URL(null이면 프론트에서 기본 아이콘으로 대체).
-        String imageUrl
+        String imageUrl,
+        // 프로필 사진(member/profile-image 노출, 2026-08-21). 요청자 이름과 같은 회원 엔티티에서 읽으므로
+        // 추가 조회가 없다. 없으면 null → 프론트가 요청자 이름 첫 글자 동그라미를 그린다.
+        String requesterProfileImageUrl
 ) {
     public static RefundRequestResponse from(RefundRequest refundRequest) {
         Payment payment = refundRequest.getPayment();
@@ -44,7 +47,8 @@ public record RefundRequestResponse(
                 refundRequest.getRejectionReason() != null ? refundRequest.getRejectionReason().getDescription() : null,
                 refundRequest.getRequestedAt(),
                 refundRequest.getDecidedAt(),
-                payment.getProduct().getImageUrl()
+                payment.getProduct().getImageUrl(),
+                refundRequest.getRequester().getProfileImageUrl()
         );
     }
 }

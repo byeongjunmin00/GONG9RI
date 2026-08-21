@@ -44,6 +44,10 @@ public class RefundRequestRepositoryImpl implements RefundRequestRepositoryCusto
                 .selectFrom(refundRequest)
                 .join(refundRequest.payment).fetchJoin()
                 .join(refundRequest.payment.product).fetchJoin()
+                // 요청자도 함께 가져온다 — RefundRequestResponse.from이 요청자 이름·프로필 사진을 읽는데,
+                // 이 목록만 fetch join이 빠져 있어 환불 요청 N건마다 member SELECT가 더 나가고 있었다
+                // (판매자·관리자 목록 쿼리는 원래 requester를 fetch join 하고 있다).
+                .join(refundRequest.requester).fetchJoin()
                 .where(refundRequest.requester.id.eq(requesterId))
                 .orderBy(refundRequest.requestedAt.desc())
                 .fetch();

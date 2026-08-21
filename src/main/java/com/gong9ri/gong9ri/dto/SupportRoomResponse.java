@@ -20,7 +20,10 @@ public record SupportRoomResponse(
         LocalDateTime lastMessageAt,
         int unreadForMember,
         int unreadForAdmin,
-        List<SupportMessageResponse> messages
+        List<SupportMessageResponse> messages,
+        // 프로필 사진(member/profile-image 노출, 2026-08-21). 이름과 같은 회원 엔티티에서 읽으므로
+        // 추가 조회가 없다. 없으면 null → 프론트가 이름 첫 글자 동그라미를 그린다.
+        String memberProfileImageUrl
 ) {
     public static SupportRoomResponse of(SupportRoom room, List<SupportMessageResponse> messages) {
         return new SupportRoomResponse(
@@ -32,7 +35,8 @@ public record SupportRoomResponse(
                 room.getLastMessageAt(),
                 room.getUnreadForMember(),
                 room.getUnreadForAdmin(),
-                messages);
+                messages,
+                room.getMember().getProfileImageUrl());
     }
 
     /** 목록용 — 대화 내용 없이 방 정보만. */

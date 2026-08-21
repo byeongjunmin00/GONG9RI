@@ -394,10 +394,10 @@
     var sellerRowEl = document.createElement('div');
     sellerRowEl.className = 'card-seller-row';
 
-    var sellerEl = document.createElement('span');
-    sellerEl.className = 'card-seller';
-    sellerEl.textContent = product.sellerName || '';
-    sellerRowEl.appendChild(sellerEl);
+    // 판매자 프로필 사진 + 이름(member/profile-image 노출). 사진이 없으면 avatar.js가 이름 첫 글자
+    // 동그라미를 대신 그리므로 여기서 유무를 따로 분기하지 않는다.
+    sellerRowEl.appendChild(
+        window.Avatar.withName(product.sellerName || '', product.sellerProfileImageUrl, 'xs', 'card-seller'));
 
     // 판매자 신뢰 배지(product/seller-trust) — 이 판매자의 리뷰 평균 평점·개수가 기준을 넘을 때만
     // 노출한다(ProductService.isTrustedSeller). 새 평판 시스템을 별도로 만들지 않고 이미 있는 리뷰

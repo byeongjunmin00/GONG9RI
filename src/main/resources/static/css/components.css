@@ -1451,6 +1451,16 @@ button.summary-card {
 .header-auth-user__name {
   font-size: var(--fs-sm);
   font-weight: 700;
+  /* 헤더에서 길이가 변하는 건 이름뿐이므로, 남는 자리를 여기서 흡수하고 넘치면 말줄임한다.
+     카카오 로그인 계정은 이름이 kakao_5050932466처럼 길게 만들어져서, 이 제한이 없으면
+     이름이 헤더를 밀어 옆의 아이콘들을 찌그러뜨렸다(2026-08-21 사용자 제보).
+     min-width: 0이 함께 필요하다 — flex 아이템의 기본 min-width는 auto라서 이게 없으면
+     내용 길이만큼 버티며 말줄임이 아예 동작하지 않는다. */
+  min-width: 0;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 로그인한 역할에 해당하는 nav 링크 강조 — 링크 자체는 숨기지 않는다 */
@@ -2779,18 +2789,37 @@ button.summary-card {
   gap: var(--space-2);
 }
 
+/* 카드 테두리는 li(.support-admin-room-card)가 갖는다 — 삭제 버튼을 카드 "안"에 두려면
+   카드가 <button>이면 안 되기 때문(버튼 안에 버튼을 넣을 수 없다). 그래서 선택 영역만
+   투명한 <button>으로 남기고, 테두리·배경·선택 강조는 바깥 카드로 옮겼다
+   (2026-08-21 사용자 요청 — 삭제 버튼이 카드 밖에 떠 있어 어느 상담 것인지 불분명했다). */
+.support-admin-room-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  overflow: hidden;
+}
+
+.support-admin-room-card.is-active {
+  border-color: var(--color-pink);
+}
+
 .support-admin-room {
   width: 100%;
   text-align: left;
   padding: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface);
+  border: none;
+  background: none;
   cursor: pointer;
 }
 
-.support-admin-room.is-active {
-  border-color: var(--color-pink);
+/* 삭제는 되돌릴 수 없는 동작이라 카드 안에서도 눈에 덜 띄는 자리에 둔다 — 상담을 고르려다
+   잘못 누르는 걸 줄이기 위해 선택 영역과 구분선으로 분리한다. */
+.support-admin-room-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--space-1) var(--space-2);
+  border-top: 1px solid var(--color-border);
 }
 
 .support-admin-room__name {
@@ -2801,6 +2830,13 @@ button.summary-card {
 .support-admin-room__meta {
   display: block;
   margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: var(--fs-xs);
+}
+
+/* 읽음 표시 — 시각·발신자와 같은 줄에 붙지만 더 조용해야 한다. 대화 내용보다 눈에 띄면
+   읽었는지가 대화보다 중요해 보인다. */
+.support-message__read {
   color: var(--color-text-muted);
   font-size: var(--fs-xs);
 }
@@ -2922,3 +2958,48 @@ button.summary-card {
   line-height: 1.2;
 }
 
+
+/* ===== 회원 아바타 (member/profile-image 노출, 2026-08-21) =====
+   이름이 뜨는 자리마다 쓰는 공통 동그라미. 사진이 없으면 js/avatar.js가 첫 글자와 배경색을 채운다.
+   크기만 4단계로 두고 색·모양은 고정 — 자리마다 조금씩 다른 아바타가 생기지 않게 하기 위해. */
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+  vertical-align: middle;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.avatar--xs { width: 18px; height: 18px; font-size: 9px; }
+.avatar--sm { width: 24px; height: 24px; font-size: 11px; }
+.avatar--md { width: 32px; height: 32px; font-size: 14px; }
+.avatar--lg { width: 44px; height: 44px; font-size: 18px; }
+
+/* 아바타와 이름을 한 덩어리로 묶는 래퍼. 이름이 길면 줄바꿈 대신 말줄임으로 흘린다. */
+.avatar-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.avatar-name > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

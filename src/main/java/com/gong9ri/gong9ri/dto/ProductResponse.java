@@ -45,7 +45,11 @@ public record ProductResponse(
         // 붙어 있으면 그것까지 딸려간다. 공유 링크는 서버가 아는 공개 주소여야 한다.
         // 이 필드 추가 이전에 캐시된 응답을 읽으면 null이 되는데, 프론트가 그때만 기존 방식으로
         // 폴백하므로 배포 직후에도 깨지지 않는다(String이라 primitive 역직렬화 문제도 없다).
-        String shareUrl
+        String shareUrl,
+        // 판매자 프로필 사진(member/profile-image 노출, 2026-08-21). sellerName과 같은 출처라 추가 조회가
+        // 없다. 사진이 없으면 null이고 프론트가 이름 첫 글자 동그라미를 그린다 — 이 필드 추가 이전에
+        // 캐시된 상세 응답에서도 null이 되므로 배포 직후에 깨지지 않는다.
+        String sellerProfileImageUrl
 ) {
     public static ProductResponse of(Product product, List<PriceTier> priceTiers, String kakaoJsKey,
             boolean sellerTrustedBadge, String baseUrl) {
@@ -68,7 +72,8 @@ public record ProductResponse(
                 null,
                 null,
                 List.of(),
-                shareUrl(baseUrl, product.getId())
+                shareUrl(baseUrl, product.getId()),
+                product.getSeller().getProfileImageUrl()
         );
     }
 
@@ -84,7 +89,7 @@ public record ProductResponse(
         return new ProductResponse(
                 productId, sellerId, sellerName, name, description, basePrice, maxParticipants,
                 priceTiers, createdAt, imageUrl, autoRefundOnCancel, kakaoJsKey, category, openAt,
-                sellerTrustedBadge, ratingAverage, reviewCount, imageUrls, shareUrl
+                sellerTrustedBadge, ratingAverage, reviewCount, imageUrls, shareUrl, sellerProfileImageUrl
         );
     }
 
@@ -102,7 +107,7 @@ public record ProductResponse(
         return new ProductResponse(
                 productId, sellerId, sellerName, name, description, basePrice, maxParticipants,
                 priceTiers, createdAt, imageUrl, autoRefundOnCancel, kakaoJsKey, category, openAt,
-                sellerTrustedBadge, ratingAverage, reviewCount, resolved, shareUrl
+                sellerTrustedBadge, ratingAverage, reviewCount, resolved, shareUrl, sellerProfileImageUrl
         );
     }
 }

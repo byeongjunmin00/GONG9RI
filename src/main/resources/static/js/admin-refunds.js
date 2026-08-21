@@ -69,9 +69,16 @@
     metaEl.className = 'mypage-list-item__meta';
     var reasonText = request.reason ? '사유: ' + request.reason : '사유: 참여 취소';
     var requestedAtText = request.requestedAt ? new Date(request.requestedAt).toLocaleString('ko-KR') : '';
-    var requesterText = request.requesterName ? '요청자 ' + request.requesterName : '';
-    metaEl.textContent = [requesterText, formatPrice(request.amount), reasonText, '요청일 ' + requestedAtText]
+    if (request.requesterName) {
+      // 요청자만 사람이라 여기에만 사진을 붙이고, 나머지 메타(금액·사유·요청일)는 텍스트로 잇는다.
+      metaEl.appendChild(window.Avatar.withName(
+          request.requesterName, request.requesterProfileImageUrl, 'xs'));
+    }
+    var restText = [formatPrice(request.amount), reasonText, '요청일 ' + requestedAtText]
       .filter(Boolean).join(' · ');
+    var restEl = document.createElement('span');
+    restEl.textContent = (request.requesterName ? ' · ' : '') + restText;
+    metaEl.appendChild(restEl);
     infoEl.appendChild(metaEl);
 
     li.appendChild(infoEl);

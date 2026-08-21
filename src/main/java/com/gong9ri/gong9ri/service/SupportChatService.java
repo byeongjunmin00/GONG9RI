@@ -5,6 +5,7 @@ import com.gong9ri.gong9ri.common.exception.ErrorCode;
 import com.gong9ri.gong9ri.dto.SupportMessageResponse;
 import com.gong9ri.gong9ri.dto.SupportRoomResponse;
 import com.gong9ri.gong9ri.entity.Member;
+import com.gong9ri.gong9ri.event.SupportRoomReadEvent;
 import com.gong9ri.gong9ri.event.SupportRoomUpdatedEvent;
 import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.entity.SupportMessage;
@@ -145,7 +146,12 @@ public class SupportChatService {
     @Transactional
     public void markRead(Member viewer, Long roomId) {
         SupportRoom room = requireParticipant(viewer, roomId);
-        room.markReadBy(isAdmin(viewer));
+        boolean byAdmin = isAdmin(viewer);
+        room.markReadBy(byAdmin);
+        // 상대 화면의 "읽음" 표시를 지금 갱신하라는 신호. 관리자 목록의 미읽음 개수도 함께 바뀌므로
+        // 두 이벤트를 모두 보낸다.
+        eventPublisher.publishEvent(new SupportRoomReadEvent(roomId, byAdmin));
+        eventPublisher.publishEvent(new SupportRoomUpdatedEvent(roomId));
     }
 
     @Transactional

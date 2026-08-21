@@ -39,18 +39,10 @@
     return isNaN(date.getTime()) ? '' : date.toLocaleDateString('ko-KR');
   }
 
-  function createAvatarElement() {
-    var avatarEl = document.createElement('div');
-    avatarEl.style.width = '30px';
-    avatarEl.style.height = '30px';
-    avatarEl.style.borderRadius = '50%';
-    avatarEl.style.flexShrink = '0';
-    avatarEl.style.background = 'var(--color-surface-alt)';
-    avatarEl.style.display = 'flex';
-    avatarEl.style.alignItems = 'center';
-    avatarEl.style.justifyContent = 'center';
-    avatarEl.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>';
-    return avatarEl;
+  // 예전에는 회원과 무관한 고정 실루엣 SVG를 그렸다 — 이제 실제 프로필 사진을 쓰고, 사진이 없으면
+  // avatar.js가 이름 첫 글자 동그라미를 그린다(member/profile-image 노출, 2026-08-21).
+  function createAvatarElement(member) {
+    return window.Avatar.create(member.name, member.profileImageUrl, 'md');
   }
 
   function createMemberItem(member) {
@@ -65,7 +57,7 @@
     var titleGroup = document.createElement('div');
     titleGroup.className = 'admin-card__title-group';
 
-    var avatarEl = createAvatarElement();
+    var avatarEl = createAvatarElement(member);
     titleGroup.appendChild(avatarEl);
 
     var nameEl = document.createElement('h3');
