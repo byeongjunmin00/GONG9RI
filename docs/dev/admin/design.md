@@ -48,10 +48,14 @@
 
 ## 프론트
 
-`static/admin/{login,dashboard,members,products,refunds}.html` + 대응 JS. 전부 서브디렉토리라
+`static/admin/{login,dashboard,members,products,refunds,support}.html` + 대응 JS. 전부 서브디렉토리라
 `SecurityConfig`의 `/**/*.html` permitAll에 이미 걸려 있어 별도 설정이 필요 없다. 각 페이지는
 `js/admin-guard.js`의 `AdminGuard.requireAdmin()`으로 진입 시 role을 확인하고, ADMIN이 아니면
 (비로그인 포함) `/admin/login.html`로 돌려보낸다 — 최종 판정은 항상 서버(403)고 이건 UX 보조다.
+
+- **대시보드 UI/UX 및 서브 탭 네비게이션** (2026-08-21 `003-admin-dashboard-redesign` 개편):
+  - 대시보드(`admin/dashboard.html`): 상단 관리자 프로필 배너 헤더(`.mypage-profile-card`), KPI 요약 카드 그리드(`.mypage-summary-grid` + `.summary-card`), 클릭 시 관련 서브 페이지로 이동하는 퀵 액션 연동, 하단 주요 기능 퀵 링크 카드 구성.
+  - 서브 탭 네비게이션: 5개 관리자 페이지 전체에 브랜드 공용 탭 컴포넌트(`.mypage-nav-tabs`, `.mypage-tab-btn`)를 적용하여 위치 기반 활성화 상태 및 일관된 UI 제공.
 
 ## 관련 코드
 
@@ -61,3 +65,5 @@
 `dto/AdminMemberResponse.java`/`AdminMemberPageResponse.java`/`AdminDashboardResponse.java`/
 `AdminRefundPageResponse.java`, `static/admin/*.html`, `static/js/admin-*.js`,
 `static/partials/header.html`(`data-role="ADMIN"` nav 링크).
+- 경위: `docs/dev/admin/changes/003-admin-dashboard-redesign.md`, 실행 로그: `docs/logs/frontend/admin/003-admin-dashboard-redesign.md`
+

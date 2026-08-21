@@ -38,7 +38,7 @@
   <main>
     <section class="section container">
       <div class="section__head">
-        <h1><span class="text-gradient">관리자 대시보드</span></h1>
+        <h1><span class="text-gradient">관리자 센터</span></h1>
       </div>
 
       <!-- 관리자 아님/비로그인 안내(js/admin-guard.js가 리다이렉트하지만, API 호출 자체가 403이면 여기도 표시). -->
@@ -46,43 +46,119 @@
         <span id="page-alert-text"></span>
       </div>
 
-      <nav style="display:flex; gap: var(--space-3); margin-bottom: var(--space-5);">
-        <a href="/admin/dashboard.html" class="btn btn-primary btn-sm">대시보드</a>
-        <a href="/admin/members.html" class="btn btn-secondary btn-sm">회원 관리</a>
-        <a href="/admin/products.html" class="btn btn-secondary btn-sm">상품 현황</a>
-        <a href="/admin/refunds.html" class="btn btn-secondary btn-sm">환불 요청 현황</a>
-        <a href="/admin/support.html" class="btn btn-secondary btn-sm">상담 관리</a>
-      </nav>
-
-      <div id="dashboard-status" class="product-status">불러오는 중...</div>
-
-      <!-- 요약 카드 — seller/mypage.html의 .revenue-cards 패턴 재사용. js/admin-dashboard.js가 채운다. -->
-      <div id="summary-cards" class="revenue-cards" hidden>
-        <div class="revenue-card">
-          <span class="revenue-card__label">전체 회원</span>
-          <span id="summary-total-members" class="revenue-card__value"></span>
+      <!-- 상단 프로필 & 시스템 현황 대시보드 카드 -->
+      <div class="mypage-profile-card" style="margin-bottom: var(--space-6);">
+        <div class="mypage-profile__user">
+          <div class="mypage-profile__avatar" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+          </div>
+          <div class="mypage-profile__info">
+            <h2 id="summary-user-name" class="mypage-profile__name">시스템 관리자</h2>
+            <span id="summary-user-email" class="mypage-profile__email">로딩 중...</span>
+          </div>
         </div>
-        <div class="revenue-card">
-          <span class="revenue-card__label">구매자</span>
-          <span id="summary-total-buyers" class="revenue-card__value"></span>
-        </div>
-        <div class="revenue-card">
-          <span class="revenue-card__label">판매자</span>
-          <span id="summary-total-sellers" class="revenue-card__value"></span>
-        </div>
-        <div class="revenue-card">
-          <span class="revenue-card__label">전체 상품</span>
-          <span id="summary-total-products" class="revenue-card__value"></span>
-        </div>
-        <div class="revenue-card">
-          <span class="revenue-card__label">전체 결제 건수</span>
-          <span id="summary-total-payments" class="revenue-card__value"></span>
-        </div>
-        <div class="revenue-card">
-          <span class="revenue-card__label">대기 중 환불 요청</span>
-          <span id="summary-pending-refunds" class="revenue-card__value"></span>
+        <div id="summary-cards" class="mypage-summary-grid">
+          <button type="button" class="summary-card" id="card-members">
+            <span class="summary-card__label">전체 회원</span>
+            <span id="summary-total-members" class="summary-card__value">-</span>
+          </button>
+          <button type="button" class="summary-card" id="card-buyers">
+            <span class="summary-card__label">구매자</span>
+            <span id="summary-total-buyers" class="summary-card__value">-</span>
+          </button>
+          <button type="button" class="summary-card" id="card-sellers">
+            <span class="summary-card__label">판매자</span>
+            <span id="summary-total-sellers" class="summary-card__value">-</span>
+          </button>
+          <button type="button" class="summary-card" id="card-products">
+            <span class="summary-card__label">전체 상품</span>
+            <span id="summary-total-products" class="summary-card__value">-</span>
+          </button>
+          <div class="summary-card" id="card-payments" style="cursor: default;">
+            <span class="summary-card__label">전체 결제</span>
+            <span id="summary-total-payments" class="summary-card__value">-</span>
+          </div>
+          <button type="button" class="summary-card" id="card-pending-refunds">
+            <span class="summary-card__label">대기 환불</span>
+            <span id="summary-pending-refunds" class="summary-card__value">-</span>
+          </button>
         </div>
       </div>
+
+      <!-- 공용 탭 네비게이션 -->
+      <nav class="mypage-nav-tabs" role="tablist" aria-label="관리자 메뉴" style="margin-bottom: var(--space-6);">
+        <a href="/admin/dashboard.html" class="mypage-tab-btn active" role="tab" aria-selected="true">대시보드</a>
+        <a href="/admin/members.html" class="mypage-tab-btn" role="tab" aria-selected="false">회원 관리</a>
+        <a href="/admin/products.html" class="mypage-tab-btn" role="tab" aria-selected="false">상품 현황</a>
+        <a href="/admin/refunds.html" class="mypage-tab-btn" role="tab" aria-selected="false">환불 요청 현황</a>
+        <a href="/admin/support.html" class="mypage-tab-btn" role="tab" aria-selected="false">상담 관리</a>
+      </nav>
+
+      <div id="dashboard-status" class="product-status">대시보드 정보를 불러오는 중입니다...</div>
+
+      <!-- 바로가기 퀵 메뉴 카카오/그리드 -->
+      <section class="section" id="quick-actions-section" hidden>
+        <div class="section__head">
+          <h2>관리 기능 퀵 바로가기</h2>
+        </div>
+        <div class="grid grid--2" style="gap: var(--space-4);">
+          <a href="/admin/members.html" class="card card--interactive" style="padding: var(--space-5); text-decoration: none; color: inherit; display: flex; align-items: center; gap: var(--space-4);">
+            <div style="width: 48px; height: 48px; border-radius: var(--radius-md); background: var(--gradient-brand-soft); color: var(--color-brand); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+            </div>
+            <div>
+              <h3 style="font-size: var(--fs-lg); margin-bottom: var(--space-1);">회원 관리</h3>
+              <p class="text-muted" style="font-size: var(--fs-sm); margin: 0;">전체 회원 목록 조회 및 부정 사용자 정지/해제 관리</p>
+            </div>
+          </a>
+
+          <a href="/admin/products.html" class="card card--interactive" style="padding: var(--space-5); text-decoration: none; color: inherit; display: flex; align-items: center; gap: var(--space-4);">
+            <div style="width: 48px; height: 48px; border-radius: var(--radius-md); background: var(--gradient-brand-soft); color: var(--color-brand); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+              </svg>
+            </div>
+            <div>
+              <h3 style="font-size: var(--fs-lg); margin-bottom: var(--space-1);">상품 현황</h3>
+              <p class="text-muted" style="font-size: var(--fs-sm); margin: 0;">플랫폼에 등록된 전체 상품 관리 및 숨김/삭제 처리</p>
+            </div>
+          </a>
+
+          <a href="/admin/refunds.html" class="card card--interactive" style="padding: var(--space-5); text-decoration: none; color: inherit; display: flex; align-items: center; gap: var(--space-4);">
+            <div style="width: 48px; height: 48px; border-radius: var(--radius-md); background: var(--gradient-brand-soft); color: var(--color-brand); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+              </svg>
+            </div>
+            <div>
+              <h3 style="font-size: var(--fs-lg); margin-bottom: var(--space-1);">환불 요청 현황</h3>
+              <p class="text-muted" style="font-size: var(--fs-sm); margin: 0;">전체 환불 요청 건 모니터링 및 결제 상태 확인</p>
+            </div>
+          </a>
+
+          <a href="/admin/support.html" class="card card--interactive" style="padding: var(--space-5); text-decoration: none; color: inherit; display: flex; align-items: center; gap: var(--space-4);">
+            <div style="width: 48px; height: 48px; border-radius: var(--radius-md); background: var(--gradient-brand-soft); color: var(--color-brand); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+              </svg>
+            </div>
+            <div>
+              <h3 style="font-size: var(--fs-lg); margin-bottom: var(--space-1);">상담 관리</h3>
+              <p class="text-muted" style="font-size: var(--fs-sm); margin: 0;">실시간 1:1 고객 문의 응대 및 실시간 상담 내역 처리</p>
+            </div>
+          </a>
+        </div>
+      </section>
     </section>
   </main>
 

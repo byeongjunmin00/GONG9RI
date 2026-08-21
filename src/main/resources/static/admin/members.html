@@ -47,12 +47,12 @@
         <span id="page-alert-text"></span>
       </div>
 
-      <nav style="display:flex; gap: var(--space-3); margin-bottom: var(--space-5);">
-        <a href="/admin/dashboard.html" class="btn btn-secondary btn-sm">대시보드</a>
-        <a href="/admin/members.html" class="btn btn-primary btn-sm">회원 관리</a>
-        <a href="/admin/products.html" class="btn btn-secondary btn-sm">상품 현황</a>
-        <a href="/admin/refunds.html" class="btn btn-secondary btn-sm">환불 요청 현황</a>
-        <a href="/admin/support.html" class="btn btn-secondary btn-sm">상담 관리</a>
+      <nav class="mypage-nav-tabs" role="tablist" aria-label="관리자 메뉴" style="margin-bottom: var(--space-6);">
+        <a href="/admin/dashboard.html" class="mypage-tab-btn" role="tab" aria-selected="false">대시보드</a>
+        <a href="/admin/members.html" class="mypage-tab-btn active" role="tab" aria-selected="true">회원 관리</a>
+        <a href="/admin/products.html" class="mypage-tab-btn" role="tab" aria-selected="false">상품 현황</a>
+        <a href="/admin/refunds.html" class="mypage-tab-btn" role="tab" aria-selected="false">환불 요청 현황</a>
+        <a href="/admin/support.html" class="mypage-tab-btn" role="tab" aria-selected="false">상담 관리</a>
       </nav>
 
       <div id="members-status" class="product-status">불러오는 중...</div>
