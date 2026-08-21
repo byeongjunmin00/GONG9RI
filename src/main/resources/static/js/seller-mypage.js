@@ -824,11 +824,147 @@
     prepBadge.textContent = order.preparationStatusLabel || order.preparationStatus;
     badgeGroup.appendChild(prepBadge);
 
+    // 배송 단계는 preparationStatus가 PREPARING(실제 배송 대상)인 주문에만 조작 UI를 보여준다 —
+    // 환불됐거나 아직 공구가 진행/실패 중인 주문은 서버도 변경을 거절한다(SellerMypageService).
+    var shipmentBadge = null;
+    if (order.preparationStatus === 'PREPARING') {
+      shipmentBadge = document.createElement('span');
+      shipmentBadge.className = 'badge ' + shipmentStatusToBadgeClass(order.shipmentStatus);
+      shipmentBadge.textContent = order.shipmentStatusLabel || order.shipmentStatus;
+      badgeGroup.appendChild(shipmentBadge);
+    }
+
     infoEl.appendChild(badgeGroup);
+
+    // 저장 성공 시 createShipmentPanel이 이 요소를 직접 갱신한다(전체 목록 재조회 없이).
+    var trackingEl = document.createElement('span');
+    trackingEl.className = 'mypage-list-item__meta';
+    updateTrackingText(trackingEl, order.trackingCarrier, order.trackingNumber);
+    infoEl.appendChild(trackingEl);
+
     mainEl.appendChild(infoEl);
     li.appendChild(mainEl);
 
+    if (order.preparationStatus === 'PREPARING') {
+      li.appendChild(createShipmentPanel(order, shipmentBadge, trackingEl));
+    }
+
     return li;
+  }
+
+  function updateTrackingText(trackingEl, carrier, number) {
+    if (!number) {
+      trackingEl.hidden = true;
+      trackingEl.textContent = '';
+      return;
+    }
+    trackingEl.hidden = false;
+    trackingEl.textContent = '🚚 ' + (carrier ? carrier + ' ' : '') + number;
+  }
+
+  var SHIPMENT_STATUS_OPTIONS = [
+    { value: 'PRODUCT_PREPARING', label: '상품 준비중' },
+    { value: 'SHIPPING_PREPARING', label: '배송 준비중' },
+    { value: 'IN_TRANSIT', label: '배송중' },
+    { value: 'DELIVERED', label: '배송완료' },
+  ];
+
+  function shipmentStatusToBadgeClass(status) {
+    if (status === 'DELIVERED') {
+      return 'badge-success';
+    }
+    if (status === 'IN_TRANSIT') {
+      return 'badge-time';
+    }
+    return 'badge-secondary';
+  }
+
+  /**
+   * 판매자가 배송 단계·택배사·송장번호를 입력해 PATCH .../orders/{paymentId}/shipment로 저장하는 패널.
+   * 성공하면 배지/트래킹 표시를 그 항목 안에서 즉시 갱신한다(전체 목록 재조회 없음, 환불 패널과 동일 패턴).
+   */
+  function createShipmentPanel(order, shipmentBadge, trackingEl) {
+    var panel = document.createElement('div');
+    panel.className = 'mypage-list-item__actions';
+    panel.style.marginTop = 'var(--space-2)';
+    panel.style.flexWrap = 'wrap';
+
+    var select = document.createElement('select');
+    select.className = 'form-select';
+    SHIPMENT_STATUS_OPTIONS.forEach(function (option) {
+      var optionEl = document.createElement('option');
+      optionEl.value = option.value;
+      optionEl.textContent = option.label;
+      if (option.value === order.shipmentStatus) {
+        optionEl.selected = true;
+      }
+      select.appendChild(optionEl);
+    });
+    panel.appendChild(select);
+
+    var carrierInput = document.createElement('input');
+    carrierInput.type = 'text';
+    carrierInput.className = 'form-input';
+    carrierInput.placeholder = '택배사 (예: CJ대한통운)';
+    carrierInput.value = order.trackingCarrier || '';
+    carrierInput.style.maxWidth = '160px';
+    panel.appendChild(carrierInput);
+
+    var trackingInput = document.createElement('input');
+    trackingInput.type = 'text';
+    trackingInput.className = 'form-input';
+    trackingInput.placeholder = '송장번호';
+    trackingInput.value = order.trackingNumber || '';
+    trackingInput.style.maxWidth = '160px';
+    panel.appendChild(trackingInput);
+
+    var saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.className = 'btn btn-primary btn-sm';
+    saveBtn.textContent = '저장';
+
+    var errorEl = document.createElement('span');
+    errorEl.className = 'mypage-list-item__meta';
+    errorEl.style.color = 'var(--color-error)';
+    errorEl.hidden = true;
+
+    saveBtn.addEventListener('click', function () {
+      saveBtn.disabled = true;
+      errorEl.hidden = true;
+
+      window.Api.patch('/seller/mypage/orders/' + order.paymentId + '/shipment', {
+        shipmentStatus: select.value,
+        trackingCarrier: carrierInput.value || null,
+        trackingNumber: trackingInput.value || null,
+      })
+        .then(function (updated) {
+          saveBtn.disabled = false;
+          order.shipmentStatus = updated.shipmentStatus;
+          order.shipmentStatusLabel = updated.shipmentStatusLabel;
+          order.trackingCarrier = updated.trackingCarrier;
+          order.trackingNumber = updated.trackingNumber;
+          if (shipmentBadge) {
+            shipmentBadge.className = 'badge ' + shipmentStatusToBadgeClass(updated.shipmentStatus);
+            shipmentBadge.textContent = updated.shipmentStatusLabel || updated.shipmentStatus;
+          }
+          updateTrackingText(trackingEl, updated.trackingCarrier, updated.trackingNumber);
+          carrierInput.value = updated.trackingCarrier || '';
+          trackingInput.value = updated.trackingNumber || '';
+        })
+        .catch(function (err) {
+          saveBtn.disabled = false;
+          console.error('[seller-mypage.js] failed to update shipment:', err);
+          if (handleUnauthorized(err)) {
+            return;
+          }
+          errorEl.textContent = (err && err.message) || '배송 상태 저장에 실패했습니다.';
+          errorEl.hidden = false;
+        });
+    });
+    panel.appendChild(saveBtn);
+    panel.appendChild(errorEl);
+
+    return panel;
   }
 
   function renderOrders(orders) {

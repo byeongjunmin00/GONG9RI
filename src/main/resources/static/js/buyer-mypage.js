@@ -384,6 +384,18 @@
     metaEl.textContent = [amountText, paidAtText].filter(Boolean).join(' · ');
     infoEl.appendChild(metaEl);
 
+    // 판매자가 조작하는 배송 단계(007) — 읽기 전용. status가 PAID일 때만 의미가 있다(REFUNDED
+    // 건은 서버도 배송 단계를 항상 기본값으로만 두므로 굳이 보여주지 않는다).
+    if (purchase.status === 'PAID' && purchase.shipmentStatusLabel) {
+      var shipmentEl = document.createElement('span');
+      shipmentEl.className = 'mypage-list-item__meta';
+      var trackingText = purchase.trackingNumber
+        ? (purchase.trackingCarrier ? purchase.trackingCarrier + ' ' : '') + purchase.trackingNumber
+        : '';
+      shipmentEl.textContent = ['🚚 ' + purchase.shipmentStatusLabel, trackingText].filter(Boolean).join(' · ');
+      infoEl.appendChild(shipmentEl);
+    }
+
     var mainEl = createListItemMainWrapper(purchase.imageUrl, purchase.productName, infoEl);
     li.appendChild(mainEl);
 

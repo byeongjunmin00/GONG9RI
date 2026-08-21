@@ -13,6 +13,7 @@ import com.gong9ri.gong9ri.dto.InquiryCreateRequest;
 import com.gong9ri.gong9ri.dto.RefundRequestCreateRequest;
 import com.gong9ri.gong9ri.dto.RefundRequestRejectRequest;
 import com.gong9ri.gong9ri.dto.ReviewCreateRequest;
+import com.gong9ri.gong9ri.dto.ShipmentUpdateRequest;
 import com.gong9ri.gong9ri.entity.GroupBuyTeam;
 import com.gong9ri.gong9ri.entity.Member;
 import com.gong9ri.gong9ri.entity.Notification;
@@ -21,6 +22,7 @@ import com.gong9ri.gong9ri.entity.Payment;
 import com.gong9ri.gong9ri.entity.Product;
 import com.gong9ri.gong9ri.entity.RefundRejectionReason;
 import com.gong9ri.gong9ri.entity.Role;
+import com.gong9ri.gong9ri.entity.ShipmentStatus;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.InquiryRepository;
 import com.gong9ri.gong9ri.repository.MemberRepository;
@@ -35,6 +37,7 @@ import com.gong9ri.gong9ri.service.InquiryService;
 import com.gong9ri.gong9ri.service.PaymentService;
 import com.gong9ri.gong9ri.service.RefundRequestService;
 import com.gong9ri.gong9ri.service.ReviewService;
+import com.gong9ri.gong9ri.service.SellerMypageService;
 import com.gong9ri.gong9ri.service.TeamService;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -75,6 +78,8 @@ class NotificationTypesFlowTest {
     private TeamService teamService;
     @Autowired
     private PaymentService paymentService;
+    @Autowired
+    private SellerMypageService sellerMypageService;
 
     // 결제 확정/환불 승인은 실제 PortOne HTTP 호출을 타므로 목으로 대체한다
     // (TeamDeadlineEventFlowTest와 동일한 방식).
@@ -381,6 +386,25 @@ class NotificationTypesFlowTest {
                 "환불을 요청한 구매자가 승인 알림을 받아야 한다");
         assertReceivesNone(seller, NotificationType.REFUND_REQUEST_APPROVED,
                 "승인한 판매자 본인은 알림을 받으면 안 된다");
+    }
+
+    // ---------- 배송 ----------
+
+    @Test
+    @DisplayName("판매자가 배송 단계를 바꾸면 구매자에게만 SHIPMENT_UPDATED 알림이 간다")
+    void shipmentUpdatedNotifiesBuyerOnly() {
+        Member seller = saveMember("noti_ship_seller", Role.SELLER);
+        Member buyer = saveMember("noti_ship_buyer", Role.BUYER);
+        Product product = saveProduct(seller);
+        Payment payment = savePaidPayment(buyer, product, null);
+
+        sellerMypageService.updateShipment(as(seller), payment.getId(),
+                new ShipmentUpdateRequest(ShipmentStatus.SHIPPING_PREPARING, null, null));
+
+        assertReceivesExactlyOne(buyer, NotificationType.SHIPMENT_UPDATED,
+                "주문의 구매자가 배송 상태 변경 알림을 받아야 한다");
+        assertReceivesNone(seller, NotificationType.SHIPMENT_UPDATED,
+                "배송 상태를 바꾼 판매자 본인은 알림을 받으면 안 된다");
     }
 
     // ---------- 링크 ----------

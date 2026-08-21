@@ -18,13 +18,23 @@
       "status": "PAID",
       "paidAt": "2026-07-24T14:35:00",
       "teamId": null,
-      "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg"
+      "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg",
+      "shipmentStatus": "IN_TRANSIT",
+      "shipmentStatusLabel": "배송중",
+      "trackingCarrier": "CJ대한통운",
+      "trackingNumber": "123456789012"
     }
   ]
   ```
 
   > `teamId`: 팀이 딸린 결제면 값이 있고, 혼자구매면 `null`. `null`인(솔로 구매) `PAID` 결제만
   > `docs/api/refund.md`의 직접 환불 요청 대상이다.
+  >
+  > `shipmentStatus`/`shipmentStatusLabel`/`trackingCarrier`/`trackingNumber`(2026-08-21 `007` 추가):
+  > 판매자가 `PATCH /api/seller/mypage/orders/{paymentId}/shipment`로 입력한 배송 정보를 읽기 전용으로
+  > 노출한다. `shipmentStatus`는 `PRODUCT_PREPARING`/`SHIPPING_PREPARING`/`IN_TRANSIT`/`DELIVERED` 중
+  > 하나이며 기본값은 `PRODUCT_PREPARING`이다. `trackingCarrier`/`trackingNumber`는 판매자가 아직
+  > 입력하지 않았으면 `null`이다.
 
 - 에러:
   | 코드 | HTTP | 설명 |
@@ -121,17 +131,58 @@
       "teamCurrentCount": null,
       "teamMaxParticipants": null,
       "preparationStatus": "PREPARING",
-      "preparationStatusLabel": "🚚 배송 준비 중"
+      "preparationStatusLabel": "🚚 배송 준비 중",
+      "shipmentStatus": "PRODUCT_PREPARING",
+      "shipmentStatusLabel": "상품 준비중",
+      "trackingCarrier": null,
+      "trackingNumber": null
     }
   ]
   ```
 
   > `preparationStatus`는 `REFUNDED`(환불/취소됨) · `RECRUITING`(공구 모집 중) · `FAILED`(공구 실패) · `PREPARING`(배송 준비 중, 공구 성공 또는 솔로 구매) 중 하나다.
+  >
+  > `shipmentStatus`/`shipmentStatusLabel`/`trackingCarrier`/`trackingNumber`(2026-08-21 `007` 추가):
+  > 판매자가 직접 조작하는 배송 단계 — 아래 `PATCH .../shipment`로 바꾼다. `preparationStatus`가
+  > `PREPARING`이 아닌 주문(환불됐거나 아직 공구 진행/실패 중)은 항상 기본값(`PRODUCT_PREPARING`,
+  > 택배사·송장번호 `null`)만 갖는다 — 그 상태에서는 변경 자체가 거절되기 때문이다.
 
 - 에러:
   | 코드 | HTTP | 설명 |
   |------|------|------|
   | `FORBIDDEN` | 403 | 구매자 계정으로 시도 |
+  | `UNAUTHORIZED` | 401 | 미인증 |
+
+---
+
+### PATCH /api/seller/mypage/orders/{paymentId}/shipment — 배송 단계 변경 (2026-08-21 `007` 추가)
+
+판매자가 자기 상품 주문의 배송 단계를 직접 바꾼다. 4단계(`PRODUCT_PREPARING`/`SHIPPING_PREPARING`/`IN_TRANSIT`/`DELIVERED`) 중 아무거나로 자유롭게 전환 가능하다(순서 강제 없음). 성공하면 그 주문의 구매자에게 `SHIPMENT_UPDATED` 알림이 간다.
+
+- 요청 body:
+  | 필드 | 타입 | 필수 | 설명 |
+  |------|------|------|------|
+  | shipmentStatus | String (enum) | Y | `PRODUCT_PREPARING`/`SHIPPING_PREPARING`/`IN_TRANSIT`/`DELIVERED` |
+  | trackingCarrier | String | N | 택배사명(자유 텍스트) |
+  | trackingNumber | String | N | 송장번호. `shipmentStatus`가 `IN_TRANSIT`/`DELIVERED`면 필수 |
+
+  ```json
+  {
+    "shipmentStatus": "IN_TRANSIT",
+    "trackingCarrier": "CJ대한통운",
+    "trackingNumber": "123456789012"
+  }
+  ```
+
+- 응답: `200 OK` → 위 `GET .../orders`의 항목 하나와 동일한 형식(변경된 값 반영)
+
+- 에러:
+  | 코드 | HTTP | 설명 |
+  |------|------|------|
+  | `TRACKING_NUMBER_REQUIRED` | 400 | `IN_TRANSIT`/`DELIVERED`로 바꾸는데 `trackingNumber`가 비어있음 |
+  | `PAYMENT_NOT_FOUND` | 404 | 존재하지 않는 결제 |
+  | `SHIPMENT_STATUS_NOT_APPLICABLE` | 409 | 환불됐거나(`REFUNDED`/`REFUND_PENDING`) 아직 배송 대상이 아닌(공구 `RECRUITING`/`FAILED`) 주문 |
+  | `FORBIDDEN` | 403 | 본인 상품의 주문이 아니거나 구매자 계정으로 시도 |
   | `UNAUTHORIZED` | 401 | 미인증 |
 
 ---
@@ -194,7 +245,7 @@
 
 ## 알림
 
-> **알림 종류(`type`)는 10종이다**(2026-08-21 `SUPPORT_MESSAGE_RECEIVED` 추가) — `TEAM_REFUNDED`, `TEAM_SUCCESS`, `INQUIRY_CREATED`, `INQUIRY_ANSWERED`, `PAYMENT_RECEIVED`, `REVIEW_CREATED`, `REFUND_REQUESTED`, `REFUND_REQUEST_APPROVED`, `REFUND_REQUEST_REJECTED`, `SUPPORT_MESSAGE_RECEIVED`. 각 종류가 누구에게 가는지는 `docs/dev/notification/refund-alert/design.md` 참고.
+> **알림 종류(`type`)는 11종이다**(2026-08-21 `SHIPMENT_UPDATED` 추가) — `TEAM_REFUNDED`, `TEAM_SUCCESS`, `INQUIRY_CREATED`, `INQUIRY_ANSWERED`, `PAYMENT_RECEIVED`, `REVIEW_CREATED`, `REFUND_REQUESTED`, `REFUND_REQUEST_APPROVED`, `REFUND_REQUEST_REJECTED`, `SUPPORT_MESSAGE_RECEIVED`, `SHIPMENT_UPDATED`. 각 종류가 누구에게 가는지는 `docs/dev/notification/refund-alert/design.md` 참고.
 >
 > **`linkUrl`**(2026-08-20 추가)은 알림을 눌렀을 때 이동할 앱 내부 경로다. 이 필드가 생기기 전에 만들어진 알림은 `null`이므로 클라이언트는 `null`을 정상 처리해야 한다(이동하지 않음).
 >

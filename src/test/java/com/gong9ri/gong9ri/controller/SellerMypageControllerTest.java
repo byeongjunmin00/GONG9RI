@@ -2,6 +2,7 @@ package com.gong9ri.gong9ri.controller;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -26,6 +27,7 @@ import com.gong9ri.gong9ri.repository.RefundRequestRepository;
 import com.gong9ri.gong9ri.repository.TeamParticipationRepository;
 import com.gong9ri.gong9ri.repository.SellerRevenueSummaryRepository;
 import java.time.LocalDateTime;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +37,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -43,6 +46,9 @@ class SellerMypageControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Autowired
     private MemberRepository memberRepository;
@@ -471,6 +477,126 @@ class SellerMypageControllerTest {
     @DisplayName("비로그인으로 주문·배송 내역 조회 시 401 UNAUTHORIZED")
     void orders_unauthorized() throws Exception {
         mockMvc.perform(get("/api/seller/mypage/orders"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    @DisplayName("판매자가 배송 단계를 바꾸면 200과 함께 변경된 값이 반환된다")
+    void updateShipment_asSeller_success() throws Exception {
+        Member seller = saveMember("shipSeller1", Role.SELLER);
+        Product product = saveProduct(seller, "유기농 딸기 1kg", 5);
+        Member buyer = saveMember("shipBuyer1", Role.BUYER);
+        Payment payment = paymentRepository.save(new Payment(buyer, product, null, 15000));
+
+        mockMvc.perform(patch("/api/seller/mypage/orders/" + payment.getId() + "/shipment")
+                        .with(asUser(seller))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(
+                                Map.of("shipmentStatus", "SHIPPING_PREPARING"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.shipmentStatus").value("SHIPPING_PREPARING"))
+                .andExpect(jsonPath("$.data.shipmentStatusLabel").value("배송 준비중"));
+    }
+
+    @Test
+    @DisplayName("배송중으로 바꾸는데 송장번호가 없으면 400 TRACKING_NUMBER_REQUIRED")
+    void updateShipment_toInTransitWithoutTrackingNumber_rejected() throws Exception {
+        Member seller = saveMember("shipSeller2", Role.SELLER);
+        Product product = saveProduct(seller, "유기농 딸기 1kg", 5);
+        Member buyer = saveMember("shipBuyer2", Role.BUYER);
+        Payment payment = paymentRepository.save(new Payment(buyer, product, null, 15000));
+
+        mockMvc.perform(patch("/api/seller/mypage/orders/" + payment.getId() + "/shipment")
+                        .with(asUser(seller))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(Map.of("shipmentStatus", "IN_TRANSIT"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("TRACKING_NUMBER_REQUIRED"));
+    }
+
+    @Test
+    @DisplayName("송장번호와 함께 배송중으로 바꾸면 200이고 택배사·송장번호가 저장된다")
+    void updateShipment_toInTransitWithTrackingNumber_success() throws Exception {
+        Member seller = saveMember("shipSeller3", Role.SELLER);
+        Product product = saveProduct(seller, "유기농 딸기 1kg", 5);
+        Member buyer = saveMember("shipBuyer3", Role.BUYER);
+        Payment payment = paymentRepository.save(new Payment(buyer, product, null, 15000));
+
+        mockMvc.perform(patch("/api/seller/mypage/orders/" + payment.getId() + "/shipment")
+                        .with(asUser(seller))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "shipmentStatus", "IN_TRANSIT",
+                                "trackingCarrier", "CJ대한통운",
+                                "trackingNumber", "123456789012"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.shipmentStatus").value("IN_TRANSIT"))
+                .andExpect(jsonPath("$.data.trackingCarrier").value("CJ대한통운"))
+                .andExpect(jsonPath("$.data.trackingNumber").value("123456789012"));
+    }
+
+    @Test
+    @DisplayName("환불된 주문의 배송 단계를 바꾸려 하면 409 SHIPMENT_STATUS_NOT_APPLICABLE")
+    void updateShipment_refundedPayment_rejected() throws Exception {
+        Member seller = saveMember("shipSeller4", Role.SELLER);
+        Product product = saveProduct(seller, "유기농 딸기 1kg", 5);
+        Member buyer = saveMember("shipBuyer4", Role.BUYER);
+        Payment payment = new Payment(buyer, product, null, 15000);
+        payment.refund();
+        paymentRepository.save(payment);
+
+        mockMvc.perform(patch("/api/seller/mypage/orders/" + payment.getId() + "/shipment")
+                        .with(asUser(seller))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(
+                                Map.of("shipmentStatus", "SHIPPING_PREPARING"))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SHIPMENT_STATUS_NOT_APPLICABLE"));
+    }
+
+    @Test
+    @DisplayName("다른 판매자 상품 주문의 배송 단계를 바꾸려 하면 403 FORBIDDEN")
+    void updateShipment_otherSellersPayment_forbidden() throws Exception {
+        Member sellerA = saveMember("shipSeller5", Role.SELLER);
+        Member sellerB = saveMember("shipSeller6", Role.SELLER);
+        Product product = saveProduct(sellerA, "유기농 딸기 1kg", 5);
+        Member buyer = saveMember("shipBuyer5", Role.BUYER);
+        Payment payment = paymentRepository.save(new Payment(buyer, product, null, 15000));
+
+        mockMvc.perform(patch("/api/seller/mypage/orders/" + payment.getId() + "/shipment")
+                        .with(asUser(sellerB))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(
+                                Map.of("shipmentStatus", "SHIPPING_PREPARING"))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("구매자 계정으로 배송 단계 변경 시도 시 403 FORBIDDEN")
+    void updateShipment_asBuyer_forbidden() throws Exception {
+        Member seller = saveMember("shipSeller7", Role.SELLER);
+        Product product = saveProduct(seller, "유기농 딸기 1kg", 5);
+        Member buyer = saveMember("shipBuyer6", Role.BUYER);
+        Payment payment = paymentRepository.save(new Payment(buyer, product, null, 15000));
+
+        mockMvc.perform(patch("/api/seller/mypage/orders/" + payment.getId() + "/shipment")
+                        .with(asUser(buyer))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(
+                                Map.of("shipmentStatus", "SHIPPING_PREPARING"))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("비로그인으로 배송 단계 변경 시도 시 401 UNAUTHORIZED")
+    void updateShipment_unauthorized() throws Exception {
+        mockMvc.perform(patch("/api/seller/mypage/orders/1/shipment")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(
+                                Map.of("shipmentStatus", "SHIPPING_PREPARING"))))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
     }

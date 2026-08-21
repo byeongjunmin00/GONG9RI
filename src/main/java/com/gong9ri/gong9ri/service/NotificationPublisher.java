@@ -129,6 +129,18 @@ public class NotificationPublisher {
                 "'" + productName + "' 환불 요청이 거절되었습니다.", null, BUYER_MYPAGE_URL);
     }
 
+    // ---------- 배송 ----------
+
+    /** 판매자가 주문의 배송 단계를 바꿈 — 그 주문의 구매자에게. 판매자가 자기 상품을 산 경우는 보내지 않는다. */
+    public void shipmentUpdated(Long sellerId, Long buyerId, String productName, String shipmentStatusLabel) {
+        if (sellerId.equals(buyerId)) {
+            return;
+        }
+        publish(List.of(buyerId), NotificationType.SHIPMENT_UPDATED,
+                "'" + productName + "' 주문의 배송 상태가 '" + shipmentStatusLabel + "'(으)로 변경되었습니다.",
+                null, BUYER_MYPAGE_URL);
+    }
+
     // ---------- 내부 ----------
 
     private String productUrl(Long productId) {

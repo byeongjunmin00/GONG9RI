@@ -1,6 +1,7 @@
 package com.gong9ri.gong9ri.dto;
 
 import com.gong9ri.gong9ri.entity.Payment;
+import com.gong9ri.gong9ri.entity.ShipmentStatus;
 import java.time.LocalDateTime;
 
 public record PurchaseResponse(
@@ -14,7 +15,13 @@ public record PurchaseResponse(
         // 노출하는 데 쓴다(팀 결제의 환불은 오직 참여 취소로만 가능, docs/api/refund.md).
         Long teamId,
         // 썸네일 표시용 대표 이미지 URL(null이면 프론트에서 기본 아이콘으로 대체).
-        String imageUrl
+        String imageUrl,
+        // 판매자가 조작하는 배송 단계(007) — 읽기 전용. 판매자 쪽 SellerOrderResponse와 동일한 필드,
+        // 여긴 구매자용이라 변경 API는 없고 표시만 한다.
+        ShipmentStatus shipmentStatus,
+        String shipmentStatusLabel,
+        String trackingCarrier,
+        String trackingNumber
 ) {
     public static PurchaseResponse from(Payment payment) {
         return new PurchaseResponse(
@@ -25,7 +32,11 @@ public record PurchaseResponse(
                 payment.getStatus().name(),
                 payment.getPaidAt(),
                 payment.getTeam() != null ? payment.getTeam().getId() : null,
-                payment.getProduct().getImageUrl()
+                payment.getProduct().getImageUrl(),
+                payment.getShipmentStatus(),
+                payment.getShipmentStatus().label(),
+                payment.getTrackingCarrier(),
+                payment.getTrackingNumber()
         );
     }
 }

@@ -92,7 +92,10 @@ class BuyerMypageControllerTest {
                 .andExpect(jsonPath("$.data.length()").value(1))
                 .andExpect(jsonPath("$.data[0].amount").value(25000))
                 .andExpect(jsonPath("$.data[0].productName").value("제주 감귤 5kg"))
-                .andExpect(jsonPath("$.data[0].imageUrl").value("https://example.com/orange.jpg"));
+                .andExpect(jsonPath("$.data[0].imageUrl").value("https://example.com/orange.jpg"))
+                .andExpect(jsonPath("$.data[0].shipmentStatus").value("PRODUCT_PREPARING"))
+                .andExpect(jsonPath("$.data[0].shipmentStatusLabel").value("상품 준비중"))
+                .andExpect(jsonPath("$.data[0].trackingNumber").isEmpty());
     }
 
     @Test

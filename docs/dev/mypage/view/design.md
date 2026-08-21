@@ -39,6 +39,14 @@
   - **사진 교체/삭제 시 이전 파일을 디스크에서 함께 지운다**(`ProductImageStorage.delete()`, 2026-08-21 리뷰에서 발견해 추가) — 안 지우면 회원이 사진을 바꿀 때마다 고아 파일이 유한한 Railway 볼륨에 계속 쌓이는 문제였다. 새 파일 저장이 성공한 뒤에만 이전 파일을 지우므로, 업로드 자체가 실패(잘못된 파일 등)하면 기존 사진은 그대로 남는다. `delete()`는 `/uploads/` 접두사가 아니거나 정규화 후 저장 루트를 벗어나는 URL은 조용히 무시한다(경로 탈출 방지, `store()`와 같은 방어 원칙).
   - **세션의 SecurityContext를 즉시 갱신**한다(`AuthController.updateMe()`와 동일한 패턴) — 안 하면 재로그인 전까지 `GET /api/auth/me`가 사진 변경 전 값을 계속 돌려주는 버그였다(리뷰 중 실측으로 발견, 2026-08-21 수정).
 
+- **판매자 주문·배송 상태 실제 조작** (`PATCH /api/seller/mypage/orders/{paymentId}/shipment`, 2026-08-21 `007-order-shipment-status-management` 개편):
+  - 005의 `preparationStatus`는 파생값이라 판매자가 조작할 수 없었다("주문·배송 **관리**" 탭인데 조작 UI가 없다는 사용자 지적으로 시작) — `Payment`에 저장되는 새 필드(`shipmentStatus`/`trackingCarrier`/`trackingNumber`)를 추가해 실제로 조작 가능하게 했다.
+  - `shipmentStatus`는 4단계(`PRODUCT_PREPARING`/`SHIPPING_PREPARING`/`IN_TRANSIT`/`DELIVERED`)를 **순서 강제 없이 자유롭게 토글**한다(사용자 요구) — 판매자가 잘못 누른 걸 되돌리거나, 오프라인 발송 후 뒤늦게 입력하는 경우를 막지 않기 위해서다.
+  - `IN_TRANSIT`/`DELIVERED`로 바꿀 때는 `trackingNumber`가 비어있으면 거절한다(`TRACKING_NUMBER_REQUIRED`) — 그 외 단계는 자유 입력.
+  - `preparationStatus`가 `PREPARING`이 아닌 주문(환불됐거나 공구 `RECRUITING`/`FAILED`)은 변경 자체가 거절된다(`SHIPMENT_STATUS_NOT_APPLICABLE`, `SellerOrderResponse.isShipmentManageable()`로 판정) — `PAID`가 아닌 결제(PENDING/FAILED/REFUND_PENDING/REFUNDED)도 이 메서드가 독립적으로 걸러낸다(005의 쿼리 필터에만 기대지 않음).
+  - 배송 단계가 바뀌면 구매자에게 `SHIPMENT_UPDATED` 알림이 간다(기존 `NotificationPublisher`/`NotificationRequestedEvent` 인프라 재사용).
+  - 구매자 구매 내역(`GET /api/buyer/mypage/purchases`)에도 같은 배송 정보를 읽기 전용으로 노출한다(외부 배송조회 딥링크는 이번 스코프에서 제외 — 택배사명+송장번호 텍스트 표시까지만).
+
 ## 관련 코드 위치
 
 - `dto/{PurchaseResponse,BuyerTeamResponse,SellerProductResponse,RevenueResponse,SellerTeamResponse}.java`
@@ -59,3 +67,20 @@
 - 테스트(006): `controller/MemberProfileImageControllerTest.java` — `uploadProfileImage_success`, `deleteProfileImage_success`, `uploadProfileImage_unauthorized`, `deleteProfileImage_unauthorized`, `uploadProfileImage_replacingDeletesOldFile`, `uploadProfileImage_refreshesSessionPrincipalImmediately`, `deleteProfileImage_refreshesSessionPrincipalImmediately`
 - 테스트(006): `service/ProductImageStorageTest.java` — `delete_removesStoredFile`, `delete_ignoresInvalidOrTraversalUrls`, `delete_doesNotThrowWhenFileAlreadyGone`
 - 경위(006): `docs/dev/mypage/view/changes/006-member-profile-image-upload.md`, 실행 로그: `docs/logs/frontend/mypage/006-member-profile-image-upload.md`
+
+- `entity/ShipmentStatus.java` — 신규 enum(007), 4단계 + 한글 라벨.
+- `entity/Payment.java` — `shipmentStatus`/`trackingCarrier`/`trackingNumber` 필드 및 `updateShipment()` 도메인 메서드 추가(007).
+- `entity/NotificationType.java` — `SHIPMENT_UPDATED` 추가(007).
+- `common/exception/ErrorCode.java` — `SHIPMENT_STATUS_NOT_APPLICABLE`, `TRACKING_NUMBER_REQUIRED` 추가(007).
+- `dto/SellerOrderResponse.java` — `shipmentStatus`/`shipmentStatusLabel`/`trackingCarrier`/`trackingNumber` 필드 추가, `derivePreparationStatus()`/`isShipmentManageable()` 정적 메서드로 판정 로직 재사용 가능하게 분리(007).
+- `dto/PurchaseResponse.java` — 같은 배송 필드를 구매자용으로 읽기 전용 노출(007).
+- `dto/ShipmentUpdateRequest.java` — 신규(007).
+- `service/SellerMypageService.java` — `updateShipment()`(007) — 스코핑(본인 상품) + `isShipmentManageable` 검증 + 송장번호 필수 검증 + 알림 발행.
+- `service/NotificationPublisher.java` — `shipmentUpdated()` 추가(007).
+- `controller/SellerMypageController.java` — `PATCH /api/seller/mypage/orders/{paymentId}/shipment`(007).
+- `seller/mypage.html`, `js/seller-mypage.js` — 주문 카드에 배송 단계 select + 택배사/송장번호 입력 + 저장 버튼(007, `preparationStatus === 'PREPARING'`인 주문에만 노출).
+- `js/buyer-mypage.js` — 구매 내역에 배송 상태/송장정보 읽기 전용 표시(007).
+- 테스트(007): `controller/SellerMypageControllerTest.java` — `updateShipment_asSeller_success`, `updateShipment_toInTransitWithoutTrackingNumber_rejected`, `updateShipment_toInTransitWithTrackingNumber_success`, `updateShipment_refundedPayment_rejected`, `updateShipment_otherSellersPayment_forbidden`, `updateShipment_asBuyer_forbidden`, `updateShipment_unauthorized`
+- 테스트(007): `controller/BuyerMypageControllerTest.java` — `purchases_success`에 배송 필드 기본값 검증 추가
+- 테스트(007): `event/NotificationTypesFlowTest.java` — `shipmentUpdatedNotifiesBuyerOnly`
+- 경위(007): `docs/dev/mypage/view/changes/007-order-shipment-status-management.md`, 실행 로그: `docs/logs/frontend/seller/007-order-shipment-status-management.md`

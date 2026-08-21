@@ -11,6 +11,9 @@
 | status | VARCHAR(20) | NOT NULL, default 'PENDING' | `PENDING`/`PAID`/`FAILED`/`REFUND_PENDING`/`REFUNDED` — 상세 전이는 `docs/dev/payment/portone/design.md` |
 | pg_payment_id | VARCHAR(64) | NULL, UNIQUE | PortOne에 보낸 가맹점 채번 결제 식별자(merchant paymentId). 웹훅이 가리키는 결제 건 역조회, 취소 API 호출 대상 특정에 쓴다. 4-arg 생성자(레거시/테스트에서 "이미 확정된 결제"를 직접 만들 때)로 만든 행은 NULL일 수 있다(MySQL UNIQUE 인덱스는 NULL을 서로 다른 값으로 취급하므로 여러 행이 NULL이어도 제약 위반 아님) |
 | paid_at | DATETIME | NOT NULL | 레코드 생성(결제 요청 접수) 시각. PortOne 연동 이후 `PENDING`으로 시작하므로 항상 "실제 승인 시각"과 같지는 않다 — 확정 시각을 별도 컬럼으로 관리하지는 않는다 |
+| shipment_status | VARCHAR(20) | NOT NULL, default 'PRODUCT_PREPARING' | 판매자가 직접 조작하는 배송 단계(007) — `PRODUCT_PREPARING`/`SHIPPING_PREPARING`/`IN_TRANSIT`/`DELIVERED`. `status`(결제 상태)와 별개이며, 순서 강제 없이 자유롭게 전환 가능. `PAID`가 아니거나(REFUNDED 등) 공구팀이 RECRUITING/FAILED인 주문은 변경이 거절된다(`SellerOrderResponse.isShipmentManageable`) |
+| tracking_carrier | VARCHAR(50) | NULL | 택배사명(자유 텍스트, 판매자 입력) |
+| tracking_number | VARCHAR(50) | NULL | 송장번호. `shipment_status`가 `IN_TRANSIT`/`DELIVERED`면 필수(서비스 레이어에서 검증, 컬럼 자체는 NULL 허용 — 그 이전 단계에서는 비어있는 게 정상) |
 
 ## 인덱스
 - `idx_member` (member_id) — 구매자 마이페이지 "구매 완료 목록"용

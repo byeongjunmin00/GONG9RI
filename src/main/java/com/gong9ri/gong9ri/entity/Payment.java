@@ -70,6 +70,25 @@ public class Payment {
     @Column(nullable = false, updatable = false)
     private LocalDateTime paidAt;
 
+    // 판매자가 직접 조작하는 배송 단계(007) — 기본값은 상품 준비중. REFUNDED/RECRUITING/FAILED
+    // 상태인 주문(=배송 대상이 아니거나 취소된 주문)은 이 값을 바꿀 수 없다(SellerMypageService에서 검증).
+    //
+    // columnDefinition에 DEFAULT를 명시한다 — 안 그러면 로컬에서 실측한 대로 이 컬럼이 처음 추가될 때
+    // (ddl-auto=update의 ALTER TABLE ADD COLUMN) 기존 행들이 자바 필드 초기값(PRODUCT_PREPARING)이
+    // 아니라 MySQL이 ENUM 컬럼에 자동으로 붙이는 암묵적 기본값(정의 순서상 첫 번째 값 — Hibernate가
+    // enum을 알파벳순으로 나열해서 실제로는 "DELIVERED"였다)으로 채워진다. 이미 배송 완료된 적 없는
+    // 옛 결제들이 전부 "배송완료"로 잘못 표시되는 걸 로컬 DESCRIBE로 직접 확인하고 이 컬럼 정의를 고쳤다.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "shipment_status", nullable = false, length = 20,
+            columnDefinition = "VARCHAR(20) DEFAULT 'PRODUCT_PREPARING'")
+    private ShipmentStatus shipmentStatus = ShipmentStatus.PRODUCT_PREPARING;
+
+    @Column(name = "tracking_carrier", length = 50)
+    private String trackingCarrier;
+
+    @Column(name = "tracking_number", length = 50)
+    private String trackingNumber;
+
     /**
      * 이미 확정된(PAID) 결제를 직접 만드는 생성자 — PortOne 연동 이전부터 있던 생성자로, 지금은
      * 테스트에서 "이미 결제완료된 이력"을 사전 세팅할 때만 쓴다(pgPaymentId는 null). 실제 서비스 흐름
@@ -126,5 +145,14 @@ public class Payment {
     // 통합했다(둘 다 "이 결제의 구매자 == 이 memberId"만 확인).
     public boolean isOwnedBy(Long memberId) {
         return this.member.getId().equals(memberId);
+    }
+
+    // 판매자가 배송 단계/택배사/송장번호를 갱신한다 — "적용 대상인지"(REFUNDED 등 제외)와 "배송중/배송완료엔
+    // 송장번호 필수"는 서비스 레이어(SellerMypageService)가 미리 검증하고 호출한다(다른 엔티티들과 동일하게
+    // 이 클래스는 검증 없이 값만 반영, docs/dev/mypage/view/changes/007-*.md).
+    public void updateShipment(ShipmentStatus shipmentStatus, String trackingCarrier, String trackingNumber) {
+        this.shipmentStatus = shipmentStatus;
+        this.trackingCarrier = trackingCarrier;
+        this.trackingNumber = trackingNumber;
     }
 }

@@ -10,8 +10,11 @@ import com.gong9ri.gong9ri.dto.RevenueResponse;
 import com.gong9ri.gong9ri.dto.SellerOrderResponse;
 import com.gong9ri.gong9ri.dto.SellerProductResponse;
 import com.gong9ri.gong9ri.dto.SellerTeamResponse;
+import com.gong9ri.gong9ri.dto.ShipmentUpdateRequest;
 import com.gong9ri.gong9ri.entity.GroupBuyTeam;
+import com.gong9ri.gong9ri.entity.Payment;
 import com.gong9ri.gong9ri.entity.Role;
+import com.gong9ri.gong9ri.entity.ShipmentStatus;
 import com.gong9ri.gong9ri.repository.GroupBuyTeamRepository;
 import com.gong9ri.gong9ri.repository.NotificationRepository;
 import com.gong9ri.gong9ri.repository.PaymentRepository;
@@ -41,12 +44,41 @@ public class SellerMypageService {
     private final TeamParticipationRepository teamParticipationRepository;
     private final PaymentRepository paymentRepository;
     private final NotificationService notificationService;
+    private final NotificationPublisher notificationPublisher;
 
     public List<SellerOrderResponse> orders(MemberUserDetails principal) {
         requireSeller(principal);
         return paymentRepository.findAllBySellerIdWithProductAndMemberAndTeam(principal.getMember().getId()).stream()
                 .map(SellerOrderResponse::from)
                 .toList();
+    }
+
+    // 판매자가 자기 상품 주문의 배송 단계/택배사/송장번호를 직접 바꾼다(007). 순서 강제 없이 4단계 중
+    // 아무거나로 자유롭게 전환 가능 — 단, 배송중/배송완료는 송장번호가 있어야 하고, 환불됐거나 아직
+    // 배송 대상이 아닌 주문(공구 모집중/실패)은 변경 자체가 거절된다.
+    @Transactional
+    public SellerOrderResponse updateShipment(MemberUserDetails principal, Long paymentId,
+            ShipmentUpdateRequest request) {
+        requireSeller(principal);
+        Payment payment = paymentRepository.findByIdWithDetails(paymentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND));
+        if (!payment.getProduct().getSeller().getId().equals(principal.getMember().getId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+        if (!SellerOrderResponse.isShipmentManageable(payment)) {
+            throw new BusinessException(ErrorCode.SHIPMENT_STATUS_NOT_APPLICABLE);
+        }
+
+        ShipmentStatus newStatus = request.shipmentStatus();
+        boolean trackingRequired = newStatus == ShipmentStatus.IN_TRANSIT || newStatus == ShipmentStatus.DELIVERED;
+        if (trackingRequired && (request.trackingNumber() == null || request.trackingNumber().isBlank())) {
+            throw new BusinessException(ErrorCode.TRACKING_NUMBER_REQUIRED);
+        }
+
+        payment.updateShipment(newStatus, request.trackingCarrier(), request.trackingNumber());
+        notificationPublisher.shipmentUpdated(principal.getMember().getId(), payment.getMember().getId(),
+                payment.getProduct().getName(), newStatus.label());
+        return SellerOrderResponse.from(payment);
     }
 
     public List<SellerProductResponse> products(MemberUserDetails principal) {

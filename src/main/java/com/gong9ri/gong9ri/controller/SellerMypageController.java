@@ -8,14 +8,18 @@ import com.gong9ri.gong9ri.dto.RevenueResponse;
 import com.gong9ri.gong9ri.dto.SellerOrderResponse;
 import com.gong9ri.gong9ri.dto.SellerProductResponse;
 import com.gong9ri.gong9ri.dto.SellerTeamResponse;
+import com.gong9ri.gong9ri.dto.ShipmentUpdateRequest;
 import com.gong9ri.gong9ri.service.SellerMypageService;
+import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,6 +35,15 @@ public class SellerMypageController {
     public ResponseEntity<ApiResponse<List<SellerOrderResponse>>> orders(
             @AuthenticationPrincipal MemberUserDetails principal) {
         return ResponseEntity.ok(ApiResponse.success(sellerMypageService.orders(principal)));
+    }
+
+    @PatchMapping("/orders/{paymentId}/shipment")
+    public ResponseEntity<ApiResponse<SellerOrderResponse>> updateShipment(
+            @AuthenticationPrincipal MemberUserDetails principal,
+            @PathVariable Long paymentId,
+            @Valid @RequestBody ShipmentUpdateRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(
+                sellerMypageService.updateShipment(principal, paymentId, request)));
     }
 
     @GetMapping("/products")

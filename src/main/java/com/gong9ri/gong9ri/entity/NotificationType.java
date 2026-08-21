@@ -41,5 +41,8 @@ public enum NotificationType {
      * 안 그러면 사용자가 세 줄로 나눠 쓰면 알림이 세 개 온다. 관리자가 읽고 나면 다시 0이 되므로
      * 그다음 새 메시지에는 또 알림이 간다.
      */
-    SUPPORT_MESSAGE_RECEIVED
+    SUPPORT_MESSAGE_RECEIVED,
+
+    /** 판매자가 주문의 배송 단계를 바꿈 — 그 주문의 구매자(007). */
+    SHIPMENT_UPDATED
 }

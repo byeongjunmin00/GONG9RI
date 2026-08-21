@@ -60,7 +60,11 @@ public enum ErrorCode {
     TOO_MANY_IMAGES(HttpStatus.BAD_REQUEST, "상품 이미지는 최대 5장까지 등록할 수 있습니다."),
     IMAGE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "이미지 저장에 실패했습니다."),
 
-    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 알림입니다.");
+    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 알림입니다."),
+    // 판매자 주문·배송 상태 관리(mypage/view 007)
+    SHIPMENT_STATUS_NOT_APPLICABLE(HttpStatus.CONFLICT,
+            "환불되었거나 아직 배송 대상이 아닌 주문은 배송 상태를 변경할 수 없습니다."),
+    TRACKING_NUMBER_REQUIRED(HttpStatus.BAD_REQUEST, "배송중/배송완료 상태로 바꾸려면 송장번호를 입력해야 합니다.");
 
     private final HttpStatus httpStatus;
     private final String message;
