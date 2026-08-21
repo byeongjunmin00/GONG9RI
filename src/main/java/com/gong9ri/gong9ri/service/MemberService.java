@@ -20,6 +20,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import org.springframework.web.multipart.MultipartFile;
 
@@ -40,10 +42,11 @@ public class MemberService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
         String oldUrl = member.getProfileImageUrl();
         String url = productImageStorage.store(file);
-        if (oldUrl != null) {
-            productImageStorage.delete(oldUrl);
-        }
         member.updateProfileImage(url);
+        // 옛 파일 삭제는 **커밋 이후**로 미룬다. 커밋 전에 지우면 롤백됐을 때 DB는 옛 URL을 가리키는데
+        // 그 파일은 이미 없는 상태가 되어 깨진 이미지가 남는다. 상품 삭제에서 내린 판단과 같은 원칙이다
+        // (ProductService.deleteInternal 주석 참고 — "삭제 실패 시 파일만 사라지는 상태를 만들지 않는다").
+        deleteFileAfterCommit(oldUrl);
         log.info("프로필 사진 변경 완료: memberId={}, url={}", memberId, url);
         return MemberResponse.from(member);
     }
@@ -53,10 +56,8 @@ public class MemberService {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
         String oldUrl = member.getProfileImageUrl();
-        if (oldUrl != null) {
-            productImageStorage.delete(oldUrl);
-        }
         member.updateProfileImage(null);
+        deleteFileAfterCommit(oldUrl);
         log.info("프로필 사진 삭제 완료: memberId={}", memberId);
         return MemberResponse.from(member);
     }
@@ -176,5 +177,30 @@ public class MemberService {
         Member saved = memberRepository.save(member);
         log.info("카카오 신규 가입 완료: memberId={}, kakaoId={}, role={}", saved.getId(), kakaoId, intendedRole);
         return new KakaoLoginResult(saved, false);
+    }
+
+    /**
+     * 커밋이 확정된 뒤에 파일을 지운다.
+     *
+     * <p>파일 시스템은 트랜잭션에 참여하지 않으므로, 커밋 전에 지우면 롤백돼도 파일은 돌아오지 않는다.
+     * 반대로 커밋 후에 지우다 실패하면 <b>쓰이지 않는 파일이 남을 뿐</b>이라 화면은 멀쩡하다.
+     * 둘 중 후자가 명백히 덜 나쁘다.
+     *
+     * <p>트랜잭션 밖에서 호출되면(동기화가 없으면) 즉시 지운다.
+     */
+    private void deleteFileAfterCommit(String url) {
+        if (url == null) {
+            return;
+        }
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            productImageStorage.delete(url);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                productImageStorage.delete(url);
+            }
+        });
     }
 }
