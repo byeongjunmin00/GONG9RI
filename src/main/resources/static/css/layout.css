@@ -96,6 +96,11 @@
   justify-content: center;
   width: 32px;
   height: 32px;
+  /* 이 원은 절대 줄어들면 안 된다. 헤더가 flex라 기본값(flex-shrink: 1)이면 자리가 모자랄 때
+     32px 원이 눌려서 안의 하트가 가로로 뭉개진다 — 카카오 로그인 계정처럼 이름이 긴 경우
+     (kakao_5050932466님) 실제로 발생했다(2026-08-21 사용자 제보). 아이콘은 고정, 대신
+     길이가 변하는 건 이름 쪽이 흡수하게 한다(.header-auth-user__name 말줄임). */
+  flex-shrink: 0;
   border-radius: 50%;
   color: var(--color-text-muted);
   transition: color 0.15s ease, background-color 0.15s ease;
@@ -147,6 +152,8 @@
   justify-content: center;
   width: 32px;
   height: 32px;
+  /* 찜 아이콘과 같은 이유로 고정 — 헤더가 좁아져도 벨이 눌리지 않게 한다. */
+  flex-shrink: 0;
   border: none;
   border-radius: 50%;
   background: none;

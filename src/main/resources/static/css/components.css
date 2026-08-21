@@ -1420,6 +1420,16 @@ button.summary-card {
 .header-auth-user__name {
   font-size: var(--fs-sm);
   font-weight: 700;
+  /* 헤더에서 길이가 변하는 건 이름뿐이므로, 남는 자리를 여기서 흡수하고 넘치면 말줄임한다.
+     카카오 로그인 계정은 이름이 kakao_5050932466처럼 길게 만들어져서, 이 제한이 없으면
+     이름이 헤더를 밀어 옆의 아이콘들을 찌그러뜨렸다(2026-08-21 사용자 제보).
+     min-width: 0이 함께 필요하다 — flex 아이템의 기본 min-width는 auto라서 이게 없으면
+     내용 길이만큼 버티며 말줄임이 아예 동작하지 않는다. */
+  min-width: 0;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 로그인한 역할에 해당하는 nav 링크 강조 — 링크 자체는 숨기지 않는다 */
