@@ -149,7 +149,8 @@ class AdminControllerTest {
         Member admin = saveMember("admin-search-admin3", Role.ADMIN);
         Member seller = saveMember("admin-search-seller3", Role.SELLER);
         Product visibleProduct = new Product(seller, "공개상품", "설명", 10000, 10, null, false, ProductCategory.ETC);
-        Product hiddenProduct = new Product(seller, "숨김상품", "설명", 10000, 10, null, true, ProductCategory.ETC);
+        Product hiddenProduct = new Product(seller, "숨김상품", "설명", 10000, 10, null, false, ProductCategory.ETC);
+        hiddenProduct.hide();
         productRepository.save(visibleProduct);
         productRepository.save(hiddenProduct);
 
