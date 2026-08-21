@@ -107,11 +107,11 @@
     var row3 = document.createElement('div');
     row3.className = 'admin-card__row3';
     var statParts = [
-      '🛍️ ' + (member.purchaseCount || 0) + '건',
-      '👥 ' + (member.teamCount || 0) + '건'
+      '구매 ' + (member.purchaseCount || 0) + '건',
+      '공구 참여 ' + (member.teamCount || 0) + '건'
     ];
     if (member.role === 'SELLER') {
-      statParts.push('📦 ' + (member.productCount || 0) + '개');
+      statParts.push('등록상품 ' + (member.productCount || 0) + '개');
     }
     row3.textContent = statParts.join(' · ');
     card.appendChild(row3);
