@@ -22,6 +22,7 @@
    *   roomId      구독할 상담방
    *   onMessage   서버가 보낸 메시지 payload를 받는다
    *   onTyping    상대가 입력 중일 때
+   *   onRead      상대가 내 메시지를 읽었을 때(읽음 표시 갱신용)
    *   onStatus    'connected' | 'disconnected' | 'unavailable'
    */
   function connect(options) {
@@ -41,6 +42,11 @@
         client.subscribe('/topic/support/' + options.roomId, function (frame) {
           var payload = JSON.parse(frame.body);
           // 입력 중 신호와 실제 메시지를 구분한다 — 타이핑 신호는 저장되지 않는 임시 신호다.
+          if (payload && payload.type === 'READ') {
+            // 상대가 읽었다는 신호 — 저장되는 메시지가 아니라 화면 표시만 바꾼다.
+            options.onRead && options.onRead(payload);
+            return;
+          }
           if (payload && payload.type === 'TYPING') {
             options.onTyping && options.onTyping(payload);
             return;

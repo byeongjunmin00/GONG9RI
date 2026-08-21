@@ -71,6 +71,21 @@ public class SupportRoom {
     @Column(nullable = false)
     private int unreadForAdmin;
 
+    /**
+     * 각 측이 <b>어느 시점까지 읽었는지</b>. 미읽음 "개수"만으로는 개별 메시지 옆에 읽음 표시를 할 수
+     * 없어서 따로 둔다 — 내가 보낸 메시지가 읽혔는지는 "상대가 마지막으로 읽은 시각이 이 메시지보다
+     * 뒤인가"로만 판정할 수 있기 때문(2026-08-21 사용자 요청).
+     *
+     * <p>메시지마다 읽음 행을 쌓지 않는 이유: 1:1 대화라 읽은 사람이 한 명뿐이고, 시각 하나로 그 이전
+     * 메시지가 전부 읽힌 것이 되므로 행을 N개 만들 이유가 없다.
+     *
+     * <p>nullable — 이 컬럼이 생기기 전의 방들은 값이 없다. 그때는 "아직 안 읽음"으로 취급한다
+     * (읽지 않았는데 읽었다고 표시하는 쪽이 더 나쁘다).
+     */
+    private LocalDateTime memberLastReadAt;
+
+    private LocalDateTime adminLastReadAt;
+
     public SupportRoom(Member member) {
         this.member = member;
         this.status = SupportRoomStatus.OPEN;
@@ -92,9 +107,20 @@ public class SupportRoom {
     public void markReadBy(boolean admin) {
         if (admin) {
             this.unreadForAdmin = 0;
+            this.adminLastReadAt = LocalDateTime.now();
         } else {
             this.unreadForMember = 0;
+            this.memberLastReadAt = LocalDateTime.now();
         }
+    }
+
+    /**
+     * 이 방에서 {@code sentByAdmin}이 보낸, {@code sentAt}에 만들어진 메시지를 상대가 읽었는지.
+     * 상대의 마지막 읽은 시각이 그 메시지보다 뒤면 읽은 것이다.
+     */
+    public boolean isReadByCounterpart(boolean sentByAdmin, LocalDateTime sentAt) {
+        LocalDateTime counterpartReadAt = sentByAdmin ? memberLastReadAt : adminLastReadAt;
+        return counterpartReadAt != null && sentAt != null && !counterpartReadAt.isBefore(sentAt);
     }
 
     public void close() {

@@ -32,6 +32,23 @@
     return isNaN(d.getTime()) ? '' : d.toLocaleString('ko-KR');
   }
 
+
+  /**
+   * 내가 보낸 메시지에만 "읽음"을 붙인다 — 상대 메시지 옆의 읽음 표시는 의미가 없다(내가 읽은 건
+   * 내가 안다). 아직 안 읽혔으면 아무것도 쓰지 않는다: "안읽음"을 명시하면 상대가 자리를 비운 것뿐인데
+   * 무시당한 것처럼 읽힌다.
+   */
+  function appendReadMark(metaEl, message, mine) {
+    if (!mine) {
+      return null;
+    }
+    var readEl = document.createElement('span');
+    readEl.className = 'support-message__read';
+    readEl.textContent = message.readByCounterpart ? ' · 읽음' : '';
+    metaEl.appendChild(readEl);
+    return readEl;
+  }
+
   function appendMessage(message) {
     var li = document.createElement('li');
     li.className = 'support-message' + (message.sentByAdmin ? ' support-message--admin' : ' support-message--mine');
@@ -44,14 +61,28 @@
     var meta = document.createElement('span');
     meta.className = 'support-message__meta';
     meta.textContent = (message.sentByAdmin ? '상담원' : '나') + ' · ' + formatTime(message.createdAt);
+    // 내 메시지(= 상담원이 보낸 게 아닌 것)에만 읽음 표시를 단다.
+    var readEl = appendReadMark(meta, message, !message.sentByAdmin);
+    if (readEl) {
+      myReadMarks.push(readEl);
+    }
     li.appendChild(meta);
 
     listEl.appendChild(li);
     listEl.scrollTop = listEl.scrollHeight;
   }
 
+  // 화면에 떠 있는 내 메시지들의 "읽음" 자리. 상대가 읽었다는 신호가 오면 한꺼번에 채운다 —
+  // 마지막 하나만 갱신하면 그 이전 메시지들이 계속 안 읽은 것처럼 남는다.
+  var myReadMarks = [];
+
+  function markAllMineAsRead() {
+    myReadMarks.forEach(function (el) { el.textContent = ' · 읽음'; });
+  }
+
   function renderMessages(messages) {
     listEl.innerHTML = '';
+    myReadMarks = [];
     (messages || []).forEach(appendMessage);
   }
 
@@ -62,6 +93,12 @@
         appendMessage(message);
         // 열려 있는 동안 받은 건 바로 읽은 것으로 처리한다.
         window.Api.post('/support/rooms/' + state.roomId + '/read').catch(function () {});
+      },
+      onRead: function (payload) {
+        // 관리자가 읽었을 때만 내 메시지의 읽음 표시를 켠다(내가 읽은 신호는 무시).
+        if (payload && payload.readByAdmin) {
+          markAllMineAsRead();
+        }
       },
       onTyping: function (payload) {
         // **내가 친 신호가 나에게 돌아온다.** 브로드캐스트는 구독자 전원에게 가므로 보낸 사람도
