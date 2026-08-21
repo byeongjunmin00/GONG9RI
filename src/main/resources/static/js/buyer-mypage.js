@@ -4,16 +4,19 @@
  * 이 페이지는 static/ 루트가 아닌 서브디렉토리(/buyer/mypage.html)에 있으므로,
  * 페이지 이동이 필요해지면 반드시 절대경로를 쓴다(현재는 페이지 이동 액션 없음).
  *
- * - 로드 시 두 API를 각각 호출한다: GET /api/buyer/mypage/purchases, /teams.
+ * - 상단 프로필 카드의 사용자 이름/이메일을 GET /api/auth/me에서 불러온다.
+ * - 로드 시 4개 API를 각각 호출한다: GET /api/buyer/mypage/purchases, /teams, /refund-requests, /wishlist.
  *   로그인 상태를 사전에 확인하지 않는 기존 원칙과 동일하다.
  * - 둘 중 하나라도 401(UNAUTHORIZED)이면 페이지 상단 공통 배너(#page-alert)에 로그인 안내 +
- *   로그인 링크를 띄우고, 두 섹션 전체를 숨긴다(서버가 신뢰 SSOT).
+ *   로그인 링크를 띄우고, 마이페이지 섹션 전체를 숨긴다(서버가 신뢰 SSOT).
  * - 403(FORBIDDEN, 판매자 계정)/기타 에러는 해당 섹션의 상태 영역에 서버 message를 표시하고
  *   다른 섹션은 각자 독립적으로 계속 로드된다(한 섹션의 실패가 페이지 전체를 깨지 않는다).
+ * - 탭 네비게이션: [전체 현황], [구매 내역], [공구 참여], [찜한 상품], [환불 내역], [계정 설정] 탭 스위칭 및
+ *   상단 대시보드 KPI 카드 클릭 시 해당 탭 이동, URL hash(#purchases 등) 연동을 지원한다.
  * - 구매 목록: status가 PAID/REFUNDED인지에 따라 배지/문구를 구분한다(REFUNDED는 "환불됨").
  * - 공구 참여 목록: status(RECRUITING/SUCCESS/FAILED)별로 표시를 분기한다.
- *   - RECRUITING: deadline과 현재 시각의 차이로 "남은 유지 기간"을 계산해 표시하고,
- *     currentCount/maxParticipants로 현재 인원 상태를 표시한다.
+ *   - RECRUITING: deadline과 현재 시각의 차이로 "남은 유지 기간"을 계산해 .badge-time 배지로 강조하고,
+ *     currentCount/maxParticipants로 시각적 프로그레스 바(team-progress)를 표시한다.
  *   - SUCCESS: 구매 목록과 같은 카드 스타일(.mypage-list-item)로 "성사 완료"를 표시한다.
  *     productId 기준으로 purchases 목록에서 대응하는 PAID 결제를 찾아(best-effort) 금액/결제일시를
  *     함께 보여준다 — 매칭 실패해도 에러로 취급하지 않고 팀 정보만 표시한다.
@@ -36,6 +39,17 @@
   var pageAlertLoginLinkEl = document.getElementById('page-alert-login-link');
 
   var mypageSectionsEl = document.getElementById('mypage-sections');
+
+  var summaryUserNameEl = document.getElementById('summary-user-name');
+  var summaryUserEmailEl = document.getElementById('summary-user-email');
+  var summaryPurchasesCountEl = document.getElementById('summary-purchases-count');
+  var summaryTeamsCountEl = document.getElementById('summary-teams-count');
+  var summaryWishlistCountEl = document.getElementById('summary-wishlist-count');
+  var summaryRefundsCountEl = document.getElementById('summary-refunds-count');
+
+  var tabBtns = document.querySelectorAll('.mypage-tab-btn');
+  var tabPanels = document.querySelectorAll('.mypage-tab-panel');
+  var summaryCards = document.querySelectorAll('.summary-card');
 
   var purchasesStatusEl = document.getElementById('purchases-status');
   var purchasesListEl = document.getElementById('purchases-list');
@@ -145,6 +159,131 @@
     return minutes + '분 남음';
   }
 
+  // ---------- 탭 네비게이션 & 대시보드 로직 ----------
+
+  function switchTab(targetTab) {
+    if (!targetTab) targetTab = 'all';
+
+    tabBtns.forEach(function (btn) {
+      var isTarget = btn.getAttribute('data-tab') === targetTab;
+      if (isTarget) {
+        btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
+      } else {
+        btn.classList.remove('active');
+        btn.setAttribute('aria-selected', 'false');
+      }
+    });
+
+    tabPanels.forEach(function (panel) {
+      var panelTab = panel.getAttribute('data-tab-panel');
+      if (targetTab === 'all') {
+        panel.hidden = false;
+      } else {
+        panel.hidden = (panelTab !== targetTab);
+      }
+    });
+
+    if (history.replaceState) {
+      history.replaceState(null, '', '#' + targetTab);
+    }
+  }
+
+  function setupTabs() {
+    tabBtns.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var tab = btn.getAttribute('data-tab');
+        switchTab(tab);
+      });
+    });
+
+    summaryCards.forEach(function (card) {
+      card.addEventListener('click', function () {
+        var tab = card.getAttribute('data-tab');
+        switchTab(tab);
+      });
+    });
+
+    var hash = window.location.hash.replace('#', '');
+    if (hash && ['all', 'purchases', 'teams', 'wishlist', 'refunds', 'account'].indexOf(hash) !== -1) {
+      switchTab(hash);
+    } else {
+      switchTab('all');
+    }
+  }
+
+  function loadProfileInfo() {
+    return window.Api.get('/auth/me')
+      .then(function (user) {
+        if (user && summaryUserNameEl && summaryUserEmailEl) {
+          summaryUserNameEl.textContent = user.name || '구매자';
+          summaryUserEmailEl.textContent = user.email || '';
+        }
+      })
+      .catch(function (err) {
+        if (handleUnauthorized(err)) return;
+      });
+  }
+
+  // ---------- UI Helper: 썸네일 & 메인 레이아웃 헬퍼 ----------
+
+  function createThumbnailElement(imageUrl, altText) {
+    var thumbEl = document.createElement('div');
+    thumbEl.className = 'mypage-list-item__thumb';
+
+    if (imageUrl) {
+      var img = document.createElement('img');
+      img.src = imageUrl;
+      img.alt = altText || '상품 이미지';
+      img.onerror = function () {
+        thumbEl.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>';
+      };
+      thumbEl.appendChild(img);
+    } else {
+      thumbEl.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>';
+    }
+
+    return thumbEl;
+  }
+
+  /**
+   * 썸네일 영역과 메인 정보 영역(infoEl)을 감싸는 중복 구조를 리팩터링한 헬퍼 함수
+   */
+  function createListItemMainWrapper(imageUrl, altText, infoEl) {
+    var mainEl = document.createElement('div');
+    mainEl.className = 'mypage-list-item__main';
+    var thumbEl = createThumbnailElement(imageUrl, altText);
+    mainEl.appendChild(thumbEl);
+    mainEl.appendChild(infoEl);
+    return mainEl;
+  }
+
+  function createTeamProgressBarElement(currentCount, maxParticipants) {
+    var progressEl = document.createElement('div');
+    progressEl.className = 'team-progress';
+
+    var current = typeof currentCount === 'number' ? currentCount : 0;
+    var max = typeof maxParticipants === 'number' && maxParticipants > 0 ? maxParticipants : 1;
+    var percent = Math.min(100, Math.round((current / max) * 100));
+
+    var trackEl = document.createElement('div');
+    trackEl.className = 'team-progress__track';
+
+    var fillEl = document.createElement('div');
+    fillEl.className = 'team-progress__fill';
+    fillEl.style.width = percent + '%';
+    trackEl.appendChild(fillEl);
+
+    var textEl = document.createElement('div');
+    textEl.className = 'team-progress__text';
+    textEl.innerHTML = '<span>달성 인원</span><span><strong>' + current + '</strong> / ' + max + '명 (' + percent + '%)</span>';
+
+    progressEl.appendChild(trackEl);
+    progressEl.appendChild(textEl);
+
+    return progressEl;
+  }
+
   // ---------- 구매 목록 ----------
 
   function purchaseStatusToBadgeClass(status) {
@@ -245,7 +384,8 @@
     metaEl.textContent = [amountText, paidAtText].filter(Boolean).join(' · ');
     infoEl.appendChild(metaEl);
 
-    li.appendChild(infoEl);
+    var mainEl = createListItemMainWrapper(purchase.imageUrl, purchase.productName, infoEl);
+    li.appendChild(mainEl);
 
     var actionsEl = document.createElement('div');
     actionsEl.className = 'mypage-list-item__actions';
@@ -280,6 +420,10 @@
         var list = Array.isArray(purchases) ? purchases : [];
         latestPurchases = list;
 
+        if (summaryPurchasesCountEl) {
+          summaryPurchasesCountEl.textContent = list.length;
+        }
+
         if (list.length === 0) {
           showStatus(purchasesStatusEl, '구매한 상품이 없습니다.', 'empty');
           return;
@@ -289,6 +433,7 @@
       })
       .catch(function (err) {
         console.error('[buyer-mypage.js] failed to load purchases:', err);
+        if (summaryPurchasesCountEl) summaryPurchasesCountEl.textContent = '0';
         if (handleUnauthorized(err)) {
           return;
         }
@@ -356,6 +501,8 @@
     metaEl.className = 'mypage-list-item__meta';
 
     var metaParts;
+    var remainingText = '';
+
     if (team.status === 'SUCCESS') {
       var matchedPurchase = findMatchingPurchase(team);
       if (matchedPurchase) {
@@ -368,18 +515,33 @@
     } else if (team.status === 'FAILED') {
       metaParts = [teamCountText(team)];
     } else {
-      // RECRUITING: 남은 유지 기간 + 현재 인원 상태
-      var remainingText = formatRemaining(team.deadline);
-      metaParts = [teamCountText(team), remainingText ? '마감까지 ' + remainingText : ''];
+      // RECRUITING: 남은 유지 기간 계산
+      remainingText = formatRemaining(team.deadline);
+      metaParts = [teamCountText(team)];
     }
 
     metaEl.textContent = metaParts.filter(Boolean).join(' · ');
     infoEl.appendChild(metaEl);
 
-    li.appendChild(infoEl);
+    // RECRUITING 상태인 경우 인원 달성률 프로그레스 바 삽입
+    if (team.status === 'RECRUITING') {
+      var progressEl = createTeamProgressBarElement(team.currentCount, team.maxParticipants);
+      infoEl.appendChild(progressEl);
+    }
+
+    var mainEl = createListItemMainWrapper(team.imageUrl, team.productName, infoEl);
+    li.appendChild(mainEl);
 
     var actionsEl = document.createElement('div');
     actionsEl.className = 'mypage-list-item__actions';
+
+    // RECRUITING 팀인 경우 잔여 시간 강조 배지(.badge-time) 노출
+    if (team.status === 'RECRUITING' && remainingText) {
+      var timeBadgeEl = document.createElement('span');
+      timeBadgeEl.className = 'badge badge-time';
+      timeBadgeEl.textContent = '⏱️ 마감까지 ' + remainingText;
+      actionsEl.appendChild(timeBadgeEl);
+    }
 
     var badgeEl = document.createElement('span');
     badgeEl.className = 'badge ' + teamStatusToBadgeClass(team.status);
@@ -439,6 +601,10 @@
     return window.Api.get('/buyer/mypage/teams')
       .then(function (teams) {
         var list = Array.isArray(teams) ? teams : [];
+        if (summaryTeamsCountEl) {
+          summaryTeamsCountEl.textContent = list.length;
+        }
+
         if (list.length === 0) {
           showStatus(teamsStatusEl, '참여한 공구팀이 없습니다.', 'empty');
           return;
@@ -448,6 +614,7 @@
       })
       .catch(function (err) {
         console.error('[buyer-mypage.js] failed to load teams:', err);
+        if (summaryTeamsCountEl) summaryTeamsCountEl.textContent = '0';
         if (handleUnauthorized(err)) {
           return;
         }
@@ -501,12 +668,18 @@
     metaEl.textContent = [amountText, requestedAtText, reasonText, rejectionText].filter(Boolean).join(' · ');
     infoEl.appendChild(metaEl);
 
-    li.appendChild(infoEl);
+    var mainEl = createListItemMainWrapper(request.imageUrl, request.productName, infoEl);
+    li.appendChild(mainEl);
+
+    var actionsEl = document.createElement('div');
+    actionsEl.className = 'mypage-list-item__actions';
 
     var badgeEl = document.createElement('span');
     badgeEl.className = 'badge ' + refundRequestStatusToBadgeClass(request.status);
     badgeEl.textContent = refundRequestStatusToLabel(request.status);
-    li.appendChild(badgeEl);
+    actionsEl.appendChild(badgeEl);
+
+    li.appendChild(actionsEl);
 
     return li;
   }
@@ -527,6 +700,10 @@
     return window.Api.get('/buyer/mypage/refund-requests')
       .then(function (requests) {
         var list = Array.isArray(requests) ? requests : [];
+        if (summaryRefundsCountEl) {
+          summaryRefundsCountEl.textContent = list.length;
+        }
+
         if (list.length === 0) {
           showStatus(refundRequestsStatusEl, '환불 요청 내역이 없습니다.', 'empty');
           return;
@@ -536,6 +713,7 @@
       })
       .catch(function (err) {
         console.error('[buyer-mypage.js] failed to load refund requests:', err);
+        if (summaryRefundsCountEl) summaryRefundsCountEl.textContent = '0';
         if (handleUnauthorized(err)) {
           return;
         }
@@ -565,7 +743,8 @@
     metaEl.textContent = [item.sellerName, priceText].filter(Boolean).join(' · ');
     infoEl.appendChild(metaEl);
 
-    li.appendChild(infoEl);
+    var mainEl = createListItemMainWrapper(item.imageUrl, item.productName, infoEl);
+    li.appendChild(mainEl);
 
     var actionsEl = document.createElement('div');
     actionsEl.className = 'mypage-list-item__actions';
@@ -611,6 +790,10 @@
     return window.Api.get('/buyer/mypage/wishlist')
       .then(function (items) {
         var list = Array.isArray(items) ? items : [];
+        if (summaryWishlistCountEl) {
+          summaryWishlistCountEl.textContent = list.length;
+        }
+
         if (list.length === 0) {
           showStatus(wishlistStatusEl, '찜한 상품이 없습니다.', 'empty');
           return;
@@ -620,6 +803,7 @@
       })
       .catch(function (err) {
         console.error('[buyer-mypage.js] failed to load wishlist:', err);
+        if (summaryWishlistCountEl) summaryWishlistCountEl.textContent = '0';
         if (handleUnauthorized(err)) {
           return;
         }
@@ -629,6 +813,9 @@
   }
 
   function init() {
+    setupTabs();
+    loadProfileInfo();
+
     // purchases를 먼저 로드해 latestPurchases를 채운 뒤 teams를 로드해야
     // SUCCESS 항목의 결제 매칭(findMatchingPurchase)이 최신 데이터를 사용할 수 있다.
     loadPurchases().then(function () {

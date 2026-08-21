@@ -1,43 +1,55 @@
-# 구매자 마이페이지 (frontend/buyer-mypage) — Design
+# 구매자 마이페이지 (buyer-mypage) — Design
 
 ## 개요
 
-구매자가 자신의 구매 완료 목록과 참여한 공구팀 목록(성사/미성사 포함)을 한 페이지(`/buyer/mypage.html`)에서 확인한다. 판매자 계정으로 접근하면 API가 `403`을 반환해 사후 판정된다. `seller/mypage.html` 등 seller-mypage 관련 산출물, `SecurityConfig.java`, `css/components.css`는 이번 작업에서 건드리지 않는다(기존 클래스만 재사용).
-
-## 인터페이스 / 산출물
-
-```
-src/main/resources/static/
-├── buyer/
-│   └── mypage.html               # 마이페이지 본체(구매 목록/공구 참여 목록)
-└── js/
-    └── buyer-mypage.js           # 2개 API 호출·렌더링, 상태별 분기
-```
-
-- `css/components.css`는 수정하지 않음 — 기존 `.mypage-section`/`.mypage-list`/`.mypage-list-item`(+`__info`/`__title`/`__meta`)/`.badge`/`.badge-recruiting`/`.badge-success`/`.badge-failed`/`.product-status`(+`--error`)/`.form-alert`(+`--error`) 클래스만으로 표현 가능해 신규 스타일 불필요.
-- `partials/header.html`: nav("판매자 마이페이지" 옆)에 "구매자 마이페이지"(`/buyer/mypage.html`) 링크 추가, 로그인 여부/역할과 무관하게 항상 노출.
-- `SecurityConfig.java`는 변경 없음(이미 `/**/*.html` permitAll 매처가 서브디렉토리 html을 허용).
-
-## 데이터 연동
-
-- `buyer/mypage.html` 로드 시 `GET /api/buyer/mypage/purchases`를 먼저 호출해 `latestPurchases`를 채운 뒤 `GET /api/buyer/mypage/teams`를 호출하는 **순차 호출**(공구 참여 목록의 `SUCCESS` 항목이 구매 목록과 매칭하려면 `purchases`가 먼저 로드돼 있어야 함). 로그인 사전 확인 없음.
-- 401(UNAUTHORIZED)이면 공통 배너(`#page-alert`)로 로그인 안내+링크를 띄우고 두 섹션(`#mypage-sections`) 전체를 숨긴다. 403(FORBIDDEN, 판매자 계정)/기타 에러는 해당 섹션의 상태 영역(`#purchases-status`/`#teams-status`)에만 표시하고 다른 섹션은 독립적으로 계속 렌더링된다.
-- 구매 목록: `status`가 `REFUNDED`면 `badge-failed`+"환불됨", `PAID`면 `badge-success`+"결제 완료"로 표시. 금액은 `toLocaleString('ko-KR')` 포맷, `paidAt`은 서버 문자열 그대로 표시.
-- 공구 참여 목록: `status`(`RECRUITING`/`SUCCESS`/`FAILED`)별로 분기.
-  - `RECRUITING`: `badge-recruiting`+"모집중". `deadline`과 현재 시각 차이를 `formatRemaining()`으로 "N일 N시간 남음"/"N분 남음"/"마감 임박"으로 문구화, `currentCount`/`maxParticipants`로 인원(`X / Y명`) 표시.
-  - `SUCCESS`: `badge-success`+"성사 완료". `findMatchingPurchase(team)`으로 `latestPurchases`에서 `productId`가 같고 `status === 'PAID'`인 첫 결제를 best-effort로 찾아 매칭되면 금액+결제일시를 구매 목록과 동일한 `.mypage-list-item` 마크업으로 표시, 매칭 실패 시 에러 없이 인원 정보만 표시(한 상품에 결제 이력이 여러 번 있으면 어느 결제가 해당 팀 것인지 API로 구분 불가 — 알려진 한계).
-  - `FAILED`: `badge-failed`+"미성사(환불 처리됨)". 인원 정보만 표시(마감 지난 팀은 정책상 스케줄러가 이미 환불 처리를 끝냈다고 가정, `docs/policy/refund-trigger.md`).
-- 서버 응답 문자열(상품명/에러 message/일시 등)은 전부 `textContent`로만 대입(XSS 방지, `innerHTML` 미사용).
-
-## 규칙 / 검증
-
-- 서브디렉토리 페이지(`buyer/mypage.html`)의 CSS/JS/partial 참조는 반드시 절대경로.
-- `RECRUITING`의 남은 기간은 페이지 로드 시점 1회 계산 — 새로고침 없이는 실시간 갱신되지 않는다(후속 과제).
-- `SUCCESS` 팀의 결제 상세 매칭은 `productId` 기준 best-effort이며 `paymentId` 매칭이 아니므로 완전한 정확도를 보장하지 않는다.
+구매자가 본인의 계정 정보 관리, 구매 내역, 공구 참여 현황, 찜한 상품 목록, 환불 요청 내역을 한눈에 확인하고 관리하는 대시보드 형태의 마이페이지 화면이다.
+기존 수직 스크롤 5개 섹션 구조를 상단 프로필 KPI 대시보드와 탭(Tab) 네비게이션으로 재구성하여 가독성과 탐색 효율성을 높였다.
 
 ## 관련 코드 위치
 
-- `src/main/resources/static/buyer/mypage.html`, `js/buyer-mypage.js` — 신규
-- `src/main/resources/static/partials/header.html` — "구매자 마이페이지" 링크 추가
-- `css/components.css` — 변경 없음(기존 클래스 재사용)
-- 경위: `docs/dev/frontend/buyer-mypage/changes/001-buyer-mypage.md`, 실행 로그: `docs/logs/frontend/buyer-mypage/001-buyer-mypage.md`
+- **HTML**: `src/main/resources/static/buyer/mypage.html` (서브디렉토리 페이지이므로 CSS/JS/partial 참조는 절대경로 원칙 준수)
+- **JS**: `src/main/resources/static/js/buyer-mypage.js`
+- **CSS**: `src/main/resources/static/css/components.css` (`.mypage-*`, `.team-progress`, `.badge-time` 등)
+- **API 계약**: `docs/api/mypage.md`, `docs/api/refund.md`, `docs/api/team.md`
+
+## API / 인터페이스
+
+- `GET /api/auth/me` — 상단 프로필 카드 정보 (이름/이메일)
+- `GET /api/buyer/mypage/purchases` — 구매 완료 목록. 필드: `paymentId`, `productId`, `productName`, `amount`, `status`(`PAID`|`REFUNDED`), `paidAt`
+- `GET /api/buyer/mypage/teams` — 본인이 참여한 팀 목록. 필드: `teamId`, `productId`, `productName`, `currentCount`, `maxParticipants`, `status`(`RECRUITING`|`SUCCESS`|`FAILED`), `deadline`, `joinedAt`
+- `GET /api/buyer/mypage/wishlist` — 찜한 상품 목록
+- `GET /api/buyer/mypage/refund-requests` — 환불 요청 내역 및 처리 상태 (`APPROVED`, `REJECTED`, `WAITING`)
+- `POST /api/payments/{paymentId}/refund-requests` — 혼자 구매 건(teamId null) 환불 요청
+- `POST /api/teams/{teamId}/leave` — 모집 중(`RECRUITING`) 공구팀 참여 취소
+- `DELETE /api/products/{productId}/wishlist` — 찜 해제
+
+## UI / 컴포넌트 구조
+
+1. **상단 프로필 & 요약 대시보드 (`.mypage-profile-card`)**:
+   - 프로필 카드: 사용자 이름 및 이메일 표시 (`#summary-user-name`, `#summary-user-email`)
+   - 4종 핵심 KPI 요약 카드 (`.summary-card`): 구매 내역, 참여 공구, 찜한 상품, 환불 내역 수치 표시 (클릭 시 해당 탭 스위칭)
+2. **탭 네비게이션 (`.mypage-nav-tabs`)**:
+   - `[전체 현황]`, `[구매 내역]`, `[공구 참여]`, `[찜한 상품]`, `[환불 내역]`, `[계정 설정]` 탭 메뉴
+   - 활성 탭 강조 (`--color-brand` 색상 및 밑줄), URL hash 연동 (`#purchases`, `#teams` 등)
+3. **카드 시각 요소 (Visual Hierarchy)**:
+   - 상품 썸네일/아이콘 영역 (`.mypage-list-item__thumb`): 텍스트 위주 카드에 시각적 구분 부여
+   - 모집중 공구팀 달성률 프로그레스 바 (`.team-progress`): `currentCount/maxParticipants` 게이지 시각화
+   - 잔여 시간 배지 (`.badge-time`): 모집중 팀에 `⏱️ 마감까지 ...` 배지 노출
+
+## 규칙 / 검증 및 한계
+
+- **401/403 에러 처리 분기**:
+  - `401 UNAUTHORIZED` 수신 시 상단 공통 배너(`page-alert`)에 로그인 안내 및 로그인 링크 노출 후 마이페이지 섹션 전체 숨김.
+  - `403 FORBIDDEN` (판매자 계정 접속 시) 등 기타 에러는 해당 섹션 내 독자적 상태 노출 후 타 섹션 독립적 로드 유지.
+- **성사 팀의 결제 상세 매칭 (best-effort 한계)**:
+  - `purchases` API와 `teams` API는 서로 다른 엔드포인트이며 팀 응답에는 `paymentId`가 없음.
+  - 따라서 `SUCCESS` 상태 팀 항목은 `productId` 기준으로 `purchases` 목록의 `PAID` 결제 항목을 최선 노력(best-effort)으로 매칭하여 금액/결제일시를 표시하며, 매칭 실패 시에도 팀 기본 정보만 안정적으로 표시한다.
+- **환불 및 참여 취소 정책**:
+  - 혼자 구매(teamId null) 건은 결제 항목에 "환불 요청" 버튼 노출.
+  - 팀이 딸린 결제는 "참여 취소"로만 환불 처리 가능 (`RECRUITING` 상태만 취소 허용).
+- **`RECRUITING`의 남은 기간은 페이지 로드 시점 1회 계산** — 새로고침 없이는 실시간 갱신되지 않는다(후속 과제).
+
+## 변경 이력
+
+- 경위: `docs/dev/frontend/buyer-mypage/changes/001-buyer-mypage.md`(최초 구현), `docs/dev/frontend/buyer-mypage/changes/002-buyer-mypage-redesign.md`(탭/대시보드 리디자인)
+- 실행 로그: `docs/logs/frontend/buyer-mypage/001-buyer-mypage.md`, `docs/logs/frontend/buyer-mypage/002-buyer-mypage-redesign.md`
