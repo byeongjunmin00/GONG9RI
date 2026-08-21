@@ -122,6 +122,10 @@
   function bindEvents() {
     toggleBtn.addEventListener('click', function () {
       var willOpen = panel.hidden;
+      if (willOpen) {
+        // AI 챗봇 패널과 동시에 열리면 겹친다 — 여는 쪽이 신호를 보내고 상대가 스스로 닫는다.
+        document.dispatchEvent(new CustomEvent('gong9ri:widget-open', { detail: { widget: 'support' } }));
+      }
       panel.hidden = !willOpen;
       if (willOpen && !state.opened) {
         state.opened = true;
@@ -131,6 +135,12 @@
 
     closeBtn.addEventListener('click', function () {
       panel.hidden = true;
+    });
+
+    document.addEventListener('gong9ri:widget-open', function (event) {
+      if (event.detail && event.detail.widget !== 'support') {
+        panel.hidden = true;
+      }
     });
 
     inputEl.addEventListener('input', function () {

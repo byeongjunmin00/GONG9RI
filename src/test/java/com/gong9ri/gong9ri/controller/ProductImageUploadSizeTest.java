@@ -102,6 +102,9 @@ class ProductImageUploadSizeTest {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+        // 로그인에는 IP 단위 rate limit이 있다. 헤더 없이 호출하면 다른 테스트와 127.0.0.1 카운터를
+        // 공유해 임계값을 넘길 수 있어, 테스트 전용 IP로 분리한다.
+        headers.add("X-Forwarded-For", "203.0.113.202");
         ResponseEntity<String> login = restTemplate.postForEntity(url("/api/auth/login"),
                 new HttpEntity<>("{\"username\":\"upload-size-seller\",\"password\":\"password123!\"}", headers),
                 String.class);

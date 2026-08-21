@@ -1,6 +1,7 @@
 package com.gong9ri.gong9ri.config;
 
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
+import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.service.SupportChatService;
 import java.security.Principal;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,8 @@ import org.springframework.stereotype.Component;
 public class SupportChatChannelInterceptor implements ChannelInterceptor {
 
     private static final String SUPPORT_TOPIC_PREFIX = "/topic/support/";
+    /** 관리자 상담 목록 갱신 신호 — 관리자만 구독할 수 있다. */
+    private static final String ADMIN_TOPIC_PREFIX = "/topic/admin/";
 
     private final SupportChatService supportChatService;
 
@@ -41,15 +44,27 @@ public class SupportChatChannelInterceptor implements ChannelInterceptor {
             return message;
         }
         String destination = accessor.getDestination();
-        if (destination == null || !destination.startsWith(SUPPORT_TOPIC_PREFIX)) {
+        boolean roomTopic = destination != null && destination.startsWith(SUPPORT_TOPIC_PREFIX);
+        boolean adminTopic = destination != null && destination.startsWith(ADMIN_TOPIC_PREFIX);
+        if (!roomTopic && !adminTopic) {
             // 상담 외 토픽(공구팀 정원 등)은 예전처럼 공개다 — 여기서 새로 막지 않는다.
             return message;
         }
 
         MemberUserDetails principal = resolvePrincipal(accessor);
         if (principal == null) {
-            log.warn("상담방 구독 거절(비로그인): destination={}", destination);
+            log.warn("상담 토픽 구독 거절(비로그인): destination={}", destination);
             throw new IllegalArgumentException("상담을 보려면 로그인이 필요합니다.");
+        }
+
+        if (adminTopic) {
+            // 관리자 목록 갱신 신호에는 내용이 없지만, 구독만으로도 "상담이 몇 건 오가는지"가 새므로 막는다.
+            if (principal.getMember().getRole() != Role.ADMIN) {
+                log.warn("관리자 토픽 구독 거절(권한 없음): memberId={}, destination={}",
+                        principal.getMember().getId(), destination);
+                throw new IllegalArgumentException("관리자만 구독할 수 있습니다.");
+            }
+            return message;
         }
 
         Long roomId = parseRoomId(destination);

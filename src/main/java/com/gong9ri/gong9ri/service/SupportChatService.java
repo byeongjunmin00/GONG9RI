@@ -5,6 +5,7 @@ import com.gong9ri.gong9ri.common.exception.ErrorCode;
 import com.gong9ri.gong9ri.dto.SupportMessageResponse;
 import com.gong9ri.gong9ri.dto.SupportRoomResponse;
 import com.gong9ri.gong9ri.entity.Member;
+import com.gong9ri.gong9ri.event.SupportRoomUpdatedEvent;
 import com.gong9ri.gong9ri.entity.Role;
 import com.gong9ri.gong9ri.entity.SupportMessage;
 import com.gong9ri.gong9ri.entity.SupportRoom;
@@ -15,6 +16,7 @@ import com.gong9ri.gong9ri.repository.SupportRoomRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -40,6 +42,7 @@ public class SupportChatService {
     private final SupportMessageRepository supportMessageRepository;
     private final MemberRepository memberRepository;
     private final NotificationPublisher notificationPublisher;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 상담 시작. <b>이미 열린 방이 있으면 그 방을 그대로 돌려준다</b> — 한 회원이 방을 여러 개 열면
@@ -49,7 +52,12 @@ public class SupportChatService {
     public SupportRoomResponse openRoom(Member member) {
         SupportRoom room = supportRoomRepository
                 .findByMember_IdAndStatus(member.getId(), SupportRoomStatus.OPEN)
-                .orElseGet(() -> supportRoomRepository.save(new SupportRoom(member)));
+                .orElseGet(() -> {
+                    SupportRoom created = supportRoomRepository.save(new SupportRoom(member));
+                    // 새 상담이 열린 것도 관리자 목록에 실시간으로 나타나야 한다.
+                    eventPublisher.publishEvent(new SupportRoomUpdatedEvent(created.getId()));
+                    return created;
+                });
         return SupportRoomResponse.of(room, messagesOf(room.getId()));
     }
 
@@ -103,6 +111,10 @@ public class SupportChatService {
         room.onMessageSent(byAdmin);
         // 보낸 쪽은 자기 메시지를 이미 봤으므로 그쪽 미읽음은 0으로 맞춘다.
         room.markReadBy(byAdmin);
+
+        // 관리자 목록(미읽음 개수·정렬)을 갱신하라는 신호. 관리자가 보낸 답변도 상대 미읽음이 바뀌므로
+        // 양방향 모두 보낸다.
+        eventPublisher.publishEvent(new SupportRoomUpdatedEvent(roomId));
 
         if (firstUnreadForAdmin) {
             // **메시지마다 보내지 않는다.** 미읽음이 0 → 1로 바뀌는 순간에만 알린다 — 안 그러면

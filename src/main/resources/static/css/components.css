@@ -1429,17 +1429,29 @@ button.summary-card {
 }
 
 /* ---------- Chat widget (구매자 챗봇 플로팅 위젯) ---------- */
+/* 플로팅 버튼 두 개(고객센터·AI 상담)를 한 줄에 나란히 둔다.
+   - 고객센터는 **비로그인 포함 모두**에게 보이므로 가장 눈에 익은 오른쪽 아래 자리를 준다.
+   - AI 상담은 구매자 전용이라 그 왼쪽에 붙인다. 판매자·비로그인 화면에는 이 버튼이 아예 없어서
+     고객센터만 오른쪽 아래에 남는데, 그때도 자리가 자연스럽다(2026-08-21 사용자 결정).
+   폭을 고정하는 이유: 왼쪽 버튼의 right 값을 계산하려면 오른쪽 버튼 폭이 확정돼야 한다.
+   글자 수에 따라 폭이 변하면 두 버튼이 겹치거나 벌어진다. */
+.chat-widget__button,
+.support-widget__button {
+  --widget-btn-width: 104px;
+  --widget-btn-height: 48px;
+}
+
 .chat-widget__button {
   position: fixed;
-  right: var(--space-5);
+  right: calc(var(--space-5) + var(--widget-btn-width) + var(--space-3));
   bottom: var(--space-5);
   z-index: 1000;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 64px;
-  height: 56px;
-  padding: 0 var(--space-4);
+  width: var(--widget-btn-width);
+  height: var(--widget-btn-height);
+  padding: 0 var(--space-3);
   border: none;
   border-radius: var(--radius-full);
   background: var(--gradient-brand);
@@ -1457,7 +1469,7 @@ button.summary-card {
 .chat-widget__panel {
   position: fixed;
   right: var(--space-5);
-  bottom: calc(56px + var(--space-5) + var(--space-3));
+  bottom: calc(48px + var(--space-5) + var(--space-3));
   z-index: 1000;
   display: flex;
   flex-direction: column;
@@ -1477,7 +1489,10 @@ button.summary-card {
   align-items: center;
   justify-content: space-between;
   padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--color-border);
+  /* 고객센터 패널과 같은 브랜드 그라데이션 — 둘 다 상담 창구라 생김새를 맞춘다
+     (2026-08-21 사용자 요청: "색깔 고객센터랑 통일해줘"). */
+  background: var(--gradient-brand);
+  color: var(--color-text-on-brand);
   flex-shrink: 0;
 }
 
@@ -1490,13 +1505,15 @@ button.summary-card {
 .chat-widget__close {
   border: none;
   background: transparent;
-  color: var(--color-text-muted);
+  /* 헤더가 그라데이션이 되면서 회색 X는 묻힌다 — 헤더 글자색을 따라간다. */
+  color: inherit;
   font-size: var(--fs-xl);
   line-height: 1;
+  cursor: pointer;
 }
 
 .chat-widget__close:hover {
-  color: var(--color-pink);
+  opacity: 0.8;
 }
 
 .chat-widget__messages {
@@ -2522,15 +2539,15 @@ button.summary-card {
 .support-widget__button {
   position: fixed;
   right: var(--space-5);
-  bottom: calc(56px + var(--space-5) + var(--space-3));
+  bottom: var(--space-5);
   z-index: 1000;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  min-width: 64px;
-  height: 48px;
-  padding: 0 var(--space-4);
+  width: var(--widget-btn-width);
+  height: var(--widget-btn-height);
+  padding: 0 var(--space-3);
   border: none;
   border-radius: var(--radius-full);
   /* AI 챗봇 버튼과 같은 브랜드 그라데이션 — 둘 다 GONG9RI의 상담 창구라 같은 색을 쓴다.
@@ -2565,7 +2582,7 @@ button.summary-card {
 .support-widget__panel {
   position: fixed;
   right: var(--space-5);
-  bottom: calc(56px + 48px + var(--space-5) + var(--space-4));
+  bottom: calc(48px + var(--space-5) + var(--space-3));
   z-index: 1000;
   display: flex;
   flex-direction: column;

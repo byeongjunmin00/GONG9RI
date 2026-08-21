@@ -270,8 +270,18 @@
 
     toggleBtn.addEventListener('click', function () {
       if (panelEl.hidden) {
+        // 두 상담 패널이 동시에 열리면 화면에서 서로 겹친다(2026-08-21 사용자 리포트).
+        // 여는 쪽이 신호를 보내고, 다른 위젯이 스스로 닫는다 — 서로를 직접 참조하지 않아
+        // 한쪽만 있는 페이지(판매자·비로그인)에서도 그대로 동작한다.
+        document.dispatchEvent(new CustomEvent('gong9ri:widget-open', { detail: { widget: 'chat' } }));
         openPanel();
       } else {
+        closePanel();
+      }
+    });
+
+    document.addEventListener('gong9ri:widget-open', function (event) {
+      if (event.detail && event.detail.widget !== 'chat') {
         closePanel();
       }
     });
