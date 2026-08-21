@@ -173,3 +173,97 @@ KAKAO_CLIENT_SECRET=<Client Secret 활성화했으면 그 값, 아니면 비워�
 ## 참고 — 확인 안 된 것
 
 - Railway 무료/저가 플랜의 실제 정책(월 크레딧 한도, 미사용 시 슬립 여부 등)은 가입 후 요금제 화면에서 직접 확인할 것 — 여기서 추측해서 적지 않음.
+
+---
+
+## 호스팅 이전 런북 (2026-08-21 실제 수행)
+
+무료 크레딧 소진이 임박해 **다른 워크스페이스의 새 프로젝트로 서비스를 통째로 옮겼다.** 같은 일을 다시 하게 될 때를 위해 실제로 밟은 순서와 함정을 남긴다.
+
+> 옮기는 동안 **기존 서비스는 절대 내리지 않는다.** 새 쪽이 완전히 확인될 때까지 롤백 경로로 살려둔다.
+
+### 1) 새 프로젝트 준비 — 서비스 이름이 계약이다
+
+새 워크스페이스에 프로젝트를 만들고 **MySQL·Redis를 앱보다 먼저** 추가한다. 이때 **이름을 기존과 똑같이** 짓는다(`MySQL`, `Redis` — 대소문자까지).
+
+환경변수가 값이 아니라 **참조**로 돼 있기 때문이다.
+
+```
+DB_URL="jdbc:mysql://${{MySQL.MYSQLHOST}}:${{MySQL.MYSQLPORT}}/${{MySQL.MYSQLDATABASE}}?..."
+```
+
+이름이 다르면 참조가 해석되지 않아 앱이 뜨지 않는다.
+
+> **CLI로 환경변수를 뽑으면 안 된다.** `railway variables --json`은 참조를 **이미 값으로 풀어서** 준다 — 그걸 새 프로젝트에 넣으면 **옛 DB를 가리킨다.** 대시보드의 **Raw Editor**를 그대로 복사해야 참조가 참조인 채로 넘어간다.
+
+이후 앱 서비스에 GitHub 레포를 연결하고, **볼륨을 `/data`에 마운트**한다(`UPLOAD_DIR=/data/uploads`).
+
+### 2) 주소 관련 값
+
+| 값 | 처리 |
+|---|---|
+| `APP_BASE_URL` | 새 주소로. **끝에 슬래시를 붙이지 않는다** — 지금은 `AppUrlProperties`가 떼어내지만, 원래 이 값으로 카카오 콜백 주소를 만들어서 슬래시 하나로 로그인이 깨질 수 있었다 |
+| `robots.txt`·sitemap·canonical | **손댈 것 없다.** 전부 `app.base-url`이나 접속 주소를 따라가게 바꿔뒀다 |
+
+### 3) DB 이사 — 임시 TCP 프록시
+
+두 프로젝트의 MySQL 모두 내부 전용이라, **임시로 공개 프록시를 열고 끝나면 반드시 닫는다.**
+
+```bash
+railway tcp-proxy create -s MySQL --port 3306      # 양쪽 모두
+mysqldump -h <host> -P <port> -uroot -p<pw> \
+  --single-transaction --set-gtid-purged=OFF --no-tablespaces \
+  --databases railway > dump.sql
+mysql -h <새host> -P <새port> -uroot -p<pw> < dump.sql
+railway tcp-proxy delete -s MySQL <id> --yes       # 양쪽 모두, 잊지 말 것
+```
+
+- **데드락이 한 번 났다** — 라이브 앱이 동시에 쓰고 있어서다. 재시도하면 된다(`--single-transaction`이라 스냅샷 일관성은 유지된다).
+- 복원 후 **테이블별 건수를 원본과 대조**한다. "복원 성공"만으로는 부족하다.
+
+### 4) 업로드 이미지 이사
+
+DB에서 실제 참조되는 파일 목록을 뽑고, **새 컨테이너가 옛 사이트에서 직접 받아오게** 한다(로컬을 거치지 않는다).
+
+```bash
+# 옮길 목록
+SELECT url FROM product_image WHERE url LIKE '/uploads/%'
+UNION SELECT image_url FROM product WHERE image_url LIKE '/uploads/%';
+
+# 새 컨테이너에서
+railway ssh -s GONG9RI -- sh -c 'curl -sf -o /data/uploads/... <옛주소>/uploads/...'
+```
+
+옮긴 뒤 새 주소로 실제 200이 나오는지, **크기가 원본과 같은지** 확인한다.
+
+### 5) 캐시 비우기 — 이거 안 하면 "이사가 안 된 것처럼" 보인다
+
+복원 직후 상품 목록이 **0개로 나왔다.** DB에는 37개가 있는데도 그랬다. 원인은 Redis에 **"비어있음"이 캐시**돼 있었기 때문이다(복원 전에 조회한 결과, TTL 30분).
+
+```
+productList::0-20-ALL-NONE-false   ← 이런 키를 지운다
+productDetail::4
+```
+
+세션·인증 토큰 키는 건드리지 않는다.
+
+### 6) 외부 콘솔 — 앱을 새로 만들지 않는다
+
+**기존 앱에 새 주소를 한 줄씩 추가**하면 된다. 기존 주소는 **지우지 않는다**(롤백용).
+
+| 콘솔 | 위치 |
+|---|---|
+| 카카오 — JS SDK 도메인 | 앱 설정 → 플랫폼 키 → JavaScript 키 |
+| 카카오 — 웹 도메인 | 앱 → **제품 링크 관리** ← 위와 다른 화면이다. 이걸 빠뜨리면 카톡 카드에서 **링크만 조용히 제거**된다 |
+| 카카오 — 로그인 Redirect URI | 앱 설정 → 플랫폼 키 → REST API 키. **경로까지** 넣어야 한다 |
+| PortOne — 웹훅 주소 | 새 주소로 변경 |
+| Google Search Console | 새 주소를 속성으로 추가. 인증 파일이 레포에 있어 자동 통과 |
+
+### 7) 확인 순서
+
+1. `/actuator/health`, `/api/products`, `/robots.txt`(사이트맵 주소가 새 주소인지)
+2. 인증 필요한 경로가 401을 주는지, WebSocket 핸드셰이크가 비로그인 401인지
+3. 기존 계정으로 로그인(비밀번호는 암호화된 채 이관되므로 그대로 된다)
+4. **카톡 공유 카드에 버튼이 붙는지** — 붙지 않으면 6번의 웹 도메인 등록을 다시 본다
+5. 결제·상담 등 외부 연동
+
