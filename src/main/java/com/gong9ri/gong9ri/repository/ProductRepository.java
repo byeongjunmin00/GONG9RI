@@ -19,4 +19,9 @@ public interface ProductRepository extends JpaRepository<Product, Long>, Product
     // 관리자 회원 활동 수치 배치 조회 (N+1 방지)
     @Query("SELECT p.seller.id, COUNT(p) FROM Product p WHERE p.seller.id IN :sellerIds GROUP BY p.seller.id")
     List<Object[]> countProductsBySellerIds(@Param("sellerIds") List<Long> sellerIds);
+
+    // 상품코드 백필(admin-identifier-codes, IdentifierCodeBackfillService) — 이 컬럼이 nullable인
+    // 동안 아직 채번되지 않은 기존 행만 골라낸다.
+    @Query("SELECT p.id FROM Product p WHERE p.productCode IS NULL")
+    List<Long> findIdsByProductCodeIsNull();
 }

@@ -8,6 +8,9 @@ import java.util.List;
 
 public record ProductResponse(
         Long productId,
+        // 상품코드(admin-identifier-codes, 2026-08-22) — ProductSummaryResponse.productCode와 동일한
+        // 이유·형식으로 공개 상세 API에도 노출한다.
+        String productCode,
         Long sellerId,
         String sellerName,
         String name,
@@ -55,6 +58,7 @@ public record ProductResponse(
             boolean sellerTrustedBadge, String baseUrl) {
         return new ProductResponse(
                 product.getId(),
+                product.getProductCode(),
                 product.getSeller().getId(),
                 product.getSeller().getName(),
                 product.getName(),
@@ -87,7 +91,7 @@ public record ProductResponse(
 
     public ProductResponse withReviewStats(Double ratingAverage, Integer reviewCount) {
         return new ProductResponse(
-                productId, sellerId, sellerName, name, description, basePrice, maxParticipants,
+                productId, productCode, sellerId, sellerName, name, description, basePrice, maxParticipants,
                 priceTiers, createdAt, imageUrl, autoRefundOnCancel, kakaoJsKey, category, openAt,
                 sellerTrustedBadge, ratingAverage, reviewCount, imageUrls, shareUrl, sellerProfileImageUrl
         );
@@ -105,7 +109,7 @@ public record ProductResponse(
                 ? images
                 : (imageUrl != null && !imageUrl.isBlank() ? List.of(imageUrl) : List.of());
         return new ProductResponse(
-                productId, sellerId, sellerName, name, description, basePrice, maxParticipants,
+                productId, productCode, sellerId, sellerName, name, description, basePrice, maxParticipants,
                 priceTiers, createdAt, imageUrl, autoRefundOnCancel, kakaoJsKey, category, openAt,
                 sellerTrustedBadge, ratingAverage, reviewCount, resolved, shareUrl, sellerProfileImageUrl
         );

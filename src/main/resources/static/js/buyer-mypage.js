@@ -387,7 +387,8 @@
     metaEl.className = 'mypage-list-item__meta';
     var amountText = formatPrice(purchase.amount);
     var paidAtText = purchase.paidAt ? '결제일시 ' + purchase.paidAt : '';
-    metaEl.textContent = [amountText, paidAtText].filter(Boolean).join(' · ');
+    // 공구팀 번호(admin-identifier-codes) — 팀이 딸린 결제에만 있다(혼자구매는 teamId처럼 null).
+    metaEl.textContent = [amountText, paidAtText, purchase.teamNo].filter(Boolean).join(' · ');
     infoEl.appendChild(metaEl);
 
     // 판매자가 조작하는 배송 단계(007) — 읽기 전용. status가 PAID일 때만 의미가 있다(REFUNDED
@@ -538,6 +539,8 @@
       metaParts = [teamCountText(team)];
     }
 
+    // 공구팀 번호(admin-identifier-codes) — 백필 전 기존 팀은 값이 없을 수 있다.
+    metaParts.push(team.teamNo);
     metaEl.textContent = metaParts.filter(Boolean).join(' · ');
     infoEl.appendChild(metaEl);
 

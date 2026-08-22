@@ -4,6 +4,7 @@
 | 컬럼 | 타입 | 제약 | 설명 |
 |------|------|------|------|
 | id | BIGINT | PK, auto | 식별자 |
+| product_code | VARCHAR(20) | NULL (백필 후 NOT NULL, UNIQUE 예정) | 상품코드(admin-identifier-codes, 2026-08-22 추가). `"P" + PK 7자리 zero-pad`(`P0000001`, `docs/policy/identifier-code.md`) — PK 파생, 상품 1개 = 코드 1개(변형(variant) 없음). 등록 직후 자동 채번. **지금은 nullable이다**(`member.member_code`와 동일한 마이그레이션 사정, `docs/deploy-guide.md`). Admin 상품 현황 화면·검색과 **공개 상품 목록/상세 API**(`GET /api/products`, `GET /api/products/{id}`)에 노출한다(SKU는 개인정보가 아니고 CS 문의에 유리, `docs/dev/ongoing/admin-identifier-codes.md` "확정 5") |
 | seller_id | BIGINT | NOT NULL, FK | 등록한 판매자 (`member.id`) |
 | name | VARCHAR(100) | NOT NULL | 상품명 |
 | description | TEXT | NULL | 상품 설명 |

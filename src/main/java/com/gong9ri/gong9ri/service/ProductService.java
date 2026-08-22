@@ -3,6 +3,7 @@ package com.gong9ri.gong9ri.service;
 import com.gong9ri.gong9ri.common.config.AppUrlProperties;
 import com.gong9ri.gong9ri.common.exception.BusinessException;
 import com.gong9ri.gong9ri.common.exception.ErrorCode;
+import com.gong9ri.gong9ri.common.identifier.IdentifierCodeFormatter;
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.config.CacheConfig;
 import com.gong9ri.gong9ri.dto.PriceTierRequest;
@@ -285,6 +286,8 @@ public class ProductService {
                 request.basePrice(), maxParticipants, request.imageUrl(),
                 Boolean.TRUE.equals(request.autoRefundOnCancel()), request.category(), request.openAt());
         Product saved = productRepository.save(product);
+        // 상품코드 채번(admin-identifier-codes) — PK가 확정된 직후에만 가능하다(PK 파생 코드).
+        saved.assignProductCode(IdentifierCodeFormatter.productCode(saved.getId()));
 
         List<PriceTier> priceTiers = savePriceTiers(saved, request.priceTiers());
         saveProductImages(saved, request.imageUrls());

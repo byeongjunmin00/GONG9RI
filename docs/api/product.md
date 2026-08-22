@@ -21,6 +21,7 @@
     "content": [
       {
         "productId": 1,
+        "productCode": "P0000001",
         "name": "제주 감귤 5kg",
         "basePrice": 25000,
         "bestPrice": 15000,
@@ -51,6 +52,9 @@
 
   > `sellerTrustedBadge`: 판매자 신뢰 배지(product/seller-trust). 이 판매자의 전체 상품에 달린 리뷰
   > 평균 평점이 4.5 이상이고 리뷰 개수가 3개 이상이면 `true`. 목록 캐시(30분 TTL)에 그대로 포함된다.
+
+  > `productCode`(admin-identifier-codes, 2026-08-22 추가): `docs/policy/identifier-code.md` 포맷
+  > (`P0000001`, PK 파생). 이 컬럼이 생기기 이전 기존 상품은 백필 전까지 `null`일 수 있다.
 
 ---
 
@@ -83,6 +87,7 @@
   ```json
   {
     "productId": 1,
+    "productCode": "P0000001",
     "sellerId": 5,
     "sellerName": "제주농장",
     "name": "제주 감귤 5kg",
@@ -103,6 +108,9 @@
     "sellerTrustedBadge": true
   }
   ```
+
+  > `productCode`(admin-identifier-codes, 2026-08-22 추가): `GET /api/products`와 동일(`P0000001`,
+  > PK 파생, 백필 전 기존 상품은 `null`일 수 있다).
 
   > `category`: 메인 페이지 카테고리 필터용 고정 값(`FOOD`/`LIVING`/`BEAUTY`/`FASHION`/`DIGITAL`/`ETC`,
   > product/category). 등록/수정 시 필수 선택.
@@ -145,10 +153,12 @@
   | category | String | Y | `FOOD`/`LIVING`/`BEAUTY`/`FASHION`/`DIGITAL`/`ETC` 중 하나(product/category) |
   | openAt | String(ISO datetime) | N | 오픈예정 시각(product/product-launch). 생략하면 즉시 공개. 값을 넣으면 미래 시각이어야 한다(과거는 `VALIDATION_FAILED`) |
 
-- 응답: `201 Created`
+- 응답: `201 Created` — 상세 조회(`GET /api/products/{productId}`)와 같은 `ProductResponse`를 공유하므로
+  `productCode`도 함께 실린다(2026-08-22 추가, 방금 채번된 값이라 항상 값이 있다).
   ```json
   {
     "productId": 1,
+    "productCode": "P0000001",
     "name": "제주 감귤 5kg",
     "basePrice": 25000,
     "maxParticipants": 10,

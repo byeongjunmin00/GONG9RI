@@ -4,6 +4,7 @@ import com.gong9ri.gong9ri.entity.GroupBuyTeam;
 import com.gong9ri.gong9ri.entity.TeamStatus;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.transaction.annotation.Transactional;
 
 public interface GroupBuyTeamRepository extends JpaRepository<GroupBuyTeam, Long>, GroupBuyTeamRepositoryCustom {
@@ -23,4 +24,9 @@ public interface GroupBuyTeamRepository extends JpaRepository<GroupBuyTeam, Long
     // 관리자 강제 삭제(product/admin) — 장난성 게시물처럼 결제·리뷰가 붙어도 지워야 할 때만 쓴다.
     @Transactional
     void deleteByProduct_Id(Long productId);
+
+    // 공구팀 번호 백필(admin-identifier-codes, IdentifierCodeBackfillService) — 이 컬럼이 nullable인
+    // 동안 아직 채번되지 않은 기존 행만 골라낸다.
+    @Query("SELECT t.id FROM GroupBuyTeam t WHERE t.teamNo IS NULL")
+    List<Long> findIdsByTeamNoIsNull();
 }

@@ -43,4 +43,9 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>, Payment
     // 판매자 마이페이지 — 내가 판매한 상품들에 대한 결제 건과 구매자, 상품, 팀 정보 배치 패치 조회 (N+1 방지)
     @Query("SELECT p FROM Payment p JOIN FETCH p.product pr JOIN FETCH p.member m LEFT JOIN FETCH p.team t WHERE pr.seller.id = :sellerId AND p.status <> 'PENDING' AND p.status <> 'FAILED' ORDER BY p.paidAt DESC")
     List<Payment> findAllBySellerIdWithProductAndMemberAndTeam(@Param("sellerId") Long sellerId);
+
+    // 주문번호 백필(admin-identifier-codes, IdentifierCodeBackfillService) — 이 컬럼이 nullable인
+    // 동안 아직 채번되지 않은 기존 행만 골라낸다.
+    @Query("SELECT p.id FROM Payment p WHERE p.orderNo IS NULL")
+    List<Long> findIdsByOrderNoIsNull();
 }

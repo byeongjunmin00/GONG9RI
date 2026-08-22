@@ -51,8 +51,8 @@ class CacheConfigTest {
                 productListConfig.get().getValueSerializationPair();
 
         ProductSummaryResponse summary = new ProductSummaryResponse(
-                1L, "제주 감귤 5kg", 25000, 15000, 10, "테스트판매자", LocalDateTime.now(), null, ProductCategory.FOOD,
-                null, null, null, null, false, null, null, false, null);
+                1L, "P0000001", "제주 감귤 5kg", 25000, 15000, 10, "테스트판매자", LocalDateTime.now(), null,
+                ProductCategory.FOOD, null, null, null, null, false, null, null, false, null);
         ProductPageResponse original = new ProductPageResponse(List.of(summary), 0, 20, 1L);
 
         ByteBuffer serialized = valueSerializer.write(original);
@@ -107,7 +107,7 @@ class CacheConfigTest {
                 productDetailConfig.get().getValueSerializationPair();
 
         ProductResponse original = new ProductResponse(
-                1L, 2L, "테스트판매자", "제주 감귤 5kg", "직접 재배한 감귤", 25000, 10,
+                1L, "P0000001", 2L, "테스트판매자", "제주 감귤 5kg", "직접 재배한 감귤", 25000, 10,
                 List.of(new PriceTierResponse(2, 22000), new PriceTierResponse(10, 15000)),
                 LocalDateTime.now(), null, false, "dummy-test-kakao-js-key", ProductCategory.FOOD, null, false, null, null, List.of(),
                 "https://example.com/product.html?id=1", null);

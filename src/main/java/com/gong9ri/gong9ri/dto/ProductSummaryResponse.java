@@ -6,6 +6,12 @@ import java.time.LocalDateTime;
 
 public record ProductSummaryResponse(
         Long productId,
+        // 상품코드(admin-identifier-codes, 2026-08-22) — "P0000001" 형식. 공개 상품 목록·상세 API에도
+        // 그대로 노출한다(SKU는 개인정보가 아니고 CS 문의에 유리, docs/dev/ongoing/
+        // admin-identifier-codes.md "확정 5"). 백필 전 기존 상품은 null일 수 있다. String이라 이 필드
+        // 추가 이전에 캐시된 목록/상세 응답을 배포 직후 읽어도 조용히 null로 채워질 뿐 500이 나지
+        // 않는다(sellerProfileImageUrl과 동일한 이유).
+        String productCode,
         String name,
         Integer basePrice,
         Integer bestPrice,
@@ -64,6 +70,7 @@ public record ProductSummaryResponse(
             Double ratingAverage, Integer reviewCount) {
         return new ProductSummaryResponse(
                 product.getId(),
+                product.getProductCode(),
                 product.getName(),
                 product.getBasePrice(),
                 bestPrice,
@@ -85,14 +92,15 @@ public record ProductSummaryResponse(
 
     public ProductSummaryResponse withActiveTeamProgress(Integer currentCount, Integer targetParticipants,
             LocalDateTime deadline) {
-        return new ProductSummaryResponse(productId, name, basePrice, bestPrice, maxParticipants, sellerName,
-                createdAt, imageUrl, category, currentCount, targetParticipants, deadline, openAt, sellerTrustedBadge,
-                ratingAverage, reviewCount, hidden, sellerProfileImageUrl);
+        return new ProductSummaryResponse(productId, productCode, name, basePrice, bestPrice, maxParticipants,
+                sellerName, createdAt, imageUrl, category, currentCount, targetParticipants, deadline, openAt,
+                sellerTrustedBadge, ratingAverage, reviewCount, hidden, sellerProfileImageUrl);
     }
 
     public ProductSummaryResponse withReviewStats(Double ratingAverage, Integer reviewCount) {
-        return new ProductSummaryResponse(productId, name, basePrice, bestPrice, maxParticipants, sellerName,
-                createdAt, imageUrl, category, activeTeamCurrentCount, activeTeamTargetParticipants, activeTeamDeadline,
-                openAt, sellerTrustedBadge, ratingAverage, reviewCount, hidden, sellerProfileImageUrl);
+        return new ProductSummaryResponse(productId, productCode, name, basePrice, bestPrice, maxParticipants,
+                sellerName, createdAt, imageUrl, category, activeTeamCurrentCount, activeTeamTargetParticipants,
+                activeTeamDeadline, openAt, sellerTrustedBadge, ratingAverage, reviewCount, hidden,
+                sellerProfileImageUrl);
     }
 }

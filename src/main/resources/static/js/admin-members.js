@@ -89,10 +89,12 @@
     row1.appendChild(badgeGroup);
     card.appendChild(row1);
 
-    // Row 2: Meta (Email & Joined Date)
+    // Row 2: Meta (회원번호 & Email & Joined Date)
+    // 회원번호(admin-identifier-codes) — 백필 전 기존 회원은 null일 수 있어 있을 때만 붙인다.
     var row2 = document.createElement('div');
     row2.className = 'admin-card__row2';
-    row2.textContent = member.email + (member.createdAt ? ' · 가입 ' + formatDate(member.createdAt) : '');
+    row2.textContent = (member.memberCode ? member.memberCode + ' · ' : '')
+        + member.email + (member.createdAt ? ' · 가입 ' + formatDate(member.createdAt) : '');
     card.appendChild(row2);
 
     // Row 3: Stats Inline Badges

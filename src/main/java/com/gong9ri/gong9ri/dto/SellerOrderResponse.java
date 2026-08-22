@@ -17,6 +17,8 @@ public record SellerOrderResponse(
         PaymentStatus status,
         LocalDateTime paidAt,
         Long teamId,
+        // 공구팀 번호(admin-identifier-codes, 2026-08-22) — teamId와 같은 자리에 노출한다.
+        String teamNo,
         TeamStatus teamStatus,
         Integer teamCurrentCount,
         Integer teamMaxParticipants,
@@ -76,6 +78,7 @@ public record SellerOrderResponse(
     public static SellerOrderResponse from(Payment payment) {
         GroupBuyTeam team = payment.getTeam();
         Long teamId = team != null ? team.getId() : null;
+        String teamNo = team != null ? team.getTeamNo() : null;
         TeamStatus teamStatus = team != null ? team.getStatus() : null;
         Integer currentCount = team != null ? team.getCurrentCount() : null;
         Integer maxParticipants = team != null ? team.getMaxParticipants() : null;
@@ -93,6 +96,7 @@ public record SellerOrderResponse(
                 payment.getStatus(),
                 payment.getPaidAt(),
                 teamId,
+                teamNo,
                 teamStatus,
                 currentCount,
                 maxParticipants,

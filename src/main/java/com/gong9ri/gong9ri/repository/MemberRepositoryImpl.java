@@ -50,9 +50,13 @@ public class MemberRepositoryImpl implements MemberRepositoryCustom {
             return member.id.isNotNull();
         }
         String keyword = search.trim();
+        // 회원번호(member_code) 검색(admin-identifier-codes) — 이 컬럼은 백필 전까지 일부 행이 null일
+        // 수 있는데, QueryDSL containsIgnoreCase는 null 컬럼에 대해 그냥 매치 안 함으로 평가되어
+        // NullPointerException 없이 안전하다.
         return member.username.containsIgnoreCase(keyword)
                 .or(member.name.containsIgnoreCase(keyword))
-                .or(member.email.containsIgnoreCase(keyword));
+                .or(member.email.containsIgnoreCase(keyword))
+                .or(member.memberCode.containsIgnoreCase(keyword));
     }
 
     private BooleanExpression roleEq(Role role) {

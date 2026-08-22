@@ -50,6 +50,7 @@
   var sellerEl = document.getElementById('product-seller');
   var sellerTrustEl = document.getElementById('product-seller-trust');
   var nameEl = document.getElementById('product-name');
+  var productCodeEl = document.getElementById('product-code');
   var descriptionEl = document.getElementById('product-description');
   var descriptionStatusEl = document.getElementById('product-description-status');
   var basePriceEl = document.getElementById('product-base-price');
@@ -375,6 +376,17 @@
     sellerTrustEl.hidden = !product.sellerTrustedBadge;
     nameEl.textContent = product.name || '';
 
+    // 상품코드(admin-identifier-codes) — 백필 전 기존 상품은 값이 없을 수 있어 그때는 숨긴다.
+    if (productCodeEl) {
+      if (product.productCode) {
+        productCodeEl.hidden = false;
+        productCodeEl.textContent = product.productCode;
+      } else {
+        productCodeEl.hidden = true;
+        productCodeEl.textContent = '';
+      }
+    }
+
     var headerRatingEl = document.getElementById('product-header-rating');
     if (headerRatingEl) {
       headerRatingEl.hidden = false;
@@ -697,6 +709,14 @@
     badgeEl.className = 'badge ' + statusToBadgeClass(team.status);
     badgeEl.textContent = statusToLabel(team.status);
     infoEl.appendChild(badgeEl);
+
+    // 공구팀 번호(admin-identifier-codes) — 백필 전 기존 팀은 값이 없을 수 있어 있을 때만 붙인다.
+    if (team.teamNo) {
+      var teamNoEl = document.createElement('span');
+      teamNoEl.className = 'team-item-count';
+      teamNoEl.textContent = team.teamNo;
+      infoEl.appendChild(teamNoEl);
+    }
 
     var countEl = document.createElement('span');
     countEl.className = 'team-item-count';

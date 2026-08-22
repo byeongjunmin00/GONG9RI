@@ -170,6 +170,64 @@ KAKAO_CLIENT_SECRET=<Client Secret 활성화했으면 그 값, 아니면 비워�
 
 > `APP_BASE_URL`은 이미 로그인 고도화 2단계에서 설정해뒀다면 그대로 재사용된다(카카오 콜백 리다이렉트 URI를 이 값 + `/api/auth/kakao/callback`으로 조합함) — 안 돼있으면 9-1절 참고해서 같이 설정.
 
+## 12. 회원번호·상품코드·주문번호·공구팀 번호 배포 절차 (admin-identifier-codes, 2026-08-22)
+
+`docs/policy/identifier-code.md`(포맷·채번 규칙)·`docs/dev/ongoing/admin-identifier-codes.md`(계획)
+기능을 실제로 반영하려면 **배포를 2단계로 나눠야 한다.** `member.email` UNIQUE 인덱스 사례(9-2)와
+근본 원인은 같지만(기존 데이터가 있는 컬럼에 제약을 거는 문제), 이번엔 컬럼 자체가 새로 생기고
+게다가 **행마다 값이 달라서** 상수 `DEFAULT`로 채울 수 없다는 점이 다르다 — 그래서 "인덱스만 수동으로
+건다"가 아니라 "값부터 채우고 나서 제약을 건다"는 순서가 필요하다.
+
+### 12-1. 1단계 배포 — nullable 컬럼 추가 + 백필
+
+이번 Generate 라운드가 반영한 상태가 이 1단계다: `member.member_code`/`product.product_code`/
+`payment.order_no`/`group_buy_team.team_no` 4개 컬럼이 전부 **nullable**로 추가돼 있고, 신규
+가입/상품등록/결제생성/팀신설은 저장 직후 자동으로 채번한다. 기존 행(이 컬럼이 생기기 이전 데이터)은
+값이 없다.
+
+1. 이 코드를 배포한다(`ddl-auto: update`가 nullable 컬럼 추가는 기존 데이터가 있어도 안전하게
+   처리한다 — `member.kakao_id`가 "브랜드 뉴 컬럼"으로 문제없이 추가된 사례와 동일, `docs/db/
+   member.md` "마이그레이션 메모" 참고).
+2. 배포 환경(Railway 앱 서비스 → Variables)에 `APP_BACKFILL_IDENTIFIER_CODE=true`(또는
+   `application.yaml`이 읽는 이름 그대로 `app.backfill.identifier-code=true`)를 **한 번** 추가하고
+   재배포(재기동)한다 — `IdentifierCodeBackfillRunner`가 기동 시 1회 `IdentifierCodeBackfillService`로
+   4개 테이블의 기존 행을 전부 채운다. 배포 로그에 `식별 코드 백필 실행기 종료: 총갱신행수=N`이
+   찍히는지 확인한다.
+3. **백필이 끝났으면 그 환경변수를 즉시 제거하거나 `false`로 되돌린다** — 안 그러면 재기동마다
+   불필요하게 다시 스캔한다(대상이 없으면 스캔만 하고 아무 것도 안 바꾸므로 데이터 안전성 문제는
+   없지만, 매 기동 스캔은 낭비다).
+4. 아래 SQL로 4개 테이블 모두 NULL이 0건인지 직접 확인한다(다음 단계로 넘어가기 전 필수):
+   ```sql
+   SELECT COUNT(*) FROM member WHERE member_code IS NULL;
+   SELECT COUNT(*) FROM product WHERE product_code IS NULL;
+   SELECT COUNT(*) FROM payment WHERE order_no IS NULL;
+   SELECT COUNT(*) FROM group_buy_team WHERE team_no IS NULL;
+   ```
+   전부 0이어야 다음 단계(제약 적용)로 넘어갈 수 있다. 0이 아니면(백필 실행기가 안 돌았거나 실패)
+   재실행한다.
+
+### 12-2. 2단계 배포 — NOT NULL + UNIQUE 제약 적용 (백필 완료 확인 후에만)
+
+12-1의 NULL 카운트가 4개 테이블 전부 0임을 확인한 뒤에만 진행한다.
+
+1. 4개 엔티티(`Member.memberCode`, `Product.productCode`, `Payment.orderNo`,
+   `GroupBuyTeam.teamNo`)의 `@Column` 애노테이션을 `nullable = false, unique = true`로 바꾼다.
+2. 재배포한다 — 이 시점엔 4개 컬럼 모두 값이 채워져 있으므로 `ddl-auto: update`가 컬럼 제약
+   변경(`MODIFY COLUMN ... NOT NULL` + `ADD UNIQUE INDEX`)을 안전하게 적용할 수 있다.
+3. 배포 후 아래로 실제 제약이 걸렸는지 확인한다:
+   ```sql
+   SHOW INDEX FROM member WHERE Key_name LIKE '%member_code%';
+   SHOW INDEX FROM product WHERE Key_name LIKE '%product_code%';
+   SHOW INDEX FROM payment WHERE Key_name LIKE '%order_no%';
+   SHOW INDEX FROM group_buy_team WHERE Key_name LIKE '%team_no%';
+   ```
+   각각 결과가 1행 이상 나오면 정상 적용된 것.
+
+> **아직 이 저장소 코드는 1단계 상태다.** 2단계(제약 적용)는 위 확인 절차를 실제로 밟은 뒤 별도
+> 작업으로 진행한다 — 지금 코드에 그대로 `nullable = false`를 적용하면, 이미 데이터가 있는 로컬
+> dev DB나 배포 DB에서 컬럼 추가 자체가 실패할 수 있다(`docs/policy/identifier-code.md` "마이그레이션"
+> 절 참고).
+
 ## 참고 — 확인 안 된 것
 
 - Railway 무료/저가 플랜의 실제 정책(월 크레딧 한도, 미사용 시 슬립 여부 등)은 가입 후 요금제 화면에서 직접 확인할 것 — 여기서 추측해서 적지 않음.

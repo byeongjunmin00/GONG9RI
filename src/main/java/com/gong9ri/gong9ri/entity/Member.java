@@ -45,6 +45,22 @@ public class Member {
     @Column(nullable = false, length = 20)
     private Role role;
 
+    /**
+     * 회원번호(admin-identifier-codes, 2026-08-22). {@code "M" + PK 7자리 zero-pad}
+     * ({@link com.gong9ri.gong9ri.common.identifier.IdentifierCodeFormatter#memberCode}) — 별도
+     * 채번 테이블 없이 PK를 그대로 파생시킨 값이라 PK처럼 불변이다(`docs/policy/identifier-code.md`).
+     *
+     * <p><b>당장은 nullable이다(NOT NULL/UNIQUE 아님)</b> — 이 컬럼이 처음 생기는 시점에 이미 존재하는
+     * 회원 행은 값이 없고, 회원마다 값이 다른 컬럼이라({@code emailVerified}/{@code suspended}처럼)
+     * 상수 {@code @ColumnDefault}로 한 번에 채울 수 없다. 애플리케이션 레벨 백필
+     * ({@code IdentifierCodeBackfillService})로 기존 행을 전부 채운 뒤에야 NOT NULL + UNIQUE 제약을
+     * 안전하게 걸 수 있다 — 그 전에 걸면 기존 데이터가 있는 DB에서 `ddl-auto: update`의 컬럼 추가
+     * 자체가 실패한다(자세한 사정은 `docs/deploy-guide.md`의 "회원번호·상품코드·주문번호·공구팀 번호
+     * 배포 절차" 참고).
+     */
+    @Column(name = "member_code", length = 20)
+    private String memberCode;
+
     // 로그인 고도화 2단계(이메일 인증) — 기존 row 있는 테이블에 NOT NULL 컬럼을 추가하는 마이그레이션이라
     // @ColumnDefault로 실제 SQL DEFAULT false 절을 만들어서 기존 row도 안전하게 처리되게 한다
     // (docs/dev/auth/email-verification/design.md에 로컬 dev DB 실측 결과 기록).
@@ -103,6 +119,15 @@ public class Member {
 
     public void changePassword(String encodedPassword) {
         this.password = encodedPassword;
+    }
+
+    /**
+     * 회원번호 채번(가입/카카오 신규가입 직후 1회 호출) — PK가 확정된 뒤에만 호출할 수 있다
+     * ({@code MemberService.signup}/{@code findOrCreateByKakao}). 백필 서비스도 기존 행에 한해 이걸
+     * 재사용한다.
+     */
+    public void assignMemberCode(String memberCode) {
+        this.memberCode = memberCode;
     }
 
     public void suspend() {

@@ -4,6 +4,7 @@
 | 컬럼 | 타입 | 제약 | 설명 |
 |------|------|------|------|
 | id | BIGINT | PK, auto | 식별자 |
+| member_code | VARCHAR(20) | NULL (백필 후 NOT NULL, UNIQUE 예정) | 회원번호(admin-identifier-codes, 2026-08-22 추가). `"M" + PK 7자리 zero-pad`(`M0000001`, `docs/policy/identifier-code.md`) — PK 파생, 별도 채번 테이블 없음. 가입/카카오 신규가입 직후 자동 채번. **지금은 nullable이다** — 이 컬럼이 생기기 이전 기존 회원은 `IdentifierCodeBackfillService` 백필 전까지 NULL이고, 4개 테이블 전부 백필이 끝나야 NOT NULL+UNIQUE 제약을 건다(`docs/deploy-guide.md`). Admin 회원 목록 화면·검색에 노출(공개 API에는 노출 안 함, 개인정보 성격) |
 | username | VARCHAR(50) | NOT NULL, UNIQUE | 로그인 아이디 |
 | password | VARCHAR(255) | NOT NULL | 비밀번호 (암호화 저장) |
 | name | VARCHAR(50) | NOT NULL | 이름 |

@@ -124,8 +124,11 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
         BooleanExpression searchCond = null;
         if (StringUtils.hasText(search)) {
             String keyword = search.trim();
+            // 상품코드(product_code) 검색(admin-identifier-codes) — 백필 전 null인 행이 있어도
+            // containsIgnoreCase는 매치 안 함으로 안전하게 평가된다(MemberRepositoryImpl과 동일).
             searchCond = product.name.containsIgnoreCase(keyword)
-                    .or(product.seller.name.containsIgnoreCase(keyword));
+                    .or(product.seller.name.containsIgnoreCase(keyword))
+                    .or(product.productCode.containsIgnoreCase(keyword));
         }
 
         BooleanExpression statusCond = null;

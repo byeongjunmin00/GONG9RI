@@ -51,6 +51,17 @@ public class Product {
     @Column(nullable = false)
     private Integer maxParticipants;
 
+    /**
+     * 상품코드(admin-identifier-codes, 2026-08-22). {@code "P" + PK 7자리 zero-pad}
+     * ({@link com.gong9ri.gong9ri.common.identifier.IdentifierCodeFormatter#productCode}) — 상품
+     * 1개 = 코드 1개(변형(variant) 없음). 회원번호와 동일한 이유로 지금은 nullable이다 — 백필
+     * (`IdentifierCodeBackfillService`) 완료 전까지는 NOT NULL/UNIQUE 제약을 걸지 않는다
+     * (`Member.memberCode` 필드 주석, `docs/policy/identifier-code.md` 참고). 공개 상품 API에도
+     * 노출된다(`docs/api/product.md`).
+     */
+    @Column(name = "product_code", length = 20)
+    private String productCode;
+
     @Column(length = 500)
     private String imageUrl;
 
@@ -146,6 +157,11 @@ public class Product {
      */
     public void changeRepresentativeImage(String imageUrl) {
         this.imageUrl = imageUrl;
+    }
+
+    /** 상품코드 채번(등록 직후 1회 호출, {@code ProductService.register}). 백필 서비스도 재사용한다. */
+    public void assignProductCode(String productCode) {
+        this.productCode = productCode;
     }
 
     public boolean isNotYetOpen() {

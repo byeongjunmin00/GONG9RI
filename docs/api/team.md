@@ -17,6 +17,7 @@
   [
     {
       "teamId": 3,
+      "teamNo": "T0000003",
       "productId": 1,
       "leaderId": 7,
       "currentCount": 4,
@@ -29,6 +30,10 @@
   ]
   ```
 
+  > `teamNo`(admin-identifier-codes, 2026-08-22 추가): `docs/policy/identifier-code.md` 포맷
+  > (`T0000001`, PK 파생). admin이 아니라 이 화면(상품 상세 팀 카드) 같은 고객 대면 자리에 노출한다.
+  > 이 컬럼이 생기기 이전 기존 팀은 백필 전까지 `null`일 수 있다.
+  >
   > 상태가 `RECRUITING`인 팀만 반환한다.
   > `joinedByCurrentMember`는 **이 요청을 보낸 로그인 사용자 자신이** 그 팀의 현재 참여자인지
   > 여부다(다른 참여자의 신원은 여전히 비공개 — `GET /api/teams/{teamId}/participants`의 마스킹
@@ -52,10 +57,12 @@
 
   > 로그인 사용자가 자동으로 leader가 되고 `current_count = 1`로 생성된다.
 
-- 응답: `201 Created`
+- 응답: `201 Created` — `teamNo`(admin-identifier-codes, 2026-08-22 추가)도 함께 실린다(방금 채번된
+  값이라 항상 값이 있다).
   ```json
   {
     "teamId": 3,
+    "teamNo": "T0000003",
     "productId": 1,
     "leaderId": 7,
     "currentCount": 1,

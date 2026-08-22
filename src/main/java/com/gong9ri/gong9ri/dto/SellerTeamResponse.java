@@ -7,6 +7,8 @@ import java.util.List;
 
 public record SellerTeamResponse(
         Long teamId,
+        // 공구팀 번호(admin-identifier-codes, 2026-08-22) — teamId와 같은 자리에 노출한다.
+        String teamNo,
         Long productId,
         String productName,
         Integer currentCount,
@@ -25,6 +27,7 @@ public record SellerTeamResponse(
     public static SellerTeamResponse from(GroupBuyTeam team, List<String> participantNames) {
         return new SellerTeamResponse(
                 team.getId(),
+                team.getTeamNo(),
                 team.getProduct().getId(),
                 team.getProduct().getName(),
                 team.getCurrentCount(),

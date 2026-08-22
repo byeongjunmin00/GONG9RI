@@ -4,6 +4,7 @@
 | 컬럼 | 타입 | 제약 | 설명 |
 |------|------|------|------|
 | id | BIGINT | PK, auto | 팀 ID |
+| team_no | VARCHAR(20) | NULL (백필 후 NOT NULL, UNIQUE 예정) | 공구팀 번호(admin-identifier-codes, 2026-08-22 추가). `"T" + PK 7자리 zero-pad`(`T0000001`, `docs/policy/identifier-code.md`) — 팀 1건당 1개, `team_participation`(참여자 개개인)에는 붙지 않는다. 신설 직후 자동 채번, `status` 전이와 무관하게 불변. **지금은 nullable이다**(`member.member_code`와 동일한 마이그레이션 사정). **admin에는 노출하지 않는다**(admin 전용 공구팀 목록 화면이 아직 없음, 다음 작업으로 이연) — 대신 상품 상세 팀 카드·마이페이지(구매내역/공구 참여/판매자 주문·공구 현황)에 노출한다 |
 | product_id | BIGINT | NOT NULL, FK | 어떤 상품에 대한 팀인지 |
 | leader_id | BIGINT | NOT NULL, FK | 팀을 신설한 사람 |
 | current_count | INT | NOT NULL, default 1 | 현재 참여 인원 (캐싱 컬럼 — 동시성 제어 핵심) |

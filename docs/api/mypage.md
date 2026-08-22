@@ -18,6 +18,7 @@
       "status": "PAID",
       "paidAt": "2026-07-24T14:35:00",
       "teamId": null,
+      "teamNo": null,
       "imageUrl": "https://images.pexels.com/photos/2294477/pexels-photo-2294477.jpeg",
       "shipmentStatus": "IN_TRANSIT",
       "shipmentStatusLabel": "배송중",
@@ -29,6 +30,10 @@
 
   > `teamId`: 팀이 딸린 결제면 값이 있고, 혼자구매면 `null`. `null`인(솔로 구매) `PAID` 결제만
   > `docs/api/refund.md`의 직접 환불 요청 대상이다.
+  >
+  > `teamNo`(admin-identifier-codes, 2026-08-22 추가): `teamId`와 같은 자리 — 팀이 딸린 결제면 값이
+  > 있고 혼자구매면 `null`. `docs/policy/identifier-code.md` 포맷(`T0000001`). 이 컬럼이 생기기
+  > 이전 기존 팀은 백필 전까지 `null`일 수 있다.
   >
   > `shipmentStatus`/`shipmentStatusLabel`/`trackingCarrier`/`trackingNumber`(2026-08-21 `007` 추가):
   > 판매자가 `PATCH /api/seller/mypage/orders/{paymentId}/shipment`로 입력한 배송 정보를 읽기 전용으로
@@ -53,6 +58,7 @@
   [
     {
       "teamId": 3,
+      "teamNo": "T0000003",
       "productId": 1,
       "productName": "제주 감귤 5kg",
       "currentCount": 10,
@@ -64,6 +70,7 @@
     },
     {
       "teamId": 5,
+      "teamNo": "T0000005",
       "productId": 2,
       "productName": "경북 사과 3kg",
       "currentCount": 3,
@@ -75,6 +82,9 @@
     }
   ]
   ```
+
+  > `teamNo`(admin-identifier-codes, 2026-08-22 추가): `teamId`와 같은 자리. `docs/policy/
+  > identifier-code.md` 포맷(`T0000001`). 이 컬럼이 생기기 이전 기존 팀은 백필 전까지 `null`일 수 있다.
 
 - 에러:
   | 코드 | HTTP | 설명 |
@@ -127,6 +137,7 @@
       "status": "PAID",
       "paidAt": "2026-08-21T14:35:00",
       "teamId": null,
+      "teamNo": null,
       "teamStatus": null,
       "teamCurrentCount": null,
       "teamMaxParticipants": null,
@@ -141,6 +152,10 @@
   ```
 
   > `preparationStatus`는 `REFUNDED`(환불/취소됨) · `RECRUITING`(공구 모집 중) · `FAILED`(공구 실패) · `PREPARING`(배송 준비 중, 공구 성공 또는 솔로 구매) 중 하나다.
+  >
+  > `teamNo`(admin-identifier-codes, 2026-08-22 추가): `teamId`와 같은 자리 — 팀이 딸린 주문이면 값이
+  > 있고 혼자구매면 `null`. `docs/policy/identifier-code.md` 포맷(`T0000001`). 이 컬럼이 생기기 이전
+  > 기존 팀은 백필 전까지 `null`일 수 있다.
   >
   > `shipmentStatus`/`shipmentStatusLabel`/`trackingCarrier`/`trackingNumber`(2026-08-21 `007` 추가):
   > 판매자가 직접 조작하는 배송 단계 — 아래 `PATCH .../shipment`로 바꾼다. `preparationStatus`가
@@ -217,6 +232,7 @@
   [
     {
       "teamId": 3,
+      "teamNo": "T0000003",
       "productId": 1,
       "productName": "제주 감귤 5kg",
       "currentCount": 10,
@@ -234,6 +250,9 @@
   > `leaderName` / `participantNames`는 2026-08-20 추가. 이전에는 상품명과 인원 수만 내려가서
   > **판매자가 "누가 참여했는지" 알 수 없었다.** `participantNames`는 참여 순서(`joinedAt` 오름차순)이며
   > 리더도 참여자이므로 목록에 포함된다.
+  >
+  > `teamNo`(admin-identifier-codes, 2026-08-22 추가): `teamId`와 같은 자리. `docs/policy/
+  > identifier-code.md` 포맷(`T0000001`). 이 컬럼이 생기기 이전 기존 팀은 백필 전까지 `null`일 수 있다.
 
 - 에러:
   | 코드 | HTTP | 설명 |

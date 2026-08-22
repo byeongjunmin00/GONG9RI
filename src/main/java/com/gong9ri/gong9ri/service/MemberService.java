@@ -7,6 +7,7 @@ import com.gong9ri.gong9ri.dto.KakaoLoginResult;
 import com.gong9ri.gong9ri.dto.MemberInfoUpdateRequest;
 import com.gong9ri.gong9ri.dto.MemberResponse;
 import com.gong9ri.gong9ri.dto.MemberSignupRequest;
+import com.gong9ri.gong9ri.common.identifier.IdentifierCodeFormatter;
 import com.gong9ri.gong9ri.config.CacheConfig;
 import com.gong9ri.gong9ri.entity.Member;
 import com.gong9ri.gong9ri.entity.Product;
@@ -143,6 +144,8 @@ public class MemberService {
                 request.role()
         );
         Member saved = memberRepository.save(member);
+        // 회원번호 채번(admin-identifier-codes) — PK가 확정된 직후에만 가능하다(PK 파생 코드).
+        saved.assignMemberCode(IdentifierCodeFormatter.memberCode(saved.getId()));
         eventPublisher.publishEvent(new MemberSignedUpEvent(saved.getId(), saved.getEmail()));
         log.info("회원가입 완료: memberId={}, username={}", saved.getId(), saved.getUsername());
         return MemberResponse.from(saved);
@@ -234,6 +237,7 @@ public class MemberService {
 
         Member member = Member.ofKakao(kakaoId, username, randomPassword, name, resolvedEmail, intendedRole);
         Member saved = memberRepository.save(member);
+        saved.assignMemberCode(IdentifierCodeFormatter.memberCode(saved.getId()));
         log.info("카카오 신규 가입 완료: memberId={}, kakaoId={}, role={}", saved.getId(), kakaoId, intendedRole);
         return new KakaoLoginResult(saved, false);
     }

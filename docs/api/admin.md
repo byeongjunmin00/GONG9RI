@@ -29,7 +29,7 @@
   |----------|------|------|--------|------|
   | page | int | N | 0 | 페이지 번호 (0-based) |
   | size | int | N | 20 | 페이지 크기 |
-  | search | String | N | null | 검색 키워드 (이름, 아이디, 이메일 대소문자 무시 검색) |
+  | search | String | N | null | 검색 키워드 (이름, 아이디, 이메일, **회원번호** 대소문자 무시 검색, 2026-08-22 회원번호 추가) |
   | role | String | N | null | 회원 역할 필터 (`BUYER`, `SELLER`, `ADMIN`) |
   | suspended | Boolean | N | null | 정지 여부 필터 (`true`, `false`) |
 
@@ -39,6 +39,7 @@
     "content": [
       {
         "memberId": 1,
+        "memberCode": "M0000001",
         "username": "hong1234",
         "name": "홍길동",
         "email": "hong@example.com",
@@ -56,6 +57,9 @@
     "totalElements": 42
   }
   ```
+
+  > `memberCode`(2026-08-22 추가): `docs/policy/identifier-code.md` 포맷(`M0000001`). 이 컬럼이
+  > 생기기 이전 기존 회원은 백필 전까지 `null`일 수 있다.
 
 ---
 
@@ -104,9 +108,11 @@
   |----------|------|------|--------|------|
   | page | int | N | 0 | 페이지 번호 (0-based) |
   | size | int | N | 20 | 페이지 크기 |
-  | search | String | N | null | 검색 키워드 (상품명, 판매자명 대소문자 무시 검색) |
+  | search | String | N | null | 검색 키워드 (상품명, 판매자명, **상품코드** 대소문자 무시 검색, 2026-08-22 상품코드 추가) |
   | status | String | N | null | 상품 상태 필터 (`VISIBLE`, `HIDDEN`, `PUSH`, `UPCOMING`) |
 - 응답: `200 OK` — 공개 목록과 같은 `ProductPageResponse`. 각 항목에 `hidden`(Boolean)이 실린다.
+  공개 목록과 같은 `ProductSummaryResponse`를 공유하므로 `productCode`도 자연히 함께 실린다
+  (`docs/api/product.md` 참고, 2026-08-22 추가).
 - 신뢰배지·리뷰 평점은 채우지 않는다(관리자 화면이 쓰지 않아, 불필요한 집계 쿼리를 아낀다).
 
 ---

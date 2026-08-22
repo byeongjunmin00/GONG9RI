@@ -7,6 +7,8 @@ import java.time.LocalDateTime;
 
 public record BuyerTeamResponse(
         Long teamId,
+        // 공구팀 번호(admin-identifier-codes, 2026-08-22) — teamId와 같은 자리에 노출한다.
+        String teamNo,
         Long productId,
         String productName,
         Integer currentCount,
@@ -21,6 +23,7 @@ public record BuyerTeamResponse(
         GroupBuyTeam team = participation.getTeam();
         return new BuyerTeamResponse(
                 team.getId(),
+                team.getTeamNo(),
                 team.getProduct().getId(),
                 team.getProduct().getName(),
                 team.getCurrentCount(),

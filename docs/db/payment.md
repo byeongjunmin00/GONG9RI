@@ -4,6 +4,7 @@
 | 컬럼 | 타입 | 제약 | 설명 |
 |------|------|------|------|
 | id | BIGINT | PK, auto | 식별자 |
+| order_no | VARCHAR(20) | NULL (백필 후 NOT NULL, UNIQUE 예정) | 주문번호(admin-identifier-codes, 2026-08-22 추가). `"O" + paidAt(yyyyMMdd) + "-" + PK 6자리 zero-pad`(`O20260822-000001`, `docs/policy/identifier-code.md`) — 회원번호/상품코드/공구팀 번호와 달리 날짜 접두어가 있다(정산 대사·일자별 CS 조회 편의). 결제 요청 접수 직후 자동 채번. **지금은 nullable이다**(`member.member_code`와 동일한 마이그레이션 사정). **이번 라운드는 admin 어디에도 노출하지 않는다** — admin 전용 주문 목록 화면이 아직 없어서다(`docs/dev/ongoing/admin-identifier-codes.md` "확정 4", 다음 작업으로 이연) |
 | member_id | BIGINT | NOT NULL, FK | 결제한 회원 |
 | product_id | BIGINT | NOT NULL, FK | 결제한 상품 |
 | team_id | BIGINT | NULL, FK | 공동구매 결제면 팀 ID, 혼자구매면 NULL |

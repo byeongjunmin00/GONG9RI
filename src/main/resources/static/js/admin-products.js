@@ -133,8 +133,10 @@
       sellerText.appendChild(window.Avatar.create(product.sellerName, product.sellerProfileImageUrl, 'xs'));
       sellerText.classList.add('avatar-name');
     }
+    // 상품코드(admin-identifier-codes) — 백필 전 기존 상품은 null일 수 있어 있을 때만 붙인다.
     var sellerLabelEl = document.createElement('span');
-    sellerLabelEl.textContent = (product.sellerName ? '판매자: ' + product.sellerName : '')
+    sellerLabelEl.textContent = (product.productCode ? product.productCode + ' · ' : '')
+        + (product.sellerName ? '판매자: ' + product.sellerName : '')
         + (product.category ? ' · ' + product.category : '');
     sellerText.appendChild(sellerLabelEl);
     sellerText.style.whiteSpace = 'nowrap';

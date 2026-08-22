@@ -90,6 +90,18 @@ public class Payment {
     private String trackingNumber;
 
     /**
+     * 주문번호(admin-identifier-codes, 2026-08-22). {@code "O" + paidAt(yyyyMMdd) + "-" + PK 6자리
+     * zero-pad} ({@link com.gong9ri.gong9ri.common.identifier.IdentifierCodeFormatter#orderNo}) —
+     * 회원번호/상품코드/공구팀 번호와 달리 날짜 접두어가 들어간다(정산 대사·일자별 CS 조회 편의,
+     * 사용자 확정). 지금은 nullable이다 — 백필(`IdentifierCodeBackfillService`) 완료 전까지는
+     * NOT NULL/UNIQUE 제약을 걸지 않는다(`Member.memberCode` 필드 주석 참고). **이번 라운드는 admin
+     * 어디에도 이 값을 노출하지 않는다** — admin에 아직 결제(주문) 전용 목록 화면이 없어서다
+     * (`docs/dev/ongoing/admin-identifier-codes.md` "확정 4", 다음 작업으로 이연).
+     */
+    @Column(name = "order_no", length = 20)
+    private String orderNo;
+
+    /**
      * 이미 확정된(PAID) 결제를 직접 만드는 생성자 — PortOne 연동 이전부터 있던 생성자로, 지금은
      * 테스트에서 "이미 결제완료된 이력"을 사전 세팅할 때만 쓴다(pgPaymentId는 null). 실제 서비스 흐름
      * (PaymentService.create)은 아래 5-arg 생성자로 PENDING 결제를 만든 뒤 서버 재검증을 거쳐 확정한다.
@@ -154,5 +166,10 @@ public class Payment {
         this.shipmentStatus = shipmentStatus;
         this.trackingCarrier = trackingCarrier;
         this.trackingNumber = trackingNumber;
+    }
+
+    /** 주문번호 채번(결제 요청 접수 직후 1회 호출, {@code PaymentService.create}). 백필 서비스도 재사용한다. */
+    public void assignOrderNo(String orderNo) {
+        this.orderNo = orderNo;
     }
 }

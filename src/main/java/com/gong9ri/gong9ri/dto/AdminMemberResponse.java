@@ -6,6 +6,9 @@ import java.time.LocalDateTime;
 
 public record AdminMemberResponse(
         Long memberId,
+        // 회원번호(admin-identifier-codes, 2026-08-22) — "M0000001" 형식. 백필 전 기존 회원은 null일
+        // 수 있다(도착 순서: 이 컬럼이 nullable로 추가된 뒤 애플리케이션 레벨 백필이 끝나야 전부 채워짐).
+        String memberCode,
         String username,
         String name,
         String email,
@@ -28,6 +31,7 @@ public record AdminMemberResponse(
     public static AdminMemberResponse of(Member member, int purchaseCount, int teamCount, int productCount) {
         return new AdminMemberResponse(
                 member.getId(),
+                member.getMemberCode(),
                 member.getUsername(),
                 member.getName(),
                 member.getEmail(),

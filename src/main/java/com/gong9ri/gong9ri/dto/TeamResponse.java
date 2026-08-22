@@ -6,6 +6,9 @@ import java.time.LocalDateTime;
 
 public record TeamResponse(
         Long teamId,
+        // 공구팀 번호(admin-identifier-codes, 2026-08-22) — "T0000001" 형식. admin이 아니라 상품 상세
+        // 팀 카드(고객 대면 화면)에 노출한다. 백필 전 기존 팀은 null일 수 있다.
+        String teamNo,
         Long productId,
         Long leaderId,
         Integer currentCount,
@@ -21,6 +24,7 @@ public record TeamResponse(
     public static TeamResponse from(GroupBuyTeam team, boolean joinedByCurrentMember) {
         return new TeamResponse(
                 team.getId(),
+                team.getTeamNo(),
                 team.getProduct().getId(),
                 team.getLeader().getId(),
                 team.getCurrentCount(),

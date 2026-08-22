@@ -4,6 +4,7 @@ import com.gong9ri.gong9ri.client.PortOneClient;
 import com.gong9ri.gong9ri.client.PortOnePaymentDetail;
 import com.gong9ri.gong9ri.common.exception.BusinessException;
 import com.gong9ri.gong9ri.common.exception.ErrorCode;
+import com.gong9ri.gong9ri.common.identifier.IdentifierCodeFormatter;
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.dto.PaymentCreateRequest;
 import com.gong9ri.gong9ri.dto.PaymentResponse;
@@ -77,6 +78,9 @@ public class PaymentService {
 
         String pgPaymentId = "pay_" + UUID.randomUUID();
         Payment saved = paymentRepository.save(new Payment(member, product, team, amount, pgPaymentId));
+        // 주문번호 채번(admin-identifier-codes) — PK와 paidAt(결제 접수 시각, @CreatedDate)이 모두
+        // 확정된 직후에만 가능하다(PK 파생 + 접수일 접두어).
+        saved.assignOrderNo(IdentifierCodeFormatter.orderNo(saved.getId(), saved.getPaidAt()));
         log.info("결제 요청 접수: paymentId={}, pgPaymentId={}, memberId={}, productId={}, teamId={}, amount={}",
                 saved.getId(), pgPaymentId, member.getId(), product.getId(), request.teamId(), amount);
 

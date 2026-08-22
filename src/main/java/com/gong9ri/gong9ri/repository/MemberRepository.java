@@ -31,4 +31,9 @@ public interface MemberRepository extends JpaRepository<Member, Long>, MemberRep
     // 계정이 늘어도 코드가 그대로 동작하도록 목록으로 받는다. 알림은 id만 쓰므로 프로젝션으로 뽑는다.
     @Query("SELECT m.id FROM Member m WHERE m.role = :role")
     List<Long> findIdsByRole(@Param("role") Role role);
+
+    // 회원번호 백필(admin-identifier-codes, IdentifierCodeBackfillService) — 이 컬럼이 nullable인
+    // 동안 아직 채번되지 않은 기존 행만 골라낸다.
+    @Query("SELECT m.id FROM Member m WHERE m.memberCode IS NULL")
+    List<Long> findIdsByMemberCodeIsNull();
 }

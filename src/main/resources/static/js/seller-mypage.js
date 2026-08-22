@@ -455,11 +455,12 @@
     var max = typeof team.maxParticipants === 'number' ? team.maxParticipants : '?';
     var deadlineText = team.deadline ? '마감 ' + formatDateTime(team.deadline) : '';
 
+    // 공구팀 번호(admin-identifier-codes) — 백필 전 기존 팀은 값이 없을 수 있다.
     if (team.status === 'RECRUITING') {
       // RECRUITING: 마감 일시 대신 잔여 시간 표시 (마감 일시는 배지로 따로 강조)
-      metaEl.textContent = current + ' / ' + max + '명';
+      metaEl.textContent = [current + ' / ' + max + '명', team.teamNo].filter(Boolean).join(' · ');
     } else {
-      metaEl.textContent = [current + ' / ' + max + '명', deadlineText].filter(Boolean).join(' · ');
+      metaEl.textContent = [current + ' / ' + max + '명', deadlineText, team.teamNo].filter(Boolean).join(' · ');
     }
     infoEl.appendChild(metaEl);
 
@@ -817,7 +818,9 @@
 
     var metaEl = document.createElement('span');
     metaEl.className = 'mypage-list-item__meta';
-    metaEl.textContent = '📦 ' + order.productName + ' · ' + formatPrice(order.amount) + ' · 결제일 ' + formatDateTime(order.paidAt);
+    // 공구팀 번호(admin-identifier-codes) — 팀이 딸린 주문에만 있다(혼자구매는 teamId처럼 null).
+    metaEl.textContent = '📦 ' + order.productName + ' · ' + formatPrice(order.amount) + ' · 결제일 ' + formatDateTime(order.paidAt)
+        + (order.teamNo ? ' · ' + order.teamNo : '');
     infoEl.appendChild(metaEl);
 
     var badgeGroup = document.createElement('div');

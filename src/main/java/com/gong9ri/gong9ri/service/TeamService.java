@@ -2,6 +2,7 @@ package com.gong9ri.gong9ri.service;
 
 import com.gong9ri.gong9ri.common.exception.BusinessException;
 import com.gong9ri.gong9ri.common.exception.ErrorCode;
+import com.gong9ri.gong9ri.common.identifier.IdentifierCodeFormatter;
 import com.gong9ri.gong9ri.common.security.MemberUserDetails;
 import com.gong9ri.gong9ri.dto.TeamCreateRequest;
 import com.gong9ri.gong9ri.dto.TeamJoinResponse;
@@ -94,6 +95,8 @@ public class TeamService {
         GroupBuyTeam team = new GroupBuyTeam(product, leader, targetParticipants,
                 LocalDateTime.now().plusDays(TEAM_DURATION_DAYS));
         GroupBuyTeam saved = groupBuyTeamRepository.save(team);
+        // 공구팀 번호 채번(admin-identifier-codes) — PK가 확정된 직후에만 가능하다(PK 파생 코드).
+        saved.assignTeamNo(IdentifierCodeFormatter.teamNo(saved.getId()));
         teamParticipationRepository.save(new TeamParticipation(saved, leader));
 
         log.info("공구팀 신설 완료: teamId={}, productId={}, leaderId={}, targetParticipants={}",

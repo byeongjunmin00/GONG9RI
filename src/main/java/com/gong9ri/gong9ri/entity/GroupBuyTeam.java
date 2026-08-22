@@ -56,6 +56,18 @@ public class GroupBuyTeam {
     @Column(nullable = false)
     private LocalDateTime deadline;
 
+    /**
+     * 공구팀 번호(admin-identifier-codes, 2026-08-22). {@code "T" + PK 7자리 zero-pad}
+     * ({@link com.gong9ri.gong9ri.common.identifier.IdentifierCodeFormatter#teamNo}) — 팀 1건당
+     * 1개이고 {@code TeamParticipation}(참여자 개개인)에는 붙지 않는다. 채번(신설) 시점에 한 번
+     * 정해지고 이후 {@code status} 전이와 무관하게 불변이다(PK 파생이라 자연히 불변). 지금은
+     * nullable이다 — 백필 완료 전까지는 NOT NULL/UNIQUE 제약을 걸지 않는다(`Member.memberCode` 필드
+     * 주석 참고). **admin에는 노출하지 않는다** — admin 전용 공구팀 목록 화면이 아직 없어서다(확정 1,
+     * 다음 작업으로 이연). 대신 상품 상세 팀 카드·마이페이지(고객 대면 화면)에 노출한다.
+     */
+    @Column(name = "team_no", length = 20)
+    private String teamNo;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -103,5 +115,10 @@ public class GroupBuyTeam {
         if (this.status == TeamStatus.RECRUITING) {
             this.status = TeamStatus.FAILED;
         }
+    }
+
+    /** 공구팀 번호 채번(신설 직후 1회 호출, {@code TeamService.create}). 백필 서비스도 재사용한다. */
+    public void assignTeamNo(String teamNo) {
+        this.teamNo = teamNo;
     }
 }
