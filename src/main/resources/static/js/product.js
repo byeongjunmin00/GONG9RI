@@ -39,6 +39,14 @@
  *   toggleWishlist와 동일한 정책(멱등 POST/DELETE, 낙관적 토글, 비로그인은 로그인 페이지로, 403은
  *   안내 배너)을 독립적으로 재구현한다. 초기 active 상태는 개별 조회 API가 없어 로그인한 구매자에
  *   한해 GET /api/buyer/mypage/wishlist(내 찜 전체 목록)로 현재 상품 포함 여부를 확인해 판정한다.
+ * - 구매 UI 노출 제어(product/purchase-visibility): 서버는 구매(공구팀 신설/참가/탈퇴, 결제 시작)를
+ *   Role.BUYER인 회원에게만 허용한다(상품은 항상 SELLER가 등록하므로 "자기 상품" 보는 판매자도 이미
+ *   "역할이 SELLER"에 포함됨). 로그인한 회원의 role이 BUYER가 아니면(SELLER/ADMIN) 신설/구매/계속
+ *   쇼핑하기(#product-actions), 환불 동의 체크박스(#refund-notice-field), 목표 인원 선택
+ *   (#target-participants-field), 각 팀의 "참가하기" 버튼을 전부 숨긴다(applyPurchaseRoleVisibility,
+ *   isNonBuyerMember). role은 currentMemberId와 같은 시점('gong9ri:auth-resolved')에 채워지고,
+ *   그 이벤트가 loadTeams()보다 늦게 도착할 수 있어 도착 시 팀 목록도 다시 불러온다. 비로그인은
+ *   대상이 아니다 — 기존처럼 구매 UI를 그대로 보여주고 클릭 시 401 → 로그인 안내로 유도한다.
  */
 (function () {
   var pageAlertEl = document.getElementById('page-alert');
@@ -65,8 +73,10 @@
   var targetParticipantsFieldEl = document.getElementById('target-participants-field');
   var targetParticipantsOptionsEl = document.getElementById('target-participants-options');
   var refundNoticeCheckboxEl = document.getElementById('refund-notice-checkbox');
+  var refundNoticeFieldEl = document.getElementById('refund-notice-field');
 
   var openAtNoticeEl = document.getElementById('open-at-notice');
+  var productActionsEl = document.getElementById('product-actions');
   var buyAloneBtn = document.getElementById('buy-alone-btn');
   var createTeamBtn = document.getElementById('create-team-btn');
   var kakaoShareBtn = document.getElementById('kakao-share-btn');
@@ -96,8 +106,8 @@
     !imageEl || !wishlistBtnEl ||
     !sellerEl || !nameEl || !descriptionEl || !descriptionStatusEl || !basePriceEl || !maxParticipantsEl ||
     !priceTiersTableEl || !priceTiersBodyEl || !targetParticipantsFieldEl || !targetParticipantsOptionsEl ||
-    !refundNoticeCheckboxEl ||
-    !openAtNoticeEl || !buyAloneBtn || !createTeamBtn || !kakaoShareBtn ||
+    !refundNoticeCheckboxEl || !refundNoticeFieldEl ||
+    !openAtNoticeEl || !productActionsEl || !buyAloneBtn || !createTeamBtn || !kakaoShareBtn ||
     !teamStatusEl || !teamListEl ||
     !reviewAverageEl || !reviewsStatusEl || !reviewsListEl || !reviewFormEl || !reviewFormAlertEl ||
     !reviewRatingEl || !reviewContentEl || !reviewSubmitBtn ||
@@ -113,6 +123,9 @@
   var selectedTargetParticipants = null;
   // 'gong9ri:auth-resolved'로 채워진다. 비로그인이면 null — 리뷰 목록에서 "내가 쓴 리뷰"를 가려낼 때 쓴다.
   var currentMemberId = null;
+  // 로그인한 회원의 역할('BUYER'|'SELLER'|'ADMIN'). 비로그인이면 null(currentMemberId와 동시에 채워짐).
+  // 구매(공구팀 신설/참가/탈퇴, 결제 시작)는 서버가 BUYER에게만 허용하므로(TeamService·PaymentService의
+  // requireBuyer) 구매 UI 노출 여부 판단에 쓴다 — isNonBuyerMember() 참고.
   // 'gong9ri:auth-resolved'로 함께 채워진다. 찜(product/wishlist) 초기 상태는 로그인한 구매자에
   // 한해서만 조회한다(main.js와 동일 조건).
   var currentMemberRole = null;
@@ -547,6 +560,31 @@
     return refundNoticeCheckboxEl.checked;
   }
 
+  /**
+   * 로그인은 했지만 구매 권한이 없는 회원(SELLER/ADMIN)인지. 비로그인(currentMemberRole === null)은
+   * 여기 포함하지 않는다 — 비로그인은 기존처럼 구매 UI를 그대로 보여주고 클릭 시 401 → 로그인 안내로
+   * 유도하는 흐름을 유지한다(product/purchase-visibility design.md 결정).
+   */
+  function isNonBuyerMember() {
+    return currentMemberRole !== null && currentMemberRole !== 'BUYER';
+  }
+
+  /**
+   * 구매 권한이 없는 회원에게 신설/구매/계속 쇼핑하기(#product-actions)와 환불 동의
+   * 체크박스(#refund-notice-field)를 통째로 숨긴다. 목표 인원 선택(#target-participants-field)도
+   * 신설 버튼이 없으면 의미가 없어 같이 숨기되, tier가 없어 이미 숨겨진 경우(renderTargetParticipantsOptions)는
+   * 되돌려 보이게 하지 않는다 — 여기서는 "숨기는" 방향으로만 개입한다.
+   * renderProduct() 이후와 'gong9ri:auth-resolved' 도착 시 둘 다 호출한다(둘 중 뭐가 먼저 올지 보장 없음).
+   */
+  function applyPurchaseRoleVisibility() {
+    var hide = isNonBuyerMember();
+    productActionsEl.hidden = hide;
+    refundNoticeFieldEl.hidden = hide;
+    if (hide) {
+      targetParticipantsFieldEl.hidden = true;
+    }
+  }
+
   function updateCreateTeamButtonState() {
     createTeamBtn.hidden = productNotYetOpen;
     createTeamBtn.disabled = productNotYetOpen || selectedTargetParticipants === null || !refundNoticeAccepted();
@@ -602,6 +640,7 @@
     if (!tiers || tiers.length === 0) {
       targetParticipantsFieldEl.hidden = true;
       updateCreateTeamButtonState();
+      applyPurchaseRoleVisibility();
       return;
     }
 
@@ -643,6 +682,7 @@
     targetParticipantsOptionsEl.appendChild(fragment);
     targetParticipantsFieldEl.hidden = false;
     updateCreateTeamButtonState();
+    applyPurchaseRoleVisibility();
   }
 
   /**
@@ -785,7 +825,9 @@
         handleLeaveTeam(team.teamId, leaveBtn);
       });
       li.appendChild(leaveBtn);
-    } else {
+    } else if (!isNonBuyerMember()) {
+      // 구매 권한이 없는 회원(SELLER/ADMIN)에게는 "참가하기"를 아예 그리지 않는다 — TeamService.join도
+      // BUYER 전용이라 #product-actions와 같은 이유(product/purchase-visibility design.md).
       var joinBtn = document.createElement('button');
       joinBtn.type = 'button';
       joinBtn.className = 'btn btn-secondary btn-sm team-item-join-btn';
@@ -1595,9 +1637,14 @@
       var detail = event.detail || {};
       currentMemberId = detail.loggedIn && detail.member ? detail.member.memberId : null;
       currentMemberRole = detail.loggedIn && detail.member ? detail.member.role : null;
+      applyPurchaseRoleVisibility();
       loadReviews(productId);
       loadInquiries(productId);
       loadWishlistState(productId);
+      // 팀 목록도 다시 불러온다 — 이 이벤트가 loadTeams()보다 늦게 도착하면(비동기 순서 보장 없음)
+      // 이미 그려진 "참가하기" 버튼이 role 확정 전 상태(currentMemberRole === null)로 남기 때문
+      // (createTeamItem의 isNonBuyerMember() 판단, product/purchase-visibility design.md).
+      loadTeams(productId);
     });
 
     refundNoticeCheckboxEl.addEventListener('change', function () {
