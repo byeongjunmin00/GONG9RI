@@ -84,7 +84,11 @@
         </div>
 
         <!-- 우측: 정보 & 스티키 구매 카드 -->
-        <div class="product-detail-summary">
+        <div class="product-detail-summary" id="product-detail-summary">
+          <!-- 구매 권한이 없는 회원(SELLER/ADMIN)이 신설/구매/계속쇼핑 버튼을 전부 못 보게 되면
+               페이지를 나갈 방법이 마땅치 않았다(2026-08-22 사용자 리포트) — #product-actions 밖에
+               둬서 역할과 무관하게 항상 보이게 한다. -->
+          <a href="/" class="product-back-link">목록으로</a>
           <div class="section__head">
             <div class="card-seller-row">
               <span id="product-seller" class="card-seller"></span>
@@ -143,6 +147,12 @@
 
           <!-- 오픈예정 상품 안내 -->
           <div id="open-at-notice" class="form-alert" role="status" hidden></div>
+
+          <!-- 구매 권한이 없는 회원(SELLER/ADMIN)에게 #product-actions 대신 보여주는 안내 —
+               버튼이 왜 없는지 설명 없이 통째로 사라지면 버그로 오인하기 쉽다(2026-08-22 사용자 리포트). -->
+          <div id="purchase-role-notice" class="purchase-role-notice" hidden>
+            이 계정은 구매 권한이 없어 신설·구매 버튼이 보이지 않아요.
+          </div>
 
           <!-- 구매 권한이 없는 회원(SELLER/ADMIN)에게는 통째로 숨긴다 — 상품은 항상 SELLER가
                등록하므로 "자기 상품"도 이 조건에 포함된다(product/purchase-visibility design.md). -->

@@ -2395,6 +2395,36 @@ button.summary-card {
   box-shadow: var(--shadow-sm);
 }
 
+/* 구매 권한이 없는 회원(SELLER/ADMIN)에게 콘텐츠가 줄어드는 상태 — 그리드 기본값인
+   align-items: stretch가 사진 칸 높이까지 카드를 늘려서 빈 여백만 남기던 걸 막는다
+   (product-page-visibility-control, 2026-08-22). */
+.product-detail-summary--compact {
+  align-self: start;
+}
+
+.product-back-link {
+  font-size: var(--fs-xs);
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+.product-back-link::before {
+  content: '← ';
+}
+
+.product-back-link:hover {
+  color: var(--color-brand);
+}
+
+.purchase-role-notice {
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--color-danger-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  color: var(--color-text-muted);
+}
+
 .product-detail-summary .product-price-box {
   background-color: var(--color-surface-alt);
   padding: var(--space-5);

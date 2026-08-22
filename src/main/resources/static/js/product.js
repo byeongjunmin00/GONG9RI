@@ -47,6 +47,9 @@
  *   isNonBuyerMember). role은 currentMemberId와 같은 시점('gong9ri:auth-resolved')에 채워지고,
  *   그 이벤트가 loadTeams()보다 늦게 도착할 수 있어 도착 시 팀 목록도 다시 불러온다. 비로그인은
  *   대상이 아니다 — 기존처럼 구매 UI를 그대로 보여주고 클릭 시 401 → 로그인 안내로 유도한다.
+ *   구매 UI가 다 사라지면 페이지를 나갈 방법이 없어지고(2026-08-22 리포트) 서머리 카드에 빈
+ *   여백만 남으므로, #product-actions 밖에 항상 보이는 뒤로가기 링크(.product-back-link)를 두고
+ *   그 자리에 안내 문구(#purchase-role-notice)를 채우며 카드도 늘어나지 않게 한다(.product-detail-summary--compact).
  */
 (function () {
   var pageAlertEl = document.getElementById('page-alert');
@@ -77,6 +80,8 @@
 
   var openAtNoticeEl = document.getElementById('open-at-notice');
   var productActionsEl = document.getElementById('product-actions');
+  var purchaseRoleNoticeEl = document.getElementById('purchase-role-notice');
+  var summaryEl = document.getElementById('product-detail-summary');
   var buyAloneBtn = document.getElementById('buy-alone-btn');
   var createTeamBtn = document.getElementById('create-team-btn');
   var kakaoShareBtn = document.getElementById('kakao-share-btn');
@@ -107,7 +112,8 @@
     !sellerEl || !nameEl || !descriptionEl || !descriptionStatusEl || !basePriceEl || !maxParticipantsEl ||
     !priceTiersTableEl || !priceTiersBodyEl || !targetParticipantsFieldEl || !targetParticipantsOptionsEl ||
     !refundNoticeCheckboxEl || !refundNoticeFieldEl ||
-    !openAtNoticeEl || !productActionsEl || !buyAloneBtn || !createTeamBtn || !kakaoShareBtn ||
+    !openAtNoticeEl || !productActionsEl || !purchaseRoleNoticeEl || !summaryEl ||
+    !buyAloneBtn || !createTeamBtn || !kakaoShareBtn ||
     !teamStatusEl || !teamListEl ||
     !reviewAverageEl || !reviewsStatusEl || !reviewsListEl || !reviewFormEl || !reviewFormAlertEl ||
     !reviewRatingEl || !reviewContentEl || !reviewSubmitBtn ||
@@ -583,6 +589,11 @@
     if (hide) {
       targetParticipantsFieldEl.hidden = true;
     }
+    // 구매 버튼 자리를 안내 문구로 대신 채운다(왜 버튼이 없는지 설명) + 서머리 카드가 사진 칸
+    // 높이에 억지로 맞춰 늘어나지(align-items: stretch, 기본값) 않게 한다 — 그대로 두면 짧아진
+    // 카드 안에 텅 빈 흰 여백만 남는다(2026-08-22 사용자 리포트).
+    purchaseRoleNoticeEl.hidden = !hide;
+    summaryEl.classList.toggle('product-detail-summary--compact', hide);
   }
 
   function updateCreateTeamButtonState() {
