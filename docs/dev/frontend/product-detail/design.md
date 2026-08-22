@@ -14,7 +14,7 @@ src/main/resources/static/
 ```
 
 - 라우팅: 쿼리스트링 `product.html?id={productId}` (정적 리소스 서빙 구조상 `/products/{id}` 경로 세그먼트 라우팅 불가).
-- `css/components.css`에 `.product-detail`(+`[hidden]` 보정 규칙), `.product-price-box`/`.product-price-row`, `.price-tiers-table`, `.product-actions`, `.team-list`/`.team-item`/`.team-item-info`/`.team-item-count`, `.product-tabs`/`.product-tab`/`.product-tab-panel` 추가.
+- `css/components.css`에 `.product-detail`(+`[hidden]` 보정 규칙), `.product-price-box`/`.product-price-row`, `.price-tiers-table`, `.product-actions`, `.team-list`/`.team-item`/`.team-item-info`/`.team-item-count`, `.product-tabs`/`.product-tab`/`.product-tab-panel`, `.mypage-list-item__date`(리뷰·문의 작성일시), `#reviews-list.mypage-list .mypage-list-item`/`#inquiries-list.mypage-list .mypage-list-item`(박스 스타일 스코프 무효화), `#product-image .card-wishlist-btn`(찜 하트 크기 조정) 추가.
 - `js/main.js`: 상품 카드 링크를 `product.html?id={productId}`로 연결(과거 `href="#"` placeholder에서 갱신).
 
 ## 탭 UI (상품정보 / 리뷰 / 문의)
@@ -29,14 +29,42 @@ src/main/resources/static/
     상품 설명이 없습니다." 안내. 과거에는 상품명 옆 헤더에 흐린 문단으로만 노출됐으나, 이 작업으로
     헤더(`section__head`)에는 판매자/상품명만 남고 설명은 이 패널로 이동했다.
   - **리뷰** (`reviews-panel`, 기존 `.reviews-section`): 리뷰 기능 전체(평균 평점, 목록, 작성/수정
-    폼) — 내부 DOM id·로직 불변, 감싸는 위치만 탭 패널로 바뀜.
+    폼). 패널 안에서 **작성 폼(`#review-form`)이 목록(`#reviews-list`)보다 앞**에 온다(순수 마크업
+    순서, `product.js`는 `getElementById` 기반이라 순서 무관 — 회귀 없음). 각 항목(`createReviewItem`)은
+    작성자·별점·본문 아래에 `review.createdAt`을 `.mypage-list-item__date`(`toLocaleString('ko-KR')`
+    절대 날짜+시각, 기존 코드베이스 관행과 통일)로 표시하고, 카드형 박스(배경/테두리/hover 그림자)는
+    보이지 않는다 — `li.className`은 여전히 `mypage-list-item`이고, `components.css`의
+    `#reviews-list.mypage-list .mypage-list-item` 스코프 선택자가 이 리스트 안에서만 박스 스타일을
+    무효화한다(`.mypage-list-item` 베이스 규칙 자체는 불변이라 buyer/seller-mypage, admin-refunds의
+    같은 클래스 재사용 화면에는 영향 없음).
   - **문의** (`inquiries-panel`, 기존 `.inquiries-section`): 문의 기능 전체(개수 표시, 목록, 작성/수정
-    폼, 판매자 답변 인라인 폼) — 내부 DOM id·로직 불변, 감싸는 위치만 탭 패널로 바뀜. 상세:
+    폼, 판매자 답변 인라인 폼). 리뷰와 동일하게 **작성 폼(`#inquiry-form`)이 목록(`#inquiries-list`)
+    보다 앞**에 오고, 각 문의 항목에 `inquiry.createdAt`을 같은 방식으로 표시하며,
+    `#inquiries-list.mypage-list .mypage-list-item` 스코프로 박스 스타일이 제거된다. 상세:
     `docs/dev/inquiry/crud/design.md`.
 - 탭 전환(`js/product.js`의 `switchTab()`/`setUpTabs()`)은 **표시/숨김(`hidden`)과 `is-active`/
   `aria-selected` 토글만** 수행한다. 리뷰/문의 데이터 재조회는 하지 않는다 — 데이터는 탭 UI와 무관하게
   기존 트리거(`init()`의 `loadReviews`/`loadInquiries` 즉시 호출, `loadProduct()` 성공 후
   `loadInquiries` 재호출, `gong9ri:auth-resolved` 도착 시 재호출)로 항상 먼저 로드돼 있다.
+
+## 찜(위시리스트) 버튼
+
+`#product-image`(상품 사진) 위에 `#product-wishlist-btn`을 둔다. 상세: `docs/dev/product/wishlist/design.md`.
+
+- `main.js`(메인 페이지 카드)가 쓰는 `.card-wishlist-btn` 마크업/아이콘/정책을 그대로 재사용한다.
+  `main.js`는 인덱스 전용 클로저라 직접 호출할 수 없어, `product.js`가 `loadWishlistState()`/
+  `handleToggleWishlist()`로 동일 로직을 독립적으로 구현한다.
+- `renderGallery()`가 캐러셀 전환마다 `#product-image`의 자식을 전부 지우고 `<img>`만 다시 그리는
+  구조라, 정적 HTML에 넣은 하트 버튼 노드(`wishlistBtnEl`)를 참조로 들고 있다가 `renderGallery()`가
+  다시 그릴 때마다 `imageEl.appendChild(wishlistBtnEl)`로 재부착한다.
+- 초기 active 상태: 로그인한 구매자(`currentMemberRole === 'BUYER'`)에 한해 `GET
+  /api/buyer/mypage/wishlist`(개별 조회 API가 없어 전체 목록에서 현재 상품 id 포함 여부로 판정)를
+  `gong9ri:auth-resolved` 도착 시점에 호출한다.
+- 클릭 시 멱등 `POST`/`DELETE /api/products/{id}/wishlist` + 낙관적 토글, 비로그인이면
+  `/login.html?redirect=...`, 403(판매자 계정)이면 `showPageAlert`로 안내 — `main.js`의
+  `toggleWishlist`와 동일 정책.
+- `components.css`의 `#product-image .card-wishlist-btn`이 상세 페이지의 큰 사진에 맞게 하트
+  크기(40px)만 키운다(`.card-wishlist-btn` 자체 정의는 불변, 메인 카드 하트에는 영향 없음).
 
 ## 데이터 연동
 
@@ -69,3 +97,6 @@ src/main/resources/static/
 - 경위: `docs/dev/frontend/product-detail/changes/001-product-detail.md`, 실행 로그: `docs/logs/frontend/product-detail/001-product-detail.md`
 - 탭 UI 추가 경위: `docs/dev/frontend/product-detail/changes/002-product-detail-tabs.md`, 실행 로그:
   `docs/logs/frontend/product-detail/002-product-detail-tabs.md`
+- 리뷰·문의 작성일시/박스 제거/폼 위치 + 찜 버튼 경위:
+  `docs/dev/frontend/product-detail/changes/003-ui-polish.md`, 실행 로그:
+  `docs/logs/frontend/product-detail/005-ui-polish.md`

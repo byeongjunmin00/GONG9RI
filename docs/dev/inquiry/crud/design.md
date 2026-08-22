@@ -60,9 +60,15 @@
 
 ## 프론트엔드
 
-- `product.html`: `inquiries-section`(목록 + 항상 노출되는 작성/수정 폼)은 이제 "상품정보/리뷰/문의"
-  탭 UI의 `inquiries-panel` 안에 배치된다(리뷰 패널과 나란히가 아니라 탭으로 전환해서 봄). 내부
-  DOM id·로직은 그대로이며 감싸는 위치만 바뀌었다. 탭 구조의 SSOT는
+- `product.html`: `inquiries-section`(목록 + 항상 노출되는 작성/수정 폼)은 "상품정보/리뷰/문의"
+  탭 UI의 `inquiries-panel` 안에 배치된다(리뷰 패널과 나란히가 아니라 탭으로 전환해서 봄). 패널
+  내부는 **작성 폼(`#inquiry-form`)이 목록(`#inquiries-list`)보다 위**에 온다(순수 마크업 순서,
+  `product.js`는 `getElementById` 기반이라 순서 무관). 각 문의 항목(`createInquiryItem`)은 본문 아래에
+  `inquiry.createdAt`을 `.mypage-list-item__date`(`toLocaleString('ko-KR')` 절대 날짜+시각)로
+  표시하고, `li.className`은 여전히 `mypage-list-item`이지만 `components.css`의
+  `#inquiries-list.mypage-list .mypage-list-item` 스코프 선택자로 카드형 박스(배경/테두리/hover
+  그림자)만 이 리스트 안에서 무효화된다(베이스 규칙 불변, buyer/seller-mypage·admin-refunds에는
+  영향 없음). 내부 DOM id·로직은 그대로이며 감싸는 위치·표시만 바뀌었다. 탭 구조의 SSOT는
   `docs/dev/frontend/product-detail/design.md` — 이 문서는 문의 콘텐츠의 배치만 최신화한다.
 - `product.js`:
   - `loadInquiries()`가 `GET /api/products/{id}/inquiries`로 목록을 불러온다. init() 초기 호출 +

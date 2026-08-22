@@ -18,7 +18,13 @@
 
 - **구매자 전용**(`requireBuyer`) — 결제·팀 참가와 동일한 역할 제약. 판매자 계정은 403.
 - **메인 페이지 카드의 하트 상태는 캐시된 상품 목록 응답에 넣지 않는다** — 상품 목록(`PRODUCT_LIST_CACHE`)은 모든 사용자가 공유하는 캐시인데, "이 상품을 내가 찜했는지"는 회원마다 다른 값이라 여기 넣으면 다른 사용자의 찜 상태가 섞여 보이는 실제 버그가 된다(진행바처럼 "느려도 되는 공용 사실"이 아니라 "한 사람만의 진실"이라 캐시 우회가 아니라 애초에 그 응답에 포함시키면 안 됨). 대신 프론트(`js/main.js`)가 로그인 확인 후 `GET /api/buyer/mypage/wishlist`를 별도로 한 번 불러와 이미 렌더링된 카드의 하트를 클라이언트에서 채운다.
-- 상품 상세 페이지(`product.html`)에는 아직 하트를 추가하지 않았다(스코프 밖, 메인 페이지 카드 + 마이페이지 목록만) — 필요해지면 이후 확장.
+- **상품 상세 페이지(`product.html`)에도 하트가 있다** — `#product-image`(상품 사진) 위
+  `#product-wishlist-btn`. 메인 카드와 동일한 `.card-wishlist-btn` 마크업/정책(멱등 POST/DELETE,
+  낙관적 토글, 비로그인은 로그인 페이지 리다이렉트, 403은 안내 배너)을 따르되, `js/product.js`가
+  독립적으로 구현한다(`main.js`는 인덱스 전용 클로저라 재사용 불가). 초기 active 상태 판정도 동일하게
+  `GET /api/buyer/mypage/wishlist` 전체 목록에서 현재 상품 포함 여부로 확인한다 — 같은 API·같은
+  판정 기준을 쓰므로 메인 카드에서 찜한 상품을 상세에서 열어도 자연히 하트가 active로 보인다(별도
+  동기화 로직 없음). 상세 배치·구현: `docs/dev/frontend/product-detail/design.md`.
 
 ## 헤더 찜 개수 뱃지
 
@@ -30,4 +36,4 @@
 
 ## 관련 코드
 
-`entity/Wishlist.java`, `repository/WishlistRepository(Custom/Impl).java`, `dto/WishlistItemResponse.java`, `service/WishlistService.java`, `controller/WishlistController.java`, `service/BuyerMypageService.wishlist()`(조회 위임), `static/js/main.js`(카드 하트), `static/js/buyer-mypage.js`(찜 목록 섹션), `static/js/header-wishlist-badge.js`(헤더 개수 뱃지), `static/css/layout.css`(`.site-header__wishlist-badge`).
+`entity/Wishlist.java`, `repository/WishlistRepository(Custom/Impl).java`, `dto/WishlistItemResponse.java`, `service/WishlistService.java`, `controller/WishlistController.java`, `service/BuyerMypageService.wishlist()`(조회 위임), `static/js/main.js`(카드 하트), `static/js/product.js`(상품 상세 사진 하트 — `loadWishlistState`/`handleToggleWishlist`), `static/js/buyer-mypage.js`(찜 목록 섹션), `static/js/header-wishlist-badge.js`(헤더 개수 뱃지), `static/css/layout.css`(`.site-header__wishlist-badge`), `static/css/components.css`(`#product-image .card-wishlist-btn`, 상세 페이지 하트 크기).

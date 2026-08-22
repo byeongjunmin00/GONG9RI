@@ -213,6 +213,18 @@
   stroke: currentColor;
 }
 
+/* 상품 상세 사진(product-detail, backlog 5번)은 카드 썸네일보다 훨씬 커서, 같은 32px 하트는
+   상대적으로 작아 보인다. 위치/동작은 .card-wishlist-btn을 그대로 재사용하고 크기만 키운다. */
+#product-image .card-wishlist-btn {
+  width: 40px;
+  height: 40px;
+}
+
+#product-image .card-wishlist-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
 .card-body {
   display: flex;
   flex-direction: column;
@@ -1058,6 +1070,39 @@ button.summary-card {
   align-items: center;
   flex-wrap: wrap;
   gap: var(--space-2);
+}
+
+/* 작성일시(product-detail, backlog 1번) — 본문(__meta)과 구분되는 작은 무채색 텍스트. */
+.mypage-list-item__date {
+  font-size: var(--fs-xs);
+  color: var(--color-text-muted);
+}
+
+/* ---------- 상품 상세 리뷰/문의 박스 제거 (product-detail, backlog 2번) ----------
+   .mypage-list-item 자체(배경/테두리/hover 그림자, 위 982~999행)는 buyer-mypage.js/
+   seller-mypage.js/admin-refunds.js도 재사용하므로 절대 고치지 않는다. 상품 상세 리뷰/문의
+   리스트(#reviews-list, #inquiries-list)로 한정한 스코프 선택자에서만 박스 스타일을 무효화하고,
+   대신 항목 사이를 구분선으로 나눈다. */
+#reviews-list.mypage-list .mypage-list-item,
+#inquiries-list.mypage-list .mypage-list-item {
+  background-color: transparent;
+  border: none;
+  border-radius: 0;
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+#reviews-list.mypage-list .mypage-list-item:last-child,
+#inquiries-list.mypage-list .mypage-list-item:last-child {
+  border-bottom: none;
+}
+
+@media (hover: hover) {
+  #reviews-list.mypage-list .mypage-list-item:hover,
+  #inquiries-list.mypage-list .mypage-list-item:hover {
+    border-color: var(--color-border);
+    box-shadow: none;
+  }
 }
 
 /* 공구 진행률 프로그레스 바 컴포넌트 */

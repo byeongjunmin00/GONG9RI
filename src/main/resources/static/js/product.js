@@ -35,6 +35,10 @@
  *   서버가 409 INQUIRY_ALREADY_ANSWERED로 거절), 로그인한 회원이 그 상품의 판매자(product.sellerId와
  *   currentMemberId 비교)일 때만 각 문의 항목에 답변 등록/수정/삭제 UI를 보여준다(review 섹션과 동일한
  *   'gong9ri:auth-resolved' currentMemberId 패턴 재사용, design.md 결정).
+ * - 찜(product/wishlist): 상품 사진(#product-image) 위 하트 버튼 — main.js(메인 카드)의
+ *   toggleWishlist와 동일한 정책(멱등 POST/DELETE, 낙관적 토글, 비로그인은 로그인 페이지로, 403은
+ *   안내 배너)을 독립적으로 재구현한다. 초기 active 상태는 개별 조회 API가 없어 로그인한 구매자에
+ *   한해 GET /api/buyer/mypage/wishlist(내 찜 전체 목록)로 현재 상품 포함 여부를 확인해 판정한다.
  */
 (function () {
   var pageAlertEl = document.getElementById('page-alert');
@@ -46,6 +50,7 @@
   var imageEl = document.getElementById('product-image');
   var galleryThumbsEl = document.getElementById('product-gallery-thumbs');
   var galleryHintEl = document.getElementById('product-gallery-hint');
+  var wishlistBtnEl = document.getElementById('product-wishlist-btn');
 
   var sellerEl = document.getElementById('product-seller');
   var sellerTrustEl = document.getElementById('product-seller-trust');
@@ -88,7 +93,7 @@
 
   if (
     !pageAlertEl || !pageAlertTextEl || !pageAlertLoginLinkEl || !pageAlertPayLinkEl || !statusEl || !detailEl ||
-    !imageEl ||
+    !imageEl || !wishlistBtnEl ||
     !sellerEl || !nameEl || !descriptionEl || !descriptionStatusEl || !basePriceEl || !maxParticipantsEl ||
     !priceTiersTableEl || !priceTiersBodyEl || !targetParticipantsFieldEl || !targetParticipantsOptionsEl ||
     !refundNoticeCheckboxEl ||
@@ -108,6 +113,9 @@
   var selectedTargetParticipants = null;
   // 'gong9ri:auth-resolved'로 채워진다. 비로그인이면 null — 리뷰 목록에서 "내가 쓴 리뷰"를 가려낼 때 쓴다.
   var currentMemberId = null;
+  // 'gong9ri:auth-resolved'로 함께 채워진다. 찜(product/wishlist) 초기 상태는 로그인한 구매자에
+  // 한해서만 조회한다(main.js와 동일 조건).
+  var currentMemberRole = null;
   // 리뷰 폼이 "새로 작성" 모드인지 "기존 리뷰 수정" 모드인지 구분한다. null이면 작성 모드.
   var editingReviewId = null;
   // 카카오톡 공유하기 버튼 클릭 시 쓸 상품 정보. renderProduct에서 채워진다.
@@ -269,6 +277,10 @@
       imgEl.alt = productName || '';
       imageEl.appendChild(imgEl);
     }
+    // 찜(product/wishlist) 하트 — clearChildren이 방금 이 노드를 떼어냈을 뿐 파괴하진 않았으므로,
+    // 들고 있던 참조를 다시 붙인다(캐러셀 썸네일을 눌러 사진을 넘길 때마다 renderGallery가
+    // 다시 호출되므로 매번 필요).
+    imageEl.appendChild(wishlistBtnEl);
 
     if (!galleryThumbsEl) {
       return;
@@ -579,15 +591,17 @@
 
   /**
    * "신규 팀 신설하기"에 쓸 목표 인원(price_tier.minCount) 라디오 옵션을 그린다.
-   * 아무것도 선택되지 않은 상태로 초기화하고, create-team-btn은 선택 전까지 비활성 상태를 유지한다.
+   * 첫 번째 옵션을 자동으로 선택된 상태로 만든다(옵션 개수와 무관, backlog 6번) — DOM의
+   * `checked`만 켜면 `updateCreateTeamButtonState()`가 검사하는 `selectedTargetParticipants`
+   * 변수는 그대로 null로 남아 버튼이 계속 비활성인 불일치가 생기므로, 두 곳을 함께 채운다.
    */
   function renderTargetParticipantsOptions(tiers) {
     selectedTargetParticipants = null;
-    updateCreateTeamButtonState();
     clearChildren(targetParticipantsOptionsEl);
 
     if (!tiers || tiers.length === 0) {
       targetParticipantsFieldEl.hidden = true;
+      updateCreateTeamButtonState();
       return;
     }
 
@@ -619,10 +633,29 @@
       label.appendChild(textEl);
 
       fragment.appendChild(label);
+
+      if (index === 0) {
+        input.checked = true;
+        selectedTargetParticipants = tier.minCount;
+      }
     });
 
     targetParticipantsOptionsEl.appendChild(fragment);
     targetParticipantsFieldEl.hidden = false;
+    updateCreateTeamButtonState();
+  }
+
+  /**
+   * 리뷰/문의 작성일시(backlog 1번) — "언제 쓴 글인지"가 CS·신뢰성 관점에서 의미가 있어(참여자
+   * 목록의 대략적 표기와 달리) 절대 날짜+시각으로 보여준다. 코드베이스 기존 관행
+   * (header-notifications.js, admin-refunds.js 등)과 동일하게 `toLocaleString('ko-KR')`을 쓴다.
+   */
+  function formatAbsoluteDateTime(isoString) {
+    var date = isoString ? new Date(isoString) : null;
+    if (!date || isNaN(date.getTime())) {
+      return '';
+    }
+    return date.toLocaleString('ko-KR');
   }
 
   /**
@@ -942,6 +975,65 @@
     window.location.href = 'checkout.html?productId=' + currentProductId;
   }
 
+  // ---------- 찜(product/wishlist) ----------
+  // 상품 상세 페이지 최초 도입(backlog 5번) — main.js(메인 페이지 카드)의 toggleWishlist 패턴과
+  // 동일한 정책(멱등 POST/DELETE, 낙관적 토글, 비로그인은 로그인 페이지로, 403은 안내)을 따르되,
+  // main.js는 인덱스 페이지 전용 스크립트라 그 클로저 내부 함수를 그대로 호출할 수 없어 여기서
+  // 독립적으로 둔다.
+
+  /**
+   * 페이지 진입 시 하트의 초기 active 상태를 조회한다. 위시리스트에는 "이 상품이 찜 상태인지"
+   * 개별 조회 API가 없어(docs/api/wishlist.md) 내 찜 전체 목록을 불러와 현재 상품 id가 포함돼
+   * 있는지로 판정한다(main.js와 동일한 방식). 로그인한 구매자가 아니면 호출 자체를 생략한다.
+   */
+  function loadWishlistState(productId) {
+    if (currentMemberRole !== 'BUYER') {
+      return;
+    }
+    window.Api.get('/buyer/mypage/wishlist')
+      .then(function (items) {
+        var wished = (items || []).some(function (item) {
+          return item.productId === productId;
+        });
+        wishlistBtnEl.classList.toggle('active', wished);
+      })
+      .catch(function () {
+        // 조용히 무시 — 하트가 빈 상태로 남을 뿐 페이지 자체는 정상 동작한다(main.js와 동일).
+      });
+  }
+
+  function handleToggleWishlist() {
+    if (!currentMemberId) {
+      window.location.href =
+        '/login.html?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+      return;
+    }
+
+    var wasActive = wishlistBtnEl.classList.contains('active');
+    wishlistBtnEl.disabled = true;
+
+    var request = wasActive
+      ? window.Api.del('/products/' + currentProductId + '/wishlist')
+      : window.Api.post('/products/' + currentProductId + '/wishlist', {});
+
+    request
+      .then(function () {
+        wishlistBtnEl.classList.toggle('active', !wasActive);
+        // 헤더 찜 아이콘 옆 개수 뱃지(js/header-wishlist-badge.js)가 새로고침 없이도 바로 갱신되게
+        // 알린다(main.js와 동일 이벤트 재사용).
+        document.dispatchEvent(new CustomEvent('gong9ri:wishlist-changed'));
+      })
+      .catch(function (err) {
+        // 찜은 구매자 전용(WishlistService.requireBuyer) — 판매자/관리자 계정으로 시도하면 403이 온다.
+        if (err && err.status === 403) {
+          showPageAlert('구매자 계정으로 로그인해야 찜할 수 있어요.', 'error');
+        }
+      })
+      .then(function () {
+        wishlistBtnEl.disabled = false;
+      });
+  }
+
   /**
    * 실시간 메시징(발제 도전과제) — 이 상품의 공구팀 정원이 바뀌면(다른 사용자의 참가) 서버가
    * "/topic/products/{productId}/teams"로 브로드캐스트한다. 세밀한 DOM 패치 대신 이미 있는
@@ -1048,6 +1140,12 @@
     metaEl.className = 'mypage-list-item__meta';
     metaEl.textContent = review.content || '';
     infoEl.appendChild(metaEl);
+
+    // 작성일시(backlog 1번) — 본문(metaEl)과 시각적으로 구분되게 별도 줄로 둔다.
+    var dateEl = document.createElement('span');
+    dateEl.className = 'mypage-list-item__date';
+    dateEl.textContent = formatAbsoluteDateTime(review.createdAt);
+    infoEl.appendChild(dateEl);
 
     li.appendChild(infoEl);
 
@@ -1294,6 +1392,12 @@
     contentEl.textContent = inquiry.content || '';
     infoEl.appendChild(contentEl);
 
+    // 작성일시(backlog 1번) — 본문(contentEl)과 시각적으로 구분되게 별도 줄로 둔다.
+    var dateEl = document.createElement('span');
+    dateEl.className = 'mypage-list-item__date';
+    dateEl.textContent = formatAbsoluteDateTime(inquiry.createdAt);
+    infoEl.appendChild(dateEl);
+
     if (inquiry.answered) {
       var answerEl = document.createElement('span');
       answerEl.className = 'mypage-list-item__meta';
@@ -1481,15 +1585,19 @@
     kakaoShareBtn.addEventListener('click', handleKakaoShare);
     reviewFormEl.addEventListener('submit', handleReviewFormSubmit);
     inquiryFormEl.addEventListener('submit', handleInquiryFormSubmit);
+    wishlistBtnEl.addEventListener('click', handleToggleWishlist);
 
     // header-auth.js가 이미 GET /api/auth/me를 호출하므로 그 결과를 재사용한다(중복 호출 방지).
     // 이 이벤트가 loadReviews()/loadInquiries()보다 늦게 올 수도 있어(비동기 순서 보장 없음), 도착하면
     // 다시 불러와서 "내가 쓴 리뷰/문의"의 수정/삭제 버튼과 판매자 답변 UI가 정확히 반영되게 한다.
+    // 찜(product/wishlist) 초기 상태 조회도 이 이벤트로 role이 확정된 뒤에 한다(main.js와 동일 조건).
     document.addEventListener('gong9ri:auth-resolved', function (event) {
       var detail = event.detail || {};
       currentMemberId = detail.loggedIn && detail.member ? detail.member.memberId : null;
+      currentMemberRole = detail.loggedIn && detail.member ? detail.member.role : null;
       loadReviews(productId);
       loadInquiries(productId);
+      loadWishlistState(productId);
     });
 
     refundNoticeCheckboxEl.addEventListener('change', function () {

@@ -31,7 +31,13 @@
   넘지 않아야 할 상한 참고값"이라는 의미로만 남는다(서버가 이 상한을 강제하지는 않음, 프론트 등록 폼의
   가드레일로만 검증) — 상세: `docs/db/product.md`.
   - 구매자 화면(`product.js`/`product.html`)은 상품 상세 응답의 `priceTiers` 목록으로 라디오 버튼을 그려
-    구매자가 하나를 고르게 하고, 아무것도 고르지 않으면 "신규 팀 신설하기" 버튼이 비활성 상태를 유지한다.
+    구매자가 하나를 고르게 한다. `renderTargetParticipantsOptions()`가 옵션을 그리는 시점에 **첫 번째
+    옵션을 자동으로 선택된 상태**로 만든다(옵션이 1개든 여러 개든 동일) — 라디오의 DOM `checked` 속성뿐
+    아니라 `updateCreateTeamButtonState()`가 실제로 검사하는 JS 변수 `selectedTargetParticipants`도
+    함께 `tier.minCount`로 채워야 한다(DOM만 체크하고 변수를 안 채우면 "라디오는 체크돼 보이는데
+    버튼은 계속 비활성"인 불일치가 남는다). 이후 사용자가 다른 옵션을 수동으로 클릭하면 기존 `change`
+    이벤트 핸들러가 그 값으로 다시 채우고 버튼 상태를 재평가한다. 옵션 자체가 없는 상품(빈 `priceTiers`)은
+    필드를 숨기고(`targetParticipantsFieldEl.hidden = true`) 자동 선택도 하지 않는다.
   - 이미 만들어진 `GroupBuyTeam`은 이후 판매자가 `price_tier`를 수정/삭제해도 영향받지 않는다(생성 시점
     스냅샷 원칙 유지).
 - **동시성 제어**(`docs/db/group_buy_team.md`, `docs/policy/team-success-criteria.md`): `join`은 `team.join-strategy` 설정값(`application.yaml`, 기본 `lock`)에 따라 두 경로 중 하나로 처리된다 — API 계약/엔드포인트는 동일, 내부 전략만 다름.
