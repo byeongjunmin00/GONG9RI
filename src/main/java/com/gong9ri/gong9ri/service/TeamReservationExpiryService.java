@@ -40,6 +40,17 @@ public class TeamReservationExpiryService {
 
     private static final long EXPIRY_MINUTES = 10;
 
+    /**
+     * 결제창에 들어가 있는(PENDING) 사람에게 주는 추가 유예. 만료 판정이 {@code PAID}만 보면,
+     * 결제창에서 카드 등록·문자 인증을 하느라 10분을 넘긴 사용자의 자리가 회수된다 — 그 뒤 결제가
+     * 확정되면 <b>돈은 나갔는데 팀에는 없는</b> 상태가 된다(회귀 테스트: TeamReservationExpiryPendingPaymentTest).
+     *
+     * <p>"PENDING이면 만료하지 않는다"로만 두지 않는 이유: 이 프로젝트엔 방치된 PENDING 결제를
+     * 정리하는 장치가 없어서, 결제창을 열어두고 떠난 사람의 자리가 <b>영구히</b> 묶인다 — 이 기능이
+     * 없애려던 문제가 그대로 돌아온다. 그래서 유예에 상한을 둔다.
+     */
+    private static final long PENDING_PAYMENT_GRACE_MINUTES = 30;
+
     private final GroupBuyTeamRepository groupBuyTeamRepository;
     private final TeamParticipationRepository teamParticipationRepository;
     private final PaymentRepository paymentRepository;
@@ -89,6 +100,16 @@ public class TeamReservationExpiryService {
                     .findByTeamIdAndMemberIdAndStatus(teamId, member.getId(), PaymentStatus.PAID)
                     .isEmpty();
             if (hasPaidPayment) {
+                continue;
+            }
+            // 지금 결제창에 있는 사람의 자리는 회수하지 않는다 — 아래 유예 안의 PENDING 결제는
+            // "아직 시도 중"으로 본다. 유예를 넘긴 PENDING은 사실상 버려진 시도로 보고 회수한다.
+            LocalDateTime pendingGraceCutoff = LocalDateTime.now().minusMinutes(PENDING_PAYMENT_GRACE_MINUTES);
+            boolean hasInFlightPayment = paymentRepository
+                    .findByTeamIdAndMemberIdAndStatus(teamId, member.getId(), PaymentStatus.PENDING)
+                    .stream()
+                    .anyMatch(pending -> pending.getPaidAt().isAfter(pendingGraceCutoff));
+            if (hasInFlightPayment) {
                 continue;
             }
 
