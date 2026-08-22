@@ -2880,6 +2880,7 @@ button.summary-card {
    투명한 <button>으로 남기고, 테두리·배경·선택 강조는 바깥 카드로 옮겼다
    (2026-08-21 사용자 요청 — 삭제 버튼이 카드 밖에 떠 있어 어느 상담 것인지 불분명했다). */
 .support-admin-room-card {
+  position: relative;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background-color: var(--color-surface);
@@ -2899,13 +2900,15 @@ button.summary-card {
   cursor: pointer;
 }
 
-/* 삭제는 되돌릴 수 없는 동작이라 카드 안에서도 눈에 덜 띄는 자리에 둔다 — 상담을 고르려다
-   잘못 누르는 걸 줄이기 위해 선택 영역과 구분선으로 분리한다. */
+/* 삭제 버튼 — 구분선으로 별도 줄을 나누면 카드가 둘로 쪼개져 보이고 세로로도 길어지므로,
+   메타(상태·시각) 줄 우측에 작게 겹쳐 배치한다(2026-08-22 사용자 요청). 선택 버튼과 형제
+   엘리먼트인 채로(버튼 중첩 불가) 카드 기준 절대 위치로 자리만 옮긴 것이다. */
 .support-admin-room-card__actions {
-  display: flex;
-  justify-content: flex-end;
-  padding: var(--space-1) var(--space-2);
-  border-top: 1px solid var(--color-border);
+  position: absolute;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  padding: 4px 10px;
+  font-size: var(--fs-xs);
 }
 
 .support-admin-room__name {
@@ -2916,6 +2919,7 @@ button.summary-card {
 .support-admin-room__meta {
   display: block;
   margin-top: 2px;
+  padding-right: 64px;
   color: var(--color-text-muted);
   font-size: var(--fs-xs);
 }

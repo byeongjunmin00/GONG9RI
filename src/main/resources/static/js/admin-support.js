@@ -121,9 +121,11 @@
       li.appendChild(btn);
 
       // 쓸데없는 상담 정리 — 종료(close)는 기록을 남기지만 이건 대화까지 지운다.
+      // support-admin-room-card__actions가 카드 기준 절대 위치로 메타 줄 우측에 작게 배치한다
+      // (구분선으로 나눈 별도 줄이 아니다 — components.css 참고).
       var delBtn = document.createElement('button');
       delBtn.type = 'button';
-      delBtn.className = 'btn btn-ghost btn-sm';
+      delBtn.className = 'btn btn-ghost btn-sm support-admin-room-card__actions';
       delBtn.textContent = '상담 삭제';
       delBtn.addEventListener('click', function () {
         if (!window.confirm('"' + room.memberName + '" 님과의 상담을 삭제할까요?\n대화 내용까지 사라지며 되돌릴 수 없습니다.')) {
@@ -153,10 +155,7 @@
             delBtn.disabled = false;
           });
       });
-      var actionsEl = document.createElement('div');
-      actionsEl.className = 'support-admin-room-card__actions';
-      actionsEl.appendChild(delBtn);
-      li.appendChild(actionsEl);
+      li.appendChild(delBtn);
 
       roomsListEl.appendChild(li);
     });
