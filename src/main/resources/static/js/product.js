@@ -50,6 +50,8 @@
  *   구매 UI가 다 사라지면 페이지를 나갈 방법이 없어지고(2026-08-22 리포트) 서머리 카드에 빈
  *   여백만 남으므로, #product-actions 밖에 항상 보이는 뒤로가기 링크(.product-back-link)를 두고
  *   그 자리에 안내 문구(#purchase-role-notice)를 채우며 카드도 늘어나지 않게 한다(.product-detail-summary--compact).
+ * - 카테고리 브레드크럼(product/breadcrumb): 홈 > 카테고리 > 상품명. ProductCategory가 하위 분류
+ *   없는 평평한 enum이라 딱 3단계까지만 나온다(renderBreadcrumb).
  */
 (function () {
   var pageAlertEl = document.getElementById('page-alert');
@@ -82,6 +84,7 @@
   var productActionsEl = document.getElementById('product-actions');
   var purchaseRoleNoticeEl = document.getElementById('purchase-role-notice');
   var summaryEl = document.getElementById('product-detail-summary');
+  var breadcrumbEl = document.getElementById('product-breadcrumb');
   var buyAloneBtn = document.getElementById('buy-alone-btn');
   var createTeamBtn = document.getElementById('create-team-btn');
   var kakaoShareBtn = document.getElementById('kakao-share-btn');
@@ -112,7 +115,7 @@
     !sellerEl || !nameEl || !descriptionEl || !descriptionStatusEl || !basePriceEl || !maxParticipantsEl ||
     !priceTiersTableEl || !priceTiersBodyEl || !targetParticipantsFieldEl || !targetParticipantsOptionsEl ||
     !refundNoticeCheckboxEl || !refundNoticeFieldEl ||
-    !openAtNoticeEl || !productActionsEl || !purchaseRoleNoticeEl || !summaryEl ||
+    !openAtNoticeEl || !productActionsEl || !purchaseRoleNoticeEl || !summaryEl || !breadcrumbEl ||
     !buyAloneBtn || !createTeamBtn || !kakaoShareBtn ||
     !teamStatusEl || !teamListEl ||
     !reviewAverageEl || !reviewsStatusEl || !reviewsListEl || !reviewFormEl || !reviewFormAlertEl ||
@@ -160,6 +163,45 @@
     while (el.firstChild) {
       el.removeChild(el.firstChild);
     }
+  }
+
+  // 카테고리 한글 라벨 — js/main.js의 카테고리 필터 바와 동일한 표기를 쓴다(design.md 결정 없음,
+  // 그냥 같은 말은 같게 보여주는 게 맞아서).
+  var CATEGORY_LABELS = {
+    FOOD: '식품',
+    LIVING: '생활/주방',
+    BEAUTY: '뷰티',
+    FASHION: '패션/잡화',
+    DIGITAL: '디지털/가전',
+    ETC: '기타'
+  };
+
+  /**
+   * 카테고리 브레드크럼(product/breadcrumb) — 홈 > 카테고리 > 상품명. ProductCategory가 평평한
+   * 1단계 enum이라(하위 카테고리 없음) 딱 이 3단계까지만 나온다. 카테고리 링크는 메인 페이지의
+   * ?category= 필터로 보낸다(js/main.js가 이 쿼리를 그대로 읽어서 반영한다).
+   */
+  function renderBreadcrumb(category, productName) {
+    clearChildren(breadcrumbEl);
+
+    var homeLink = document.createElement('a');
+    homeLink.href = '/';
+    homeLink.textContent = '홈';
+    breadcrumbEl.appendChild(homeLink);
+
+    var categoryLabel = category ? CATEGORY_LABELS[category] : null;
+    if (categoryLabel) {
+      breadcrumbEl.appendChild(document.createTextNode(' > '));
+      var categoryLink = document.createElement('a');
+      categoryLink.href = '/?category=' + encodeURIComponent(category);
+      categoryLink.textContent = categoryLabel;
+      breadcrumbEl.appendChild(categoryLink);
+    }
+
+    breadcrumbEl.appendChild(document.createTextNode(' > '));
+    var currentEl = document.createElement('span');
+    currentEl.textContent = productName || '';
+    breadcrumbEl.appendChild(currentEl);
   }
 
   /**
@@ -406,6 +448,7 @@
         window.Avatar.withName(product.sellerName || '', product.sellerProfileImageUrl, 'sm'));
     sellerTrustEl.hidden = !product.sellerTrustedBadge;
     nameEl.textContent = product.name || '';
+    renderBreadcrumb(product.category, product.name);
 
     // 상품코드(admin-identifier-codes) — 백필 전 기존 상품은 값이 없을 수 있어 그때는 숨긴다.
     if (productCodeEl) {

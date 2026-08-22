@@ -61,6 +61,9 @@
         <div class="product-detail-grid">
         <!-- 좌측: 대형 상품 썸네일 & 카카오 공유 -->
         <div class="product-detail-media">
+          <!-- 카테고리 브레드크럼(product/breadcrumb) — 홈 > 카테고리 > 상품명. ProductCategory가
+               평평한 1단계라 딱 3단계까지만 나온다(하위 카테고리 없음). js/product.js renderBreadcrumb. -->
+          <nav id="product-breadcrumb" class="product-breadcrumb" aria-label="카테고리 경로"></nav>
           <!-- 상품 이미지(product/image) — 화살표·카운터 같은 갤러리 UI 없이 사진 하나만 보여준다.
                사진 전환은 아래 캐러셀 썸네일 클릭만으로 한다(js/product.js). 이전엔 별도
                .product-gallery 래퍼에 화살표·카운터를 얹었는데, 그 래퍼가 레이아웃 공간을 차지해
