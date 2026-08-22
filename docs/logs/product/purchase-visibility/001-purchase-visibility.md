@@ -33,3 +33,28 @@
     보면 "참가하기"는 안 보이고 "참여자 보기"만 남음, 비로그인으로 보면 "참가하기"가 그대로
     보임(회귀 없음). BUYER 본인이 참여한 팀은 "참여 취소"로 정상 표시.
   - 콘솔 에러: 비로그인 상태의 `/api/auth/me` 401(기존부터 있던 정상 흐름) 외 새로운 에러 없음.
+
+## Attempt 2 — 2026-08-22  ✅ PASS
+
+별도 `docs/dev/ongoing/` 계획 문서 없이, 사용자가 실제 시딩한 데이터로 브라우저에서 직접
+확인하다가 발견한 후속 버그 2건을 빠르게 고친 세션(정식 Plan 단계 생략, 사용자 승인은 채팅으로
+받음).
+
+- 시도:
+  - 문제 1: `applyPurchaseRoleVisibility()`가 `#product-actions`를 통째로 숨기면 "계속 쇼핑하기"
+    링크까지 같이 사라져 SELLER/ADMIN이 페이지를 나갈 방법이 마땅치 않았다.
+  - 문제 2: 그리드(`align-items: stretch` 기본값)가 짧아진 `.product-detail-summary` 카드를
+    사진 칸 높이까지 강제로 늘려 카드 안에 빈 흰 여백만 남았다.
+  - 해결: `#product-actions` 밖에 항상 보이는 `.product-back-link`(목록으로) 추가, 그 자리에
+    안내 문구 `#purchase-role-notice`("이 계정은 구매 권한이 없어...") 추가, `.product-detail-summary--compact`
+    클래스(`align-self: start`)를 `applyPurchaseRoleVisibility()`에서 hide=true일 때만 토글.
+  - 커밋: `502e23e fix(frontend/product-detail): 구매 권한 없는 계정에 뒤로가기/안내 문구 추가`.
+- 결과·증거:
+  - `./gradlew build` 전체 (509 tests) 통과, `docker compose up -d --build app`로 재기동.
+  - 실제 시딩 계정(admin1/buyer1, `docs/dev/todo-backlog.md` 옆 세션에서 생성)으로 브라우저
+    로그인 후 `product.html?id=1683` 확인.
+  - **admin1(비구매)**: `getComputedStyle` 확인 결과 `product-detail-summary--compact` 클래스
+    적용됨, `align-self: start`, 카드 높이 555.9px vs 사진 칸 727.7px(더 이상 강제로 안 늘어남),
+    `#purchase-role-notice` 노출, `.product-back-link` 노출, `#product-actions` hidden.
+  - **buyer1**: 위 3개 다 기존과 동일(회귀 없음) — `product-detail-summary--compact` 없음,
+    `#product-actions`/환불체크박스/목표인원 토글 전부 노출.
