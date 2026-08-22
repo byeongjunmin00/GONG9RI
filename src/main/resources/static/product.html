@@ -125,8 +125,9 @@
               <div id="target-participants-options" class="target-participants-options"></div>
             </fieldset>
 
-            <!-- 팀 성사 후 환불 불가 명시적 확인 -->
-            <label class="refund-notice-checkbox" style="margin-top: var(--space-3);">
+            <!-- 팀 성사 후 환불 불가 명시적 확인 — 구매 권한이 없는 회원(SELLER/ADMIN)에게는
+                 아예 노출하지 않는다(js/product.js applyPurchaseRoleVisibility, product/purchase-visibility). -->
+            <label id="refund-notice-field" class="refund-notice-checkbox" style="margin-top: var(--space-3);">
               <input type="checkbox" id="refund-notice-checkbox" />
               공구팀이 정원을 채워 성사되면(SUCCESS) 그 이후에는 어떠한 경우에도 환불이 불가능합니다.
               이 사실을 확인했습니다.
@@ -136,7 +137,9 @@
           <!-- 오픈예정 상품 안내 -->
           <div id="open-at-notice" class="form-alert" role="status" hidden></div>
 
-          <div class="product-actions">
+          <!-- 구매 권한이 없는 회원(SELLER/ADMIN)에게는 통째로 숨긴다 — 상품은 항상 SELLER가
+               등록하므로 "자기 상품"도 이 조건에 포함된다(product/purchase-visibility design.md). -->
+          <div id="product-actions" class="product-actions">
             <button type="button" id="create-team-btn" class="btn btn-primary btn-lg" disabled>🔥 신규 공구팀 신설하고 최저가 도전</button>
             <button type="button" id="buy-alone-btn" class="btn btn-secondary">혼자 바로 구매하기</button>
             <a href="/" class="btn btn-ghost" style="text-align: center;">계속 쇼핑하기</a>
